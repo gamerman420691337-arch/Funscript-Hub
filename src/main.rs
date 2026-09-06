@@ -1,33 +1,68 @@
+mod audio;
+mod batch;
 mod funscript;
+mod gui;
+mod kinematics;
+mod neural;
+mod plugin;
 mod signal;
+mod stash;
+mod sync;
 mod tracking;
 mod video;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use funscript::{diagnose_funscript, DoctorConfig, Funscript};
+use funscript::{diagnose_funscript, AxisChannel, DoctorConfig, Funscript, MultiAxisScript};
 use indicatif::{ProgressBar, ProgressStyle};
-use signal::{detrend_and_normalize, extract_actions, integrate_flow};
+use neural::tracker::AnatomicalTracker;
+use neural::NeuralDetector;
+use signal::{extract_actions, extract_actions_full_range, integrate_flow};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracking::{
     compute_dense_flow, detect_cut_photometric, filter_centers_median, find_divergence_center,
-    project_radial_motion,
+    project_adaptive_motion,
 };
-use video::{probe_video, FrameStreamReader, StreamConfig};
+use video::{probe_video, rgb_to_gray, FrameStreamReader, StreamConfig};
 
 #[derive(Parser)]
-#[command(name = "open-fungen")]
-#[command(about = "Open-source high-performance cleanroom funscript generator and editor engine", long_about = None)]
+#[command(name = "fs-hub")]
+#[command(about = "Funscript Hub (fs-hub): The unified open-source funscript generation, editing, and auditing suite", long_about = None)]
 #[command(version = "0.1.0")]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate a .funscript from video using optical flow motion tracking
+    /// Launch the interactive GUI timeline editor and generator
+    Gui,
+
+    /// Automatically repair an existing .funscript (clamp speed violations, remove micro-jitters, sort/dedup)
+    Fix {
+        /// Path to the .funscript file
+        script: PathBuf,
+
+        /// Path to save repaired .funscript (defaults to <name>.fixed.funscript)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Maximum safe hardware speed in units/s (defaults to 450.0)
+        #[arg(long, default_value_t = 450.0)]
+        max_speed: f64,
+
+        /// Micro-jitter time threshold in ms (defaults to 20)
+        #[arg(long, default_value_t = 20)]
+        jitter_window: i64,
+
+        /// Micro-jitter position delta threshold (defaults to 2)
+        #[arg(long, default_value_t = 2)]
+        jitter_threshold: i32,
+    },
+
+    /// Generate a .funscript from video using optical flow motion tracking or neural ONNX detection
     Generate {
         /// Path to the video file
         video: PathBuf,
@@ -36,17 +71,25 @@ enum Commands {
         #[arg(short, long)]
         output: Option<PathBuf>,
 
+        /// Path to ONNX neural tracking model (e.g. YOLOv12n / FunGen model)
+        #[arg(long)]
+        model: Option<PathBuf>,
+
+        /// Neural detection confidence threshold (defaults to 0.35)
+        #[arg(long, default_value_t = 0.35)]
+        conf: f32,
+
         /// Target processing FPS (defaults to 30.0)
         #[arg(long, default_value_t = 30.0)]
         fps: f64,
 
-        /// Processing frame resolution width (defaults to 256)
-        #[arg(long, default_value_t = 256)]
-        width: u32,
+        /// Processing frame resolution width (defaults to 256 for flow, 640 for neural)
+        #[arg(long)]
+        width: Option<u32>,
 
-        /// Processing frame resolution height (defaults to 256)
-        #[arg(long, default_value_t = 256)]
-        height: u32,
+        /// Processing frame resolution height (defaults to 256 for flow, 640 for neural)
+        #[arg(long)]
+        height: Option<u32>,
 
         /// Detrend window in seconds (defaults to 2.0)
         #[arg(long, default_value_t = 2.0)]
@@ -83,6 +126,10 @@ enum Commands {
         /// Cut velocity magnitude threshold (defaults to 8.0)
         #[arg(long, default_value_t = 8.0)]
         cut_flow: f32,
+
+        /// Generate full 6-DOF companion bundle (.surge, .sway, .pitch, .twist, .suction)
+        #[arg(long, default_value_t = false)]
+        multi_axis: bool,
     },
 
     /// Audit and lint an existing .funscript with Script Doctor
@@ -100,15 +147,99 @@ enum Commands {
         /// Path to the video file
         video: PathBuf,
     },
+
+    /// Batch process an entire folder of videos in headless queue mode
+    Batch {
+        /// Directory containing video files
+        folder: PathBuf,
+
+        /// Recursively scan subdirectories for videos
+        #[arg(short, long, default_value_t = true)]
+        recursive: bool,
+
+        /// Path to ONNX neural tracking model
+        #[arg(long)]
+        model: Option<PathBuf>,
+
+        /// Generate full 6-DOF companion bundle
+        #[arg(long, default_value_t = false)]
+        multi_axis: bool,
+
+        /// Overwrite existing .funscript files
+        #[arg(long, default_value_t = false)]
+        overwrite: bool,
+    },
+
+    /// Stash Media Server GraphQL integration and automation
+    Stash {
+        #[command(subcommand)]
+        command: StashCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum StashCommands {
+    /// Query Stash server for scenes missing .funscripts
+    ListMissing {
+        /// Maximum number of scenes to query
+        #[arg(long, default_value_t = 50)]
+        limit: u32,
+
+        /// Stash GraphQL endpoint URL
+        #[arg(long, default_value = "http://localhost:9999/graphql")]
+        url: String,
+
+        /// Optional Stash API key
+        #[arg(long)]
+        api_key: Option<String>,
+    },
+
+    /// Automatically generate .funscripts for all Stash scenes missing scripts
+    AutoGenerate {
+        /// Maximum number of scenes to process
+        #[arg(long, default_value_t = 50)]
+        limit: u32,
+
+        /// Stash GraphQL endpoint URL
+        #[arg(long, default_value = "http://localhost:9999/graphql")]
+        url: String,
+
+        /// Optional Stash API key
+        #[arg(long)]
+        api_key: Option<String>,
+
+        /// Path to ONNX neural tracking model
+        #[arg(long)]
+        model: Option<PathBuf>,
+
+        /// Generate full 6-DOF companion bundle
+        #[arg(long, default_value_t = false)]
+        multi_axis: bool,
+    },
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Generate {
+        None | Some(Commands::Gui) => {
+            println!("Launching Funscript Hub Desktop Application...");
+            gui::run_gui().map_err(|e| anyhow::anyhow!("GUI execution error: {e}"))?;
+        }
+        Some(Commands::Fix {
+            script,
+            output,
+            max_speed,
+            jitter_window,
+            jitter_threshold,
+        }) => {
+            run_fix(&script, output.as_deref(), max_speed, jitter_window, jitter_threshold)?;
+        }
+        Some(Commands::Generate {
             video,
             output,
+            model,
+            conf,
             fps,
             width,
             height,
@@ -121,13 +252,19 @@ fn main() -> Result<()> {
             no_keyframe_reduction,
             cut_diff,
             cut_flow,
-        } => {
+            multi_axis,
+        }) => {
+            let eff_width = width.unwrap_or(if model.is_some() { 640 } else { 256 });
+            let eff_height = height.unwrap_or(if model.is_some() { 640 } else { 256 });
+
             run_generate(
                 &video,
                 output.as_deref(),
+                model.as_deref(),
+                conf,
                 fps,
-                width,
-                height,
+                eff_width,
+                eff_height,
                 detrend_window,
                 norm_window,
                 batch_size,
@@ -137,15 +274,80 @@ fn main() -> Result<()> {
                 !no_keyframe_reduction,
                 cut_diff,
                 cut_flow,
+                multi_axis,
             )?;
         }
-        Commands::Doctor { script, max_speed } => {
+        Some(Commands::Doctor { script, max_speed }) => {
             run_doctor(&script, max_speed)?;
         }
-        Commands::Info { video } => {
+        Some(Commands::Info { video }) => {
             run_info(&video)?;
         }
+        Some(Commands::Batch {
+            folder,
+            recursive,
+            model,
+            multi_axis,
+            overwrite,
+        }) => {
+            run_batch(&folder, recursive, model.as_deref(), multi_axis, overwrite)?;
+        }
+        Some(Commands::Stash { command }) => match command {
+            StashCommands::ListMissing { limit, url, api_key } => {
+                run_stash_list_missing(&url, api_key.as_deref(), limit)?;
+            }
+            StashCommands::AutoGenerate {
+                limit,
+                url,
+                api_key,
+                model,
+                multi_axis,
+            } => {
+                run_stash_auto_generate(&url, api_key.as_deref(), limit, model.as_deref(), multi_axis)?;
+            }
+        },
     }
+
+    Ok(())
+}
+
+fn run_fix(
+    script_path: &Path,
+    output_path: Option<&Path>,
+    max_speed: f64,
+    jitter_window: i64,
+    jitter_threshold: i32,
+) -> Result<()> {
+    println!("Loading funscript for repair: {}", script_path.display());
+    let mut script = Funscript::load(script_path)?;
+    let initial_count = script.actions.len();
+
+    script.sanitize();
+    let sanitized_count = script.actions.len();
+    let removed_jitters = script.remove_micro_jitters(jitter_window, jitter_threshold);
+    let fixed_speeds = script.fix_speed_violations(max_speed);
+
+    let effective_output = match output_path {
+        Some(p) => p.to_path_buf(),
+        None => {
+            let stem = script_path.file_stem().unwrap_or_default().to_string_lossy();
+            let parent = script_path.parent().unwrap_or_else(|| Path::new("."));
+            parent.join(format!("{}.fixed.funscript", stem))
+        }
+    };
+
+    script.save(&effective_output)?;
+
+    println!("==================================================");
+    println!("Script Doctor Repair Complete");
+    println!("==================================================");
+    println!("Original Actions: {}", initial_count);
+    println!("Deduplicated:     {}", initial_count - sanitized_count);
+    println!("Jitters Removed:  {}", removed_jitters);
+    println!("Speeds Clamped:   {}", fixed_speeds);
+    println!("Final Actions:    {}", script.actions.len());
+    println!("Output Saved To:  {}", effective_output.display());
+    println!("==================================================");
 
     Ok(())
 }
@@ -204,14 +406,17 @@ fn run_doctor(script_path: &Path, max_speed: f64) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_generate(
     video_path: &Path,
     output_path: Option<&Path>,
+    model_path: Option<&Path>,
+    conf_threshold: f32,
     target_fps: f64,
     width: u32,
     height: u32,
-    detrend_window: f64,
-    norm_window: f64,
+    _detrend_window: f64,
+    _norm_window: f64,
     batch_size: usize,
     vr_mode: bool,
     pov_mode: bool,
@@ -219,6 +424,7 @@ fn run_generate(
     keyframe_reduction: bool,
     cut_diff_threshold: f32,
     cut_flow_threshold: f32,
+    multi_axis: bool,
 ) -> Result<()> {
     let t0 = Instant::now();
     let meta = probe_video(video_path).context("Failed to probe input video")?;
@@ -227,6 +433,8 @@ fn run_generate(
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| video_path.with_extension("funscript"));
 
+    let is_neural = model_path.is_some();
+
     println!("==================================================");
     println!("Open-FunGen: Video Motion Tracking Engine");
     println!("==================================================");
@@ -234,22 +442,47 @@ fn run_generate(
     println!("Output Script: {}", effective_output.display());
     println!("Original Info: {}x{}, {:.2} FPS, {:.1}s", meta.width, meta.height, meta.fps, meta.duration_secs);
     println!("Tracking Mode: {} | Grid: {}x{} | Target: {:.2} FPS",
-        if vr_mode { "VR 180" } else if pov_mode { "POV" } else { "2D Divergence" },
+        if is_neural { "Neural YOLO (ONNX) + 6-DOF Flow Fusion" } else if vr_mode { "VR 180 (Optical Flow)" } else if pov_mode { "POV (Optical Flow)" } else { "2D Divergence (Optical Flow)" },
         width, height, target_fps
     );
+    if let Some(m) = model_path {
+        println!("ONNX Model:    {} (conf: {:.2})", m.display(), conf_threshold);
+    }
+    if multi_axis {
+        println!("Multi-Axis:    ENABLED (Generating L0, L1, L2, R1, R0, R2, V0)");
+    }
     println!("--------------------------------------------------");
+
+    let mut neural_detector = if let Some(m) = model_path {
+        Some(NeuralDetector::new(m, conf_threshold)?)
+    } else {
+        None
+    };
+
+    let mut anatomical_tracker = if is_neural {
+        Some(AnatomicalTracker::new())
+    } else {
+        None
+    };
+
+    let effective_fps = if (target_fps - 30.0).abs() < 1e-4 && meta.fps > 5.0 && meta.fps <= 60.0 {
+        meta.fps
+    } else {
+        target_fps
+    };
 
     let stream_cfg = StreamConfig {
         target_width: width,
         target_height: height,
-        target_fps,
+        target_fps: effective_fps,
         vr_mode,
+        is_rgb: is_neural,
     };
 
     let mut stream = FrameStreamReader::new(video_path, &stream_cfg)
         .context("Failed to initialize video decoding stream")?;
 
-    let estimated_frames = ((meta.duration_secs * target_fps).round() as u64).max(1);
+    let estimated_frames = ((meta.duration_secs * effective_fps).round() as u64).max(1);
     let pb = ProgressBar::new(estimated_frames);
     pb.set_style(
         ProgressStyle::default_bar()
@@ -259,11 +492,12 @@ fn run_generate(
     );
 
     let mut all_samples: Vec<(f32, bool, i64)> = Vec::new();
+    let mut neural_poses: Vec<(crate::neural::Pose3D, i64)> = Vec::new();
     let mut frame_batch: Vec<(Vec<u8>, i64)> = Vec::with_capacity(batch_size);
 
     // Seed first frame
     let first = stream.next_frame()?.context("Video stream returned zero frames")?;
-    let mut last_frame = first.0;
+    let mut last_raw = first.0;
 
     let mut total_processed = 0u64;
 
@@ -287,11 +521,19 @@ fn run_generate(
         let mut raw_centers = Vec::with_capacity(batch_len);
         let mut cuts = Vec::with_capacity(batch_len);
 
-        for (curr_frame, _curr_ts) in &frame_batch {
-            let is_cut_diff = detect_cut_photometric(&last_frame, curr_frame, cut_diff_threshold);
-            let flow = compute_dense_flow(&last_frame, curr_frame, width as usize, height as usize);
-            let is_cut_flow = flow.mean_magnitude() > cut_flow_threshold;
-            let is_cut = is_cut_diff || is_cut_flow;
+        for (curr_raw, _curr_ts) in &frame_batch {
+            let (last_gray, curr_gray) = if stream_cfg.is_rgb {
+                (
+                    rgb_to_gray(&last_raw),
+                    rgb_to_gray(curr_raw),
+                )
+            } else {
+                (last_raw.clone(), curr_raw.clone())
+            };
+
+            let is_cut_diff = detect_cut_photometric(&last_gray, &curr_gray, cut_diff_threshold);
+            let flow = compute_dense_flow(&last_gray, &curr_gray, width as usize, height as usize);
+            let is_cut = is_cut_diff && (flow.mean_magnitude() > cut_flow_threshold);
 
             let center = if pov_mode {
                 ((width / 2) as f32, (height - 1) as f32)
@@ -304,28 +546,36 @@ fn run_generate(
             raw_centers.push(center);
             cuts.push(is_cut);
 
-            last_frame = curr_frame.clone();
+            last_raw = curr_raw.clone();
         }
 
         // 2. Filter center outliers
         let filtered_centers = filter_centers_median(&raw_centers, 6);
 
-        // 3. Project radial motions
+        // 3. Project adaptive motions & execute neural tracking if active
         for j in 0..batch_len {
-            let (_, ts) = frame_batch[j];
-            let radial_dot = project_radial_motion(
+            let (ref raw_frame, ts) = frame_batch[j];
+            let dot = project_adaptive_motion(
                 &raw_flows[j],
                 filtered_centers[j],
                 cuts[j],
                 pov_mode,
                 balance_global,
             );
-            all_samples.push((radial_dot, cuts[j], ts));
+            all_samples.push((dot, cuts[j], ts));
+
+            if let (Some(ref mut detector), Some(ref mut tracker)) =
+                (&mut neural_detector, &mut anatomical_tracker)
+            {
+                let detections = detector.detect(raw_frame, width as usize, height as usize)?;
+                let (pose, _) = tracker.update_pose(&detections, Some(&raw_flows[j]));
+                neural_poses.push((pose, ts));
+            }
         }
 
         total_processed += batch_len as u64;
         pb.set_position(total_processed);
-        pb.set_message(format!("{:.1}x speed", (total_processed as f64 / target_fps) / t0.elapsed().as_secs_f64()));
+        pb.set_message(format!("{:.1}x speed", (total_processed as f64 / effective_fps) / t0.elapsed().as_secs_f64()));
     }
 
     pb.finish_with_message("Tracking complete");
@@ -334,38 +584,319 @@ fn run_generate(
         anyhow::bail!("No frames were tracked from video");
     }
 
-    println!("-> Integrating motion and filtering signal...");
-    // 4. Numerical Integration
-    let (cum_flow, timestamps) = integrate_flow(&all_samples);
+    let mut bundle = MultiAxisScript::new();
 
-    // 5. Detrending & Rolling Normalization
-    let normalized = detrend_and_normalize(&cum_flow, target_fps, detrend_window, norm_window, 1000.0);
+    let neural_valid = if is_neural && !neural_poses.is_empty() {
+        let stroke_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.stroke).collect();
+        let min_s = stroke_values.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let max_s = stroke_values.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        (max_s - min_s) > 5.0
+    } else {
+        false
+    };
 
-    // 6. Keyframe Extraction
-    println!("-> Extracting keyframe action points...");
-    let actions = extract_actions(&normalized, &timestamps, keyframe_reduction);
+    if neural_valid {
+        println!("-> Processing neural 6-DOF pose observations (SAM 2 / Co-Tracker temporal point tracking)...");
+        let timestamps: Vec<i64> = neural_poses.iter().map(|(_, ts)| *ts).collect();
+        let stroke_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.stroke).collect();
 
-    let mut script = Funscript::new(actions);
-    script.sanitize();
+        let mut stroke_script = Funscript::new(extract_actions_full_range(&stroke_values, &timestamps, 3.5, true));
+        stroke_script.sanitize();
+        bundle.channels.insert(AxisChannel::Stroke, stroke_script);
 
-    // 7. Save output
-    script.save(&effective_output)?;
+        if multi_axis {
+            println!("-> Synthesizing full 6-DOF companion channels...");
+            let surge_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.surge).collect();
+            let mut surge_script = Funscript::new(extract_actions(&surge_values, &timestamps, keyframe_reduction));
+            surge_script.sanitize();
+            bundle.channels.insert(AxisChannel::Surge, surge_script);
+
+            let sway_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.sway).collect();
+            let mut sway_script = Funscript::new(extract_actions(&sway_values, &timestamps, keyframe_reduction));
+            sway_script.sanitize();
+            bundle.channels.insert(AxisChannel::Sway, sway_script);
+
+            let pitch_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.pitch).collect();
+            let mut pitch_script = Funscript::new(extract_actions(&pitch_values, &timestamps, keyframe_reduction));
+            pitch_script.sanitize();
+            bundle.channels.insert(AxisChannel::Pitch, pitch_script);
+
+            let roll_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.roll).collect();
+            let mut roll_script = Funscript::new(extract_actions(&roll_values, &timestamps, keyframe_reduction));
+            roll_script.sanitize();
+            bundle.channels.insert(AxisChannel::Roll, roll_script);
+
+            let twist_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.twist).collect();
+            let mut twist_script = Funscript::new(extract_actions(&twist_values, &timestamps, keyframe_reduction));
+            twist_script.sanitize();
+            bundle.channels.insert(AxisChannel::Twist, twist_script);
+
+            let suction_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.suction).collect();
+            let mut suction_script = Funscript::new(extract_actions(&suction_values, &timestamps, keyframe_reduction));
+            suction_script.sanitize();
+            bundle.channels.insert(AxisChannel::Suction, suction_script);
+        }
+    } else {
+        if is_neural {
+            println!("-> Neural detection found insufficient anatomical landmark motion in this video; seamlessly falling back to high-fidelity optical motion tracking...");
+        }
+        println!("-> Integrating optical motion and filtering signal...");
+        let (cum_flow, timestamps) = integrate_flow(&all_samples);
+        println!("-> Extracting full-range keyframe action points (0 to 100)...");
+        let mut stroke_script = Funscript::new(extract_actions_full_range(
+            &cum_flow,
+            &timestamps,
+            0.8,
+            true,
+        ));
+        stroke_script.sanitize();
+        bundle.channels.insert(AxisChannel::Stroke, stroke_script);
+    };
+
+    if multi_axis {
+        println!("-> Saving multi-axis companion bundle...");
+        bundle.save_bundle(&effective_output)?;
+    } else if let Some(stroke) = bundle.channels.get(&AxisChannel::Stroke) {
+        stroke.save(&effective_output)?;
+    }
+
     let elapsed = t0.elapsed();
+    let primary_script = bundle.channels.get(&AxisChannel::Stroke).unwrap();
 
     println!("==================================================");
-    println!("SUCCESS: Funscript written to {}", effective_output.display());
-    println!("Total Actions:  {}", script.actions.len());
+    if multi_axis {
+        println!("SUCCESS: Multi-Axis 6-DOF Bundle saved for {}", effective_output.display());
+        println!("Active Channels: {}", bundle.channels.len());
+    } else {
+        println!("SUCCESS: Funscript written to {}", effective_output.display());
+    }
+    println!("Stroke Actions:  {}", primary_script.actions.len());
     println!("Processing Time: {:.2}s ({:.1}x realtime)", elapsed.as_secs_f64(), meta.duration_secs / elapsed.as_secs_f64().max(0.01));
     println!("==================================================");
 
-    // Run quick doctor check
+    // Run quick doctor check on primary stroke
     let doctor_cfg = DoctorConfig::default();
-    let report = diagnose_funscript(&script, &doctor_cfg);
-    println!("Script Doctor Summary:");
+    let report = diagnose_funscript(primary_script, &doctor_cfg);
+    println!("Script Doctor Summary (Stroke L0):");
     println!("  Avg Speed:        {:.1} units/s", report.avg_speed_units_per_sec);
     println!("  Max Speed:        {:.1} units/s", report.max_speed_units_per_sec);
     println!("  Speed Violations: {}", report.speed_violations_count);
     println!("  Status:           {}", if report.issues.is_empty() { "EXCELLENT" } else { "VALIDATED (minor warnings)" });
+    println!("==================================================");
+
+    Ok(())
+}
+
+fn run_batch(
+    folder: &Path,
+    recursive: bool,
+    model: Option<&Path>,
+    multi_axis: bool,
+    overwrite: bool,
+) -> Result<()> {
+    use batch::queue::{BatchJobConfig, BatchQueue};
+
+    println!("==================================================");
+    println!("Funscript Hub: Headless Batch Processing Queue");
+    println!("==================================================");
+    println!("Target Directory: {}", folder.display());
+    println!("Recursive Scan:   {}", recursive);
+    println!("Multi-Axis:       {}", multi_axis);
+    println!("Overwrite:        {}", overwrite);
+
+    let config = BatchJobConfig {
+        model_path: model.map(|p| p.to_path_buf()),
+        multi_axis,
+        overwrite,
+        ..Default::default()
+    };
+
+    let mut queue = BatchQueue::new();
+    let count = queue.scan_directory(folder, recursive, &config);
+    println!("Discovered {} videos requiring funscripts.", count);
+
+    if count == 0 {
+        println!("No videos to process. Exiting.");
+        return Ok(());
+    }
+
+    let mut succeeded = 0;
+    let mut failed = 0;
+
+    for (idx, job) in queue.jobs.iter().enumerate() {
+        println!("\n[{}/{}] Processing: {}", idx + 1, count, job.video_path.display());
+        let width = if model.is_some() { 640 } else { 256 };
+        let height = if model.is_some() { 640 } else { 256 };
+
+        match run_generate(
+            &job.video_path,
+            Some(&job.output_path),
+            model,
+            config.conf,
+            config.fps,
+            width,
+            height,
+            2.0,
+            3.0,
+            2000,
+            config.vr_mode,
+            config.pov_mode,
+            true,
+            true,
+            30.0,
+            8.0,
+            multi_axis,
+        ) {
+            Ok(_) => {
+                succeeded += 1;
+                println!("✓ Finished: {}", job.output_path.display());
+            }
+            Err(e) => {
+                failed += 1;
+                eprintln!("✗ Error processing {}: {e}", job.video_path.display());
+            }
+        }
+    }
+
+    println!("\n==================================================");
+    println!("Batch Processing Summary");
+    println!("==================================================");
+    println!("Total Jobs:     {}", count);
+    println!("Succeeded:      {}", succeeded);
+    println!("Failed:         {}", failed);
+    println!("==================================================");
+
+    Ok(())
+}
+
+fn run_stash_list_missing(url: &str, api_key: Option<&str>, limit: u32) -> Result<()> {
+    use stash::client::{StashClient, StashConfig};
+
+    println!("==================================================");
+    println!("Funscript Hub: Stash Media Server Integration");
+    println!("==================================================");
+    println!("Connecting to Stash endpoint: {}", url);
+
+    let client = StashClient::new(StashConfig {
+        endpoint: url.to_string(),
+        api_key: api_key.map(|k| k.to_string()),
+        auto_rescan: true,
+    });
+
+    match client.test_connection() {
+        Ok(ver) => println!("Connected to Stash Server (version {})", ver),
+        Err(e) => {
+            eprintln!("Warning: Failed to query Stash version ({}). Proceeding with query...", e);
+        }
+    }
+
+    println!("Querying for scenes missing funscripts (limit = {})...", limit);
+    let scenes = client.find_scenes_missing_scripts(limit)?;
+
+    println!("Found {} scenes missing interactive funscripts:", scenes.len());
+    println!("{:<8} | {:<40} | Primary File Path", "ID", "Title");
+    println!("{:-<8}-+-{:-<40}-+-{:-<30}", "", "", "");
+
+    for scene in &scenes {
+        let title = scene.title.as_deref().unwrap_or("<Untitled>");
+        let file_path = scene.files.first().map(|f| f.path.as_str()).unwrap_or("<No file>");
+        let trunc_title = if title.len() > 38 {
+            format!("{}...", &title[..35])
+        } else {
+            title.to_string()
+        };
+        println!("{:<8} | {:<40} | {}", scene.id, trunc_title, file_path);
+    }
+    println!("==================================================");
+
+    Ok(())
+}
+
+fn run_stash_auto_generate(
+    url: &str,
+    api_key: Option<&str>,
+    limit: u32,
+    model: Option<&Path>,
+    multi_axis: bool,
+) -> Result<()> {
+    use stash::client::{StashClient, StashConfig};
+
+    println!("==================================================");
+    println!("Funscript Hub: Stash Media Server Auto-Generate");
+    println!("==================================================");
+    println!("Connecting to Stash endpoint: {}", url);
+
+    let client = StashClient::new(StashConfig {
+        endpoint: url.to_string(),
+        api_key: api_key.map(|k| k.to_string()),
+        auto_rescan: true,
+    });
+
+    let scenes = client.find_scenes_missing_scripts(limit)?;
+    if scenes.is_empty() {
+        println!("No scenes missing scripts found in Stash. Everything is synced!");
+        return Ok(());
+    }
+
+    println!("Found {} scenes needing funscripts. Starting auto-generation...", scenes.len());
+    let mut generated_paths = Vec::new();
+
+    for (i, scene) in scenes.iter().enumerate() {
+        let Some(file) = scene.files.first() else {
+            continue;
+        };
+        let vid_path = Path::new(&file.path);
+        if !vid_path.exists() {
+            eprintln!("[{}/{}] File not accessible on local filesystem: {}", i + 1, scenes.len(), vid_path.display());
+            continue;
+        }
+
+        let script_output = vid_path.with_extension("funscript");
+        println!("\n[{}/{}] Generating script for: {}", i + 1, scenes.len(), vid_path.display());
+
+        let width = if model.is_some() { 640 } else { 256 };
+        let height = if model.is_some() { 640 } else { 256 };
+
+        match run_generate(
+            vid_path,
+            Some(&script_output),
+            model,
+            0.35,
+            30.0,
+            width,
+            height,
+            2.0,
+            3.0,
+            2000,
+            false,
+            false,
+            true,
+            true,
+            30.0,
+            8.0,
+            multi_axis,
+        ) {
+            Ok(_) => {
+                generated_paths.push(file.path.clone());
+                println!("✓ Successfully generated {}", script_output.display());
+            }
+            Err(e) => {
+                eprintln!("✗ Failed to generate {}: {e}", vid_path.display());
+            }
+        }
+    }
+
+    if !generated_paths.is_empty() {
+        println!("\nTriggering Stash metadata rescan for {} scenes...", generated_paths.len());
+        match client.trigger_metadata_scan(&generated_paths) {
+            Ok(true) => println!("✓ Stash metadata rescan triggered successfully. Funscripts are now linked in Stash!"),
+            Ok(false) => println!("Stash reported rescan task already in progress."),
+            Err(e) => eprintln!("Notice: Could not trigger Stash rescan automatically: {e}"),
+        }
+    }
+
+    println!("==================================================");
+    println!("Stash Auto-Generation Complete ({} processed)", generated_paths.len());
     println!("==================================================");
 
     Ok(())

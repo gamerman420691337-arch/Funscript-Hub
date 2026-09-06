@@ -2,14 +2,27 @@
 name = "open-fungen"
 version = "0.1.0"
 edition = "2021"
+authors = ["Funscript Hub Developers"]
+description = "Funscript Hub: Cleanroom open-source funscript generation, editing, and auditing suite"
+license = "MIT OR Apache-2.0"
+default-run = "fs-hub"
+
+[[bin]]
+name = "fs-hub"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rayon = "1.10"
-ndarray = "0.16"
+ndarray = "0.17"
 image = "0.25"
 anyhow = "1.0"
 thiserror = "2.0"
 indicatif = "0.17"
+ort = { version = "2.0.0-rc.13", features = ["ndarray", "download-binaries"] }
+eframe = "0.31"
+rfd = "0.15"
+tungstenite = { version = "0.24", default-features = false, features = ["handshake"] }
+ureq = "3.4"

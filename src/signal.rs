@@ -2,9 +2,9 @@
 
 use crate::funscript::Action;
 
-/// Trapezoidal / midpoint integration over radial flow velocities.
+/// Direct cumulative integration over motion velocities.
 /// Resets to 0.0 upon scene cuts.
-/// Input: slice of (radial_velocity, is_cut, timestamp_ms)
+/// Input: slice of (motion_velocity, is_cut, timestamp_ms)
 /// Returns: (integrated_displacement, timestamps_ms)
 pub fn integrate_flow(samples: &[(f32, bool, i64)]) -> (Vec<f32>, Vec<i64>) {
     if samples.is_empty() {
@@ -15,34 +15,18 @@ pub fn integrate_flow(samples: &[(f32, bool, i64)]) -> (Vec<f32>, Vec<i64>) {
     let mut cum_flow = Vec::with_capacity(n);
     let mut timestamps = Vec::with_capacity(n);
 
-    cum_flow.push(0.0f32);
-    timestamps.push(samples[0].2);
-
-    for i in 1..n {
-        let (flow_prev, _, _) = samples[i - 1];
-        let (flow_curr, is_cut, t_curr) = samples[i];
-
+    let mut current_pos = 0.0f32;
+    for &(dot, is_cut, ts) in samples {
         if is_cut {
-            cum_flow.push(0.0f32);
+            current_pos = 0.0;
         } else {
-            let mid = (flow_prev + flow_curr) * 0.5;
-            let last = *cum_flow.last().unwrap();
-            cum_flow.push(last + mid);
+            current_pos += dot;
         }
-        timestamps.push(t_curr);
+        cum_flow.push(current_pos);
+        timestamps.push(ts);
     }
 
-    // Phase adjustment: half-step blending, respecting cut resets
-    let mut blended = cum_flow.clone();
-    for i in 1..n {
-        if !samples[i].1 {
-            blended[i] = (cum_flow[i] + cum_flow[i - 1]) * 0.5;
-        } else {
-            blended[i] = 0.0;
-        }
-    }
-
-    (blended, timestamps)
+    (cum_flow, timestamps)
 }
 
 /// Computes Hanning window of length N
@@ -193,22 +177,67 @@ pub fn detrend_and_normalize(
         smoothed[i] = if w_total > 0.0 { sum / w_total } else { detrended[i] };
     }
 
-    // Rolling min-max normalization
+    // Rolling min-max normalization in linear O(N) time via monotonic sliding windows
     let norm_win = (norm_window_sec * effective_fps).round().max(3.0) as usize;
     let half_norm = norm_win / 2;
     let mut normalized = vec![50.0f32; n];
 
-    for i in 0..n {
-        let start = i.saturating_sub(half_norm);
-        let end = (i + half_norm + 1).min(n);
+    let mut mins = vec![0.0f32; n];
+    let mut maxs = vec![0.0f32; n];
+    let mut min_dq: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
+    let mut max_dq: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
 
-        let mut local_min = f32::INFINITY;
-        let mut local_max = f32::NEG_INFINITY;
-        for j in start..end {
-            local_min = local_min.min(smoothed[j]);
-            local_max = local_max.max(smoothed[j]);
+    let mut r = 0;
+    for i in 0..n {
+        let win_end = (i + half_norm).min(n - 1);
+        let win_start = i.saturating_sub(half_norm);
+
+        while r <= win_end {
+            let val = smoothed[r];
+            while let Some(&back) = min_dq.back() {
+                if smoothed[back] >= val {
+                    min_dq.pop_back();
+                } else {
+                    break;
+                }
+            }
+            min_dq.push_back(r);
+
+            while let Some(&back) = max_dq.back() {
+                if smoothed[back] <= val {
+                    max_dq.pop_back();
+                } else {
+                    break;
+                }
+            }
+            max_dq.push_back(r);
+
+            r += 1;
         }
 
+        while let Some(&front) = min_dq.front() {
+            if front < win_start {
+                min_dq.pop_front();
+            } else {
+                break;
+            }
+        }
+
+        while let Some(&front) = max_dq.front() {
+            if front < win_start {
+                max_dq.pop_front();
+            } else {
+                break;
+            }
+        }
+
+        mins[i] = smoothed[*min_dq.front().unwrap_or(&i)];
+        maxs[i] = smoothed[*max_dq.front().unwrap_or(&i)];
+    }
+
+    for i in 0..n {
+        let local_min = mins[i];
+        let local_max = maxs[i];
         let span = local_max - local_min;
         if span > 1e-4 {
             let val = (smoothed[i] - local_min) / span * 100.0;
@@ -266,6 +295,178 @@ pub fn extract_actions(
     actions
 }
 
+/// Extract full-range Funscript actions from a displacement/position signal.
+/// Detects local extrema (peaks and valleys) with prominence and slope filtering.
+/// Equalizes stroke amplitudes so full strokes reach [0, 100], while preserving relative amplitudes
+/// for smaller/vibratory oscillations.
+pub fn extract_actions_full_range(
+    signal: &[f32],
+    timestamps_ms: &[i64],
+    min_prominence_pct: f32,
+    full_range_equalize: bool,
+) -> Vec<Action> {
+    let n = signal.len();
+    if n == 0 {
+        return Vec::new();
+    }
+    if n == 1 {
+        return vec![Action { at: timestamps_ms[0], pos: 50 }];
+    }
+
+    // 1. Light 3-tap smoothing to eliminate single-sample high frequency noise
+    let mut smoothed = vec![0.0f32; n];
+    smoothed[0] = signal[0];
+    for i in 1..(n - 1) {
+        smoothed[i] = signal[i - 1] * 0.25 + signal[i] * 0.5 + signal[i + 1] * 0.25;
+    }
+    smoothed[n - 1] = signal[n - 1];
+
+    let min_val = smoothed.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+    let max_val = smoothed.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+    let global_span = (max_val - min_val).max(1e-4);
+    let prominence_threshold = global_span * (min_prominence_pct / 100.0).clamp(0.005, 0.5);
+
+    // 2. Detect local extrema candidates (slope sign changes)
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    enum ExtremaKind {
+        Peak,
+        Valley,
+    }
+
+    let mut candidates = Vec::new();
+    for i in 1..(n - 1) {
+        let d1 = smoothed[i] - smoothed[i - 1];
+        let d2 = smoothed[i + 1] - smoothed[i];
+        if d1 > 0.0 && d2 <= 0.0 {
+            candidates.push((i, ExtremaKind::Peak, smoothed[i]));
+        } else if d1 < 0.0 && d2 >= 0.0 {
+            candidates.push((i, ExtremaKind::Valley, smoothed[i]));
+        }
+    }
+
+    // 3. Filter candidates by prominence / alternating peak-valley reduction
+    let mut filtered_extrema: Vec<(usize, ExtremaKind, f32)> = Vec::new();
+    for cand in candidates {
+        if let Some(last) = filtered_extrema.last_mut() {
+            if last.1 == cand.1 {
+                // Same type consecutive extrema: keep the more extreme one
+                if (cand.1 == ExtremaKind::Peak && cand.2 > last.2)
+                    || (cand.1 == ExtremaKind::Valley && cand.2 < last.2)
+                {
+                    *last = cand;
+                }
+            } else {
+                // Alternating extrema: check if amplitude delta is significant
+                let delta = (cand.2 - last.2).abs();
+                if delta >= prominence_threshold {
+                    filtered_extrema.push(cand);
+                }
+            }
+        } else {
+            filtered_extrema.push(cand);
+        }
+    }
+
+    // Pass 2: Ensure strictly alternating extrema
+    let mut final_extrema: Vec<(usize, ExtremaKind, f32)> = Vec::new();
+    for item in filtered_extrema {
+        if let Some(last) = final_extrema.last_mut() {
+            if last.1 == item.1 {
+                if (item.1 == ExtremaKind::Peak && item.2 > last.2)
+                    || (item.1 == ExtremaKind::Valley && item.2 < last.2)
+                {
+                    *last = item;
+                }
+            } else {
+                final_extrema.push(item);
+            }
+        } else {
+            final_extrema.push(item);
+        }
+    }
+
+    if final_extrema.is_empty() {
+        return vec![
+            Action { at: timestamps_ms[0], pos: 0 },
+            Action { at: *timestamps_ms.last().unwrap(), pos: 100 },
+        ];
+    }
+
+    // 4. Compute major stroke span for equalized amplitude scaling
+    let mut stroke_spans = Vec::new();
+    for i in 1..final_extrema.len() {
+        stroke_spans.push((final_extrema[i].2 - final_extrema[i - 1].2).abs());
+    }
+    stroke_spans.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let median_stroke_span = if !stroke_spans.is_empty() {
+        stroke_spans[stroke_spans.len() * 3 / 4].max(1e-4)
+    } else {
+        global_span
+    };
+
+    let mut actions = Vec::with_capacity(final_extrema.len() + 2);
+
+    // Initial boundary
+    let first_t = timestamps_ms[0];
+    let first_ex = final_extrema[0];
+    if timestamps_ms[first_ex.0] > first_t {
+        let initial_pos = if first_ex.1 == ExtremaKind::Peak { 0 } else { 100 };
+        actions.push(Action { at: first_t, pos: initial_pos });
+    }
+
+    for i in 0..final_extrema.len() {
+        let (idx, kind, val) = final_extrema[i];
+        let at = timestamps_ms[idx];
+
+        let pos = if full_range_equalize {
+            let neighbor_diff = if i > 0 {
+                (val - final_extrema[i - 1].2).abs()
+            } else if i + 1 < final_extrema.len() {
+                (val - final_extrema[i + 1].2).abs()
+            } else {
+                median_stroke_span
+            };
+
+            let stroke_ratio = (neighbor_diff / median_stroke_span).clamp(0.0, 1.0);
+
+            if stroke_ratio > 0.55 {
+                // Full major stroke: hits physical limits
+                if kind == ExtremaKind::Peak { 100 } else { 0 }
+            } else {
+                // Partial / vibratory stroke: scale proportionally around 50
+                let half_amp = (stroke_ratio * 38.0).round() as i32;
+                if kind == ExtremaKind::Peak {
+                    (50 + half_amp).min(100)
+                } else {
+                    (50 - half_amp).max(0)
+                }
+            }
+        } else {
+            let norm = (val - min_val) / global_span * 100.0;
+            norm.round().clamp(0.0, 100.0) as i32
+        };
+
+        if let Some(last) = actions.last_mut() {
+            if last.at == at {
+                last.pos = pos;
+                continue;
+            }
+        }
+        actions.push(Action { at, pos });
+    }
+
+    // Trailing boundary
+    let last_t = *timestamps_ms.last().unwrap();
+    if let Some(last_act) = actions.last() {
+        if last_act.at < last_t {
+            let last_pos = if last_act.pos > 50 { 0 } else { 100 };
+            actions.push(Action { at: last_t, pos: last_pos });
+        }
+    }
+
+    actions
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,7 +500,7 @@ mod tests {
         let norm = detrend_and_normalize(&signal, 30.0, 2.0, 2.0, 1000.0);
         assert_eq!(norm.len(), 300);
         for &val in &norm {
-            assert!(val >= 0.0 && val <= 100.0);
+            assert!((0.0..=100.0).contains(&val));
         }
     }
 
@@ -313,5 +514,42 @@ mod tests {
         assert_eq!(actions[0].pos, 100); // 100 - 0
         assert_eq!(actions[1].pos, 0);   // 100 - 100 (peak)
         assert_eq!(actions[2].pos, 100); // 100 - 0 (valley)
+    }
+
+    #[test]
+    fn test_normalization_benchmark_50k_samples() {
+        let n = 50_000;
+        let mut signal = Vec::with_capacity(n);
+        for i in 0..n {
+            let t = i as f32 / 30.0;
+            signal.push((t * 0.5).sin() * 20.0 + (t * 3.0).cos() * 5.0);
+        }
+
+        let t0 = std::time::Instant::now();
+        let norm = detrend_and_normalize(&signal, 30.0, 2.0, 3.0, 1000.0);
+        let elapsed = t0.elapsed();
+
+        assert_eq!(norm.len(), n);
+        assert!(elapsed.as_millis() < 500, "50k sample normalization took too long: {:?}", elapsed);
+    }
+
+    #[test]
+    fn test_extract_actions_full_range_equalization() {
+        // Sine wave oscillating between -10 and 10
+        let mut signal = Vec::new();
+        let mut timestamps = Vec::new();
+        for i in 0..100 {
+            let t = i as f32 / 10.0;
+            signal.push((t * std::f32::consts::PI).sin() * 10.0);
+            timestamps.push(i as i64 * 100);
+        }
+
+        let actions = extract_actions_full_range(&signal, &timestamps, 5.0, true);
+        assert!(!actions.is_empty());
+
+        let min_p = actions.iter().map(|a| a.pos).min().unwrap();
+        let max_p = actions.iter().map(|a| a.pos).max().unwrap();
+        assert_eq!(min_p, 0, "Expected full range minimum of 0");
+        assert_eq!(max_p, 100, "Expected full range maximum of 100");
     }
 }
