@@ -1,9 +1,15 @@
 //! Neural inference engine powered by ONNX Runtime (`ort`).
 
+pub mod model_manager;
 pub mod pose;
 pub mod tracker;
 pub mod yolo;
 
+#[allow(unused_imports)]
+pub use model_manager::{
+    auto_detect_model, default_model_cache_dir, install_or_download_default_model, ModelInfo,
+    DEFAULT_MODEL_NAME,
+};
 pub use pose::Pose3D;
 
 use anyhow::{Context, Result};

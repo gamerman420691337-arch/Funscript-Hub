@@ -26,6 +26,7 @@ eframe = "0.31"
 rfd = "0.15"
 tungstenite = { version = "0.24", default-features = false, features = ["handshake"] }
 ureq = "3.4"
+serialport = "4.10"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6"

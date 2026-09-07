@@ -12,9 +12,13 @@ use crate::kinematics::{
     eval_scurve, smooth_funscript, DeviceProfile, DeviceType, KinematicState,
     SCurvePreset, ThermalModel, ThermalStatus,
 };
+use crate::neural::model_manager::{auto_detect_model, inspect_model, ModelInfo};
 use crate::plugin::engine::PluginHost;
 use crate::stash::client::{StashClient, StashConfig, StashScene};
-use crate::sync::{format_tcode_v03, HandyConfig, HandyDispatcher, TCodeDispatcher, VrSyncMessage, VrSyncServer};
+use crate::sync::{
+    format_tcode_v03, DetectedSerialPort, HandyConfig, HandyDispatcher, SerialDispatcher,
+    TCodeDispatcher, VrSyncMessage, VrSyncServer,
+};
 use eframe::egui::{
     self, Align, Color32, Context as EguiContext, Layout, ProgressBar, RichText, ScrollArea,
     Slider, TopBottomPanel, Ui,
@@ -109,6 +113,10 @@ pub struct FunGenApp {
     pub video_path: Option<PathBuf>,
     pub video_info: Option<String>,
     pub model_path: Option<PathBuf>,
+    pub detected_model_info: Option<ModelInfo>,
+    pub model_download_in_progress: bool,
+    pub model_download_status: Option<String>,
+    model_rx: Option<Receiver<Result<PathBuf, String>>>,
     pub target_fps: f64,
     pub neural_conf: f32,
     pub pov_mode: bool,
@@ -135,6 +143,12 @@ pub struct FunGenApp {
     pub sync_udp_address: String,
     pub sync_udp_enabled: bool,
     pub last_tcode_string: String,
+
+    // Direct USB Serial Hardware COM Port
+    pub serial_dispatcher: SerialDispatcher,
+    pub available_serial_ports: Vec<DetectedSerialPort>,
+    pub selected_serial_port: String,
+    pub selected_baud_rate: u32,
 
     // The Handy Cloud & Local Hardware Sync
     pub handy_dispatcher: HandyDispatcher,
@@ -174,6 +188,11 @@ impl Default for FunGenApp {
         let script = Funscript::new(vec![]);
         let doctor_report = Some(diagnose_funscript(&script, &DoctorConfig::default()));
 
+        let detected_model = auto_detect_model();
+        let initial_model_path = detected_model.as_ref().map(|m| m.path.clone());
+        let ports = SerialDispatcher::list_ports();
+        let default_port = ports.first().map(|p| p.name.clone()).unwrap_or_default();
+
         Self {
             active_tab: HubTab::Studio,
             script,
@@ -212,9 +231,11 @@ impl Default for FunGenApp {
 
             video_path: None,
             video_info: None,
-            model_path: Some(PathBuf::from(
-                "/home/brianklam/Desktop/Funscripts/FunGen/fungen-data/cache/models/FunGen-12n-pov-1.1.0.onnx",
-            )),
+            model_path: initial_model_path,
+            detected_model_info: detected_model,
+            model_download_in_progress: false,
+            model_download_status: None,
+            model_rx: None,
             target_fps: 30.0,
             neural_conf: 0.35,
             pov_mode: false,
@@ -238,6 +259,11 @@ impl Default for FunGenApp {
             sync_udp_address: "127.0.0.1:8888".to_string(),
             sync_udp_enabled: false,
             last_tcode_string: String::new(),
+
+            serial_dispatcher: SerialDispatcher::new(),
+            available_serial_ports: ports,
+            selected_serial_port: default_port,
+            selected_baud_rate: 115200,
 
             playback_streamer: None,
             handy_dispatcher: HandyDispatcher::new(),
@@ -276,6 +302,7 @@ impl eframe::App for FunGenApp {
         self.poll_batch_worker();
         self.poll_waveform();
         self.poll_vr_sync();
+        self.poll_model_download();
         self.handy_dispatcher.poll_events();
 
         // 2. Advance playback clock if playing
@@ -1176,6 +1203,9 @@ impl FunGenApp {
             if self.sync_udp_enabled {
                 self.tcode_dispatcher.send(&self.last_tcode_string);
             }
+            if self.serial_dispatcher.is_connected {
+                let _ = self.serial_dispatcher.send_tcode(&self.last_tcode_string);
+            }
 
             // The Handy Hardware Streaming
             if self.handy_config.is_enabled {
@@ -1191,6 +1221,28 @@ impl FunGenApp {
             ctx.request_repaint();
         } else {
             self.last_frame_time = None;
+        }
+    }
+
+    fn poll_model_download(&mut self) {
+        if let Some(ref rx) = self.model_rx {
+            if let Ok(res) = rx.try_recv() {
+                self.model_download_in_progress = false;
+                match res {
+                    Ok(path) => {
+                        let info = inspect_model(&path);
+                        self.detected_model_info = info;
+                        self.model_path = Some(path.clone());
+                        self.model_download_status = Some(format!("Model installed: {}", path.display()));
+                        self.set_status(format!("Installed AI model to {}", path.display()));
+                    }
+                    Err(e) => {
+                        self.model_download_status = Some(format!("Download failed: {}", e));
+                        self.set_status(format!("Model download error: {}", e));
+                    }
+                }
+                self.model_rx = None;
+            }
         }
     }
 
@@ -1971,19 +2023,57 @@ impl FunGenApp {
             // Model / Neural Settings (if neural enabled)
             if self.use_neural {
                 ui.group(|ui| {
-                    ui.heading("3. Neural Model Configuration");
-                    ui.horizontal(|ui| {
-                        if ui.button("Select ONNX Model...").clicked() {
-                            self.select_model_dialog();
-                        }
-                        if let Some(ref m) = self.model_path {
-                            ui.strong(m.file_name().unwrap_or_default().to_string_lossy());
+                    ui.heading("3. Neural Model Configuration (YOLO POV Pose)");
+                    ui.label("High-speed ONNX Runtime model detecting anatomical landmarks (shaft, head, hands, POV context).");
+                    ui.add_space(4.0);
+
+                    // Model Status Badge & Path Info
+                    if let Some(ref m) = self.model_path {
+                        let filename = m.file_name().unwrap_or_default().to_string_lossy();
+                        let size_str = if let Ok(meta) = std::fs::metadata(m) {
+                            format!("{:.1} MB", meta.len() as f64 / 1_000_000.0)
                         } else {
-                            ui.label(RichText::new("No model selected").color(Color32::RED));
+                            "Unknown size".to_string()
+                        };
+                        ui.horizontal(|ui| {
+                            ui.colored_label(Color32::from_rgb(60, 220, 100), "● ACTIVE MODEL:");
+                            ui.strong(format!("{} ({})", filename, size_str));
+                        });
+                        ui.label(RichText::new(m.display().to_string()).size(10.5).color(Color32::from_rgb(160, 175, 195)));
+                    } else {
+                        ui.horizontal(|ui| {
+                            ui.colored_label(Color32::from_rgb(255, 80, 80), "○ NO MODEL LOADED:");
+                            ui.label("Click Auto-Detect or Download Official Model to install.");
+                        });
+                    }
+
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui| {
+                        if ui.button("⚡ Auto-Detect Local Models").clicked() {
+                            self.auto_detect_model_action();
+                        }
+
+                        if self.model_download_in_progress {
+                            ui.add(egui::Spinner::new());
+                            ui.label(RichText::new("Downloading model...").color(Color32::GOLD));
+                        } else {
+                            let dl_btn = if self.model_path.is_some() { "⬇ Re-download Official Model" } else { "⬇ Download Official Model" };
+                            if ui.button(dl_btn).clicked() {
+                                self.download_model_action();
+                            }
+                        }
+
+                        if ui.button("📁 Custom ONNX File...").clicked() {
+                            self.select_model_dialog();
                         }
                     });
 
-                    ui.add_space(4.0);
+                    if let Some(ref status) = self.model_download_status {
+                        ui.add_space(2.0);
+                        ui.label(RichText::new(status).size(11.0).color(Color32::from_rgb(130, 200, 255)));
+                    }
+
+                    ui.add_space(6.0);
                     ui.horizontal(|ui| {
                         ui.label("Detection Confidence Threshold:");
                         ui.add(Slider::new(&mut self.neural_conf, 0.1..=0.9).step_by(0.05));
@@ -2377,13 +2467,137 @@ impl FunGenApp {
 
             ui.add_space(10.0);
 
-            // 3. Network Synchronization & VR Headset Server (2 Columns)
+            // 3. Physical Hardware Controllers (Serial COM Port & UDP Network)
             ui.columns(2, |columns| {
-                // Column 1: T-Code v0.3 UDP Broadcast
+                // Column 1: Direct USB Serial Port Hardware (OSR2, SR6, T-Code)
                 columns[0].group(|ui| {
-                    ui.heading("T-Code v0.3 UDP Broadcast");
-                    ui.label("Streams real-time multi-axis T-Code commands to MultiFunPlayer, Intiface, or physical ESP32/Arduino controllers.");
+                    ui.set_min_height(250.0);
+                    ui.heading("USB Serial Hardware (OSR2 / SR6 / T-Code)");
+                    ui.label("Direct ultra-low latency serial streaming to physical OSR2, SR6, or DIY ESP32/Teensy T-Code devices.");
                     ui.add_space(4.0);
+
+                    // Port Selection
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Serial Port:").strong());
+                        let display_label = if self.available_serial_ports.is_empty() {
+                            "(No serial ports detected)".to_string()
+                        } else {
+                            self.available_serial_ports
+                                .iter()
+                                .find(|p| p.name == self.selected_serial_port)
+                                .map(|p| p.label.clone())
+                                .unwrap_or_else(|| self.selected_serial_port.clone())
+                        };
+
+                        egui::ComboBox::from_id_salt("serial_port_combo")
+                            .selected_text(display_label)
+                            .show_ui(ui, |ui| {
+                                for p in &self.available_serial_ports {
+                                    ui.selectable_value(&mut self.selected_serial_port, p.name.clone(), &p.label);
+                                }
+                            });
+
+                        if ui.button("🔄 Refresh").clicked() {
+                            self.available_serial_ports = SerialDispatcher::list_ports();
+                            if !self.available_serial_ports.is_empty() && self.selected_serial_port.is_empty() {
+                                self.selected_serial_port = self.available_serial_ports[0].name.clone();
+                            }
+                            self.set_status(format!("Found {} serial communication port(s)", self.available_serial_ports.len()));
+                        }
+                    });
+
+                    // Baud Rate Selection
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Baud Rate:").strong());
+                        egui::ComboBox::from_id_salt("serial_baud_combo")
+                            .selected_text(format!("{} baud", self.selected_baud_rate))
+                            .show_ui(ui, |ui| {
+                                for &baud in &SerialDispatcher::SUPPORTED_BAUD_RATES {
+                                    let tag = match baud {
+                                        115200 => " (OSR2 / SR6 Standard)",
+                                        230400 => " (High Speed)",
+                                        921600 => " (Ultra-Fast ESP32)",
+                                        _ => "",
+                                    };
+                                    ui.selectable_value(&mut self.selected_baud_rate, baud, format!("{} baud{}", baud, tag));
+                                }
+                            });
+                    });
+
+                    ui.add_space(4.0);
+
+                    // Connect / Disconnect Buttons & Live Status
+                    ui.horizontal(|ui| {
+                        let is_conn = self.serial_dispatcher.is_connected;
+                        let btn_text = if is_conn { "Disconnect Serial Port" } else { "Connect Serial Port" };
+                        let btn_enabled = !self.selected_serial_port.is_empty();
+
+                        if ui.add_enabled(btn_enabled, egui::Button::new(btn_text)).clicked() {
+                            if is_conn {
+                                self.serial_dispatcher.disconnect();
+                                self.set_status("Disconnected USB serial port".to_string());
+                            } else {
+                                match self.serial_dispatcher.connect(&self.selected_serial_port, self.selected_baud_rate) {
+                                    Ok(()) => {
+                                        self.set_status(format!(
+                                            "Connected to {} @ {} baud",
+                                            self.selected_serial_port, self.selected_baud_rate
+                                        ));
+                                    }
+                                    Err(e) => {
+                                        self.set_status(format!("Serial connection error: {}", e));
+                                    }
+                                }
+                            }
+                        }
+
+                        if self.serial_dispatcher.is_connected {
+                            ui.colored_label(
+                                Color32::GREEN,
+                                format!(
+                                    "● Connected ({} pkts)",
+                                    self.serial_dispatcher.sent_commands_count
+                                ),
+                            );
+                        } else {
+                            ui.colored_label(Color32::GRAY, "○ Disconnected");
+                        }
+                    });
+
+                    if let Some(ref err) = self.serial_dispatcher.last_error {
+                        ui.colored_label(Color32::from_rgb(255, 90, 90), format!("⚠ {err}"));
+                    }
+
+                    ui.add_space(6.0);
+                    ui.label(RichText::new("Live Outgoing COM Serial Monitor:").size(11.0).strong());
+                    let mon = self
+                        .serial_dispatcher
+                        .last_sent_command
+                        .as_deref()
+                        .unwrap_or("Waiting for active playback...");
+                    ui.monospace(format!(">>> {mon}"));
+                });
+
+                // Column 2: T-Code v0.3 UDP Broadcast
+                columns[1].group(|ui| {
+                    ui.set_min_height(250.0);
+                    ui.heading("T-Code v0.3 UDP Broadcast");
+                    ui.label("Streams real-time multi-axis T-Code commands to MultiFunPlayer, Intiface, or physical ESP32/Arduino WiFi controllers.");
+                    ui.add_space(4.0);
+
+                    // Quick Endpoint Presets
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Endpoint Presets:").strong());
+                        if ui.button("MultiFunPlayer").clicked() {
+                            self.sync_udp_address = "127.0.0.1:8888".to_string();
+                        }
+                        if ui.button("Intiface").clicked() {
+                            self.sync_udp_address = "127.0.0.1:12345".to_string();
+                        }
+                        if ui.button("Local LAN").clicked() {
+                            self.sync_udp_address = "192.168.1.50:8888".to_string();
+                        }
+                    });
 
                     ui.horizontal(|ui| {
                         ui.label("Target UDP Host:Port:");
@@ -2419,50 +2633,52 @@ impl FunGenApp {
                     };
                     ui.monospace(format!(">>> {display_cmd}"));
                 });
+            });
 
-                // Column 2: HereSphere & DeoVR WebSocket Sync Server
-                columns[1].group(|ui| {
-                    ui.heading("VR Headset Sync Server");
-                    ui.label("Zero-config local WebSocket server for HereSphere, DeoVR, and Whirligig VR headsets.");
-                    ui.add_space(4.0);
+            ui.add_space(10.0);
 
-                    ui.horizontal(|ui| {
-                        ui.label("WebSocket Port:");
-                        ui.add(egui::DragValue::new(&mut self.vr_server_port).range(1024..=65535));
-                    });
+            // 4. VR Headset Sync Server (HereSphere & DeoVR)
+            ui.group(|ui| {
+                ui.heading("VR Headset Sync Server");
+                ui.label("Zero-config local WebSocket server for HereSphere, DeoVR, and Whirligig VR headsets.");
+                ui.add_space(4.0);
 
-                    let is_running = self.vr_server.as_ref().map(|s| s.is_running()).unwrap_or(false);
+                ui.horizontal(|ui| {
+                    ui.label("WebSocket Port:");
+                    ui.add(egui::DragValue::new(&mut self.vr_server_port).range(1024..=65535));
+                });
 
-                    ui.horizontal(|ui| {
-                        let btn_label = if is_running { "Stop VR Sync Server" } else { "Start VR Sync Server" };
-                        if ui.button(btn_label).clicked() {
-                            if is_running {
-                                if let Some(mut s) = self.vr_server.take() {
-                                    s.stop();
-                                }
-                                self.set_status("VR WebSocket Sync Server stopped".to_string());
+                let is_running = self.vr_server.as_ref().map(|s| s.is_running()).unwrap_or(false);
+
+                ui.horizontal(|ui| {
+                    let btn_label = if is_running { "Stop VR Sync Server" } else { "Start VR Sync Server" };
+                    if ui.button(btn_label).clicked() {
+                        if is_running {
+                            if let Some(mut s) = self.vr_server.take() {
+                                s.stop();
+                            }
+                            self.set_status("VR WebSocket Sync Server stopped".to_string());
+                        } else {
+                            let mut s = VrSyncServer::new(self.vr_server_port);
+                            if s.start() {
+                                self.set_status(format!("VR Sync Server listening on port {}", self.vr_server_port));
+                                self.vr_server = Some(s);
                             } else {
-                                let mut s = VrSyncServer::new(self.vr_server_port);
-                                if s.start() {
-                                    self.set_status(format!("VR Sync Server listening on port {}", self.vr_server_port));
-                                    self.vr_server = Some(s);
-                                } else {
-                                    self.set_status(format!("Failed to bind port {}", self.vr_server_port));
-                                }
+                                self.set_status(format!("Failed to bind port {}", self.vr_server_port));
                             }
                         }
+                    }
 
-                        if is_running {
-                            ui.colored_label(Color32::GREEN, format!("● LISTENING (ws://0.0.0.0:{})", self.vr_server_port));
-                        } else {
-                            ui.colored_label(Color32::GRAY, "○ Server Stopped");
-                        }
-                    });
-
-                    ui.add_space(6.0);
-                    ui.label(RichText::new("How to connect:").size(11.0).strong());
-                    ui.label(RichText::new("1. In HereSphere or DeoVR on your Quest/Pico/PCVR headset, enable External Sync / WebSocket.\n2. Point it to this PC's local IP address and configured port.\n3. Funscript Hub will automatically lock playhead time, scrubbing, and pause states with zero latency.").size(10.5).color(Color32::from_rgb(170, 180, 195)));
+                    if is_running {
+                        ui.colored_label(Color32::GREEN, format!("● LISTENING (ws://0.0.0.0:{})", self.vr_server_port));
+                    } else {
+                        ui.colored_label(Color32::GRAY, "○ Server Stopped");
+                    }
                 });
+
+                ui.add_space(6.0);
+                ui.label(RichText::new("How to connect:").size(11.0).strong());
+                ui.label(RichText::new("1. In HereSphere or DeoVR on your Quest/Pico/PCVR headset, enable External Sync / WebSocket.\n2. Point it to this PC's local IP address and configured port.\n3. Funscript Hub will automatically lock playhead time, scrubbing, and pause states with zero latency.").size(10.5).color(Color32::from_rgb(170, 180, 195)));
             });
 
             ui.add_space(10.0);
@@ -2867,8 +3083,37 @@ impl FunGenApp {
             .add_filter("ONNX Models", &["onnx"])
             .pick_file()
         {
-            self.model_path = Some(path);
+            let info = inspect_model(&path);
+            self.detected_model_info = info;
+            self.model_path = Some(path.clone());
+            self.set_status(format!("Selected model: {}", path.file_name().unwrap_or_default().to_string_lossy()));
         }
+    }
+
+    fn auto_detect_model_action(&mut self) {
+        if let Some(info) = auto_detect_model() {
+            let msg = format!("Located AI model: {} ({:.1} MB)", info.filename, info.size_bytes as f64 / 1_000_000.0);
+            self.model_path = Some(info.path.clone());
+            self.detected_model_info = Some(info);
+            self.set_status(msg);
+        } else {
+            self.set_status("No local ONNX model detected. Click 'Download Official Model' to fetch it.".to_string());
+        }
+    }
+
+    fn download_model_action(&mut self) {
+        if self.model_download_in_progress {
+            return;
+        }
+        self.model_download_in_progress = true;
+        self.model_download_status = Some("Installing / Downloading model...".to_string());
+        let (tx, rx) = channel();
+        self.model_rx = Some(rx);
+
+        thread::spawn(move || {
+            let res = crate::neural::model_manager::install_or_download_default_model(|_downloaded, _total| {});
+            let _ = tx.send(res);
+        });
     }
 
     fn fit_timeline(&mut self) {
