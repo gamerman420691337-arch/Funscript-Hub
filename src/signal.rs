@@ -101,6 +101,8 @@ pub fn detrend_and_normalize(
     boundaries.push(n);
 
     let overlap = (detrend_win / 2).max(1);
+    // Pre-compute Hanning window once for the full detrend_win size; slice for shorter segments
+    let full_hanning = hanning_window(detrend_win);
 
     for b in 0..(boundaries.len() - 1) {
         let seg_start = boundaries[b];
@@ -119,7 +121,8 @@ pub fn detrend_and_normalize(
         if seg_len <= detrend_win {
             let slice = &signal[seg_start..seg_end];
             let (m, c) = linear_fit(slice);
-            let weights = hanning_window(seg_len);
+            // Reuse cached window, slicing if segment is shorter
+            let weights = if seg_len == detrend_win { &full_hanning[..] } else { &hanning_window(seg_len)[..seg_len] };
 
             for (i, &w) in weights.iter().enumerate() {
                 let idx = seg_start + i;
@@ -138,7 +141,13 @@ pub fn detrend_and_normalize(
 
                 let slice = &signal[start..end];
                 let (m, c) = linear_fit(slice);
-                let weights = hanning_window(cur_len);
+                // Reuse full window when cur_len == detrend_win (99% of iterations)
+                let weights: &[f32] = if cur_len == detrend_win {
+                    &full_hanning
+                } else {
+                    // Edge case: partial window at segment boundary
+                    &full_hanning[..cur_len]
+                };
 
                 for (i, &w) in weights.iter().enumerate() {
                     let idx = start + i;
@@ -178,14 +187,13 @@ pub fn detrend_and_normalize(
     }
 
     // Rolling min-max normalization in linear O(N) time via monotonic sliding windows
+    // Merged into single pass: compute normalized values directly from deque fronts
     let norm_win = (norm_window_sec * effective_fps).round().max(3.0) as usize;
     let half_norm = norm_win / 2;
     let mut normalized = vec![50.0f32; n];
 
-    let mut mins = vec![0.0f32; n];
-    let mut maxs = vec![0.0f32; n];
-    let mut min_dq: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
-    let mut max_dq: std::collections::VecDeque<usize> = std::collections::VecDeque::new();
+    let mut min_dq: std::collections::VecDeque<usize> = std::collections::VecDeque::with_capacity(norm_win);
+    let mut max_dq: std::collections::VecDeque<usize> = std::collections::VecDeque::with_capacity(norm_win);
 
     let mut r = 0;
     for i in 0..n {
@@ -231,19 +239,13 @@ pub fn detrend_and_normalize(
             }
         }
 
-        mins[i] = smoothed[*min_dq.front().unwrap_or(&i)];
-        maxs[i] = smoothed[*max_dq.front().unwrap_or(&i)];
-    }
-
-    for i in 0..n {
-        let local_min = mins[i];
-        let local_max = maxs[i];
+        // Compute normalized value directly — no intermediate mins/maxs buffers
+        let local_min = smoothed[*min_dq.front().unwrap_or(&i)];
+        let local_max = smoothed[*max_dq.front().unwrap_or(&i)];
         let span = local_max - local_min;
         if span > 1e-4 {
             let val = (smoothed[i] - local_min) / span * 100.0;
             normalized[i] = val.clamp(0.0, 100.0);
-        } else {
-            normalized[i] = 50.0;
         }
     }
 
@@ -397,9 +399,11 @@ pub fn extract_actions_full_range(
     for i in 1..final_extrema.len() {
         stroke_spans.push((final_extrema[i].2 - final_extrema[i - 1].2).abs());
     }
-    stroke_spans.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    // O(N) partial sort to find 75th percentile — replaces O(N log N) full sort
     let median_stroke_span = if !stroke_spans.is_empty() {
-        stroke_spans[stroke_spans.len() * 3 / 4].max(1e-4)
+        let idx_75 = stroke_spans.len() * 3 / 4;
+        stroke_spans.select_nth_unstable_by(idx_75, |a, b| a.partial_cmp(b).unwrap());
+        stroke_spans[idx_75].max(1e-4)
     } else {
         global_span
     };

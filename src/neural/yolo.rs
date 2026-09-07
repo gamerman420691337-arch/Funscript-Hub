@@ -35,23 +35,33 @@ pub fn preprocess_image_rgb(
     target_dim: usize,
 ) -> Array4<f32> {
     let mut tensor = Array4::<f32>::zeros((1, 3, target_dim, target_dim));
+    let plane_stride = target_dim * target_dim;
+    // Safety: ndarray guarantees contiguous standard layout for zeros()
+    let flat = tensor.as_slice_mut().unwrap();
 
     let x_scale = (src_width as f32) / (target_dim as f32);
     let y_scale = (src_height as f32) / (target_dim as f32);
 
+    // Pre-compute coordinate lookup tables — eliminates float math from the inner loop
+    let sx_lut: Vec<usize> = (0..target_dim)
+        .map(|tx| ((tx as f32) * x_scale).clamp(0.0, (src_width - 1) as f32) as usize)
+        .collect();
+    let sy_lut: Vec<usize> = (0..target_dim)
+        .map(|ty| ((ty as f32) * y_scale).clamp(0.0, (src_height - 1) as f32) as usize)
+        .collect();
+
+    const INV_255: f32 = 1.0 / 255.0;
+
     for ty in 0..target_dim {
-        let sy = ((ty as f32) * y_scale).clamp(0.0, (src_height - 1) as f32) as usize;
+        let sy = sy_lut[ty];
+        let row_base = sy * src_width;
+        let out_row = ty * target_dim;
         for tx in 0..target_dim {
-            let sx = ((tx as f32) * x_scale).clamp(0.0, (src_width - 1) as f32) as usize;
-            let src_idx = (sy * src_width + sx) * 3;
-
-            let r = (rgb_data[src_idx] as f32) / 255.0;
-            let g = (rgb_data[src_idx + 1] as f32) / 255.0;
-            let b = (rgb_data[src_idx + 2] as f32) / 255.0;
-
-            tensor[[0, 0, ty, tx]] = r;
-            tensor[[0, 1, ty, tx]] = g;
-            tensor[[0, 2, ty, tx]] = b;
+            let src_idx = (row_base + sx_lut[tx]) * 3;
+            // Write directly to flat slice with stride arithmetic — bypasses ndarray 4D indexing
+            flat[out_row + tx] = (rgb_data[src_idx] as f32) * INV_255;
+            flat[plane_stride + out_row + tx] = (rgb_data[src_idx + 1] as f32) * INV_255;
+            flat[2 * plane_stride + out_row + tx] = (rgb_data[src_idx + 2] as f32) * INV_255;
         }
     }
 

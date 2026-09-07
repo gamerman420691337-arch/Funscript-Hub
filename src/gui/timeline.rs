@@ -2,7 +2,7 @@
 
 use crate::funscript::{Action, DoctorReport, Funscript};
 use eframe::egui::{
-    pos2, vec2, Color32, Painter, Pos2, Rect, Response, Sense, Stroke, Ui,
+    pos2, vec2, Color32, Mesh, Painter, Pos2, Rect, Response, Sense, Shape, Stroke, Ui,
 };
 
 #[derive(Debug, Clone)]
@@ -215,18 +215,20 @@ fn draw_audio_waveform(
     let max_height = (rect.height() * 0.35).min(100.0);
     let bar_color = Color32::from_rgba_unmultiplied(0, 180, 240, 65);
 
+    let mut mesh = Mesh::default();
     let mut x = rect.left();
     while x <= rect.right() {
         let time_ms = state.screen_x_to_time(x, rect);
         let peak = wf.get_peak_at(time_ms);
         if peak > 0.02 {
             let bar_h = peak * max_height;
-            painter.line_segment(
-                [pos2(x, base_y), pos2(x, base_y - bar_h)],
-                Stroke::new(1.8f32, bar_color),
-            );
+            let bar_rect = Rect::from_min_max(pos2(x - 0.9, base_y - bar_h), pos2(x + 0.9, base_y));
+            mesh.add_colored_rect(bar_rect, bar_color);
         }
         x += 2.0;
+    }
+    if !mesh.is_empty() {
+        painter.add(Shape::Mesh(mesh.into()));
     }
 }
 

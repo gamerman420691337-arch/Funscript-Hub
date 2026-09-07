@@ -2,9 +2,9 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
 /// Canonical `.funscript` file schema
@@ -47,10 +47,10 @@ impl Funscript {
 
     /// Load a funscript from a JSON file.
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let file = File::open(path.as_ref())
+        // Read file into memory first; serde_json::from_slice is 2-3x faster than from_reader
+        let bytes = std::fs::read(path.as_ref())
             .with_context(|| format!("Failed to open funscript file: {:?}", path.as_ref()))?;
-        let reader = BufReader::new(file);
-        let script: Self = serde_json::from_reader(reader)
+        let script: Self = serde_json::from_slice(&bytes)
             .with_context(|| format!("Failed to parse JSON funscript: {:?}", path.as_ref()))?;
         Ok(script)
     }
@@ -60,7 +60,7 @@ impl Funscript {
         let file = File::create(path.as_ref())
             .with_context(|| format!("Failed to create output file: {:?}", path.as_ref()))?;
         let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, self)
+        serde_json::to_writer(writer, self)
             .with_context(|| format!("Failed to write funscript JSON: {:?}", path.as_ref()))?;
         Ok(())
     }
@@ -74,22 +74,20 @@ impl Funscript {
         // 1. Sort strictly by timestamp
         self.actions.sort_by_key(|a| a.at);
 
-        // 2. Deduplicate identical timestamps (keep latest position)
-        let mut clean: Vec<Action> = Vec::with_capacity(self.actions.len());
-        for action in &self.actions {
-            let clamped_pos = action.pos.clamp(0, 100);
-            if let Some(last) = clean.last_mut() {
-                if last.at == action.at {
-                    last.pos = clamped_pos;
-                    continue;
-                }
-            }
-            clean.push(Action {
-                at: action.at,
-                pos: clamped_pos,
-            });
+        // 2. Clamp positions in-place
+        for a in &mut self.actions {
+            a.pos = a.pos.clamp(0, 100);
         }
-        self.actions = clean;
+
+        // 3. Deduplicate in-place (keep latest position)
+        self.actions.dedup_by(|b, a| {
+            if a.at == b.at {
+                a.pos = b.pos;
+                true
+            } else {
+                false
+            }
+        });
     }
 
     /// Fix transitions that exceed safe hardware motor speed limits by clamping position deltas.
@@ -440,7 +438,7 @@ fn extract_base_stem<P: AsRef<Path>>(path: P) -> (PathBuf, String) {
 /// Bounded undo/redo history manager for keyframe editing.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UndoHistory {
-    undo_stack: Vec<Funscript>,
+    undo_stack: VecDeque<Funscript>,
     redo_stack: Vec<Funscript>,
     max_depth: usize,
 }
@@ -454,7 +452,7 @@ impl Default for UndoHistory {
 impl UndoHistory {
     pub fn new(max_depth: usize) -> Self {
         Self {
-            undo_stack: Vec::with_capacity(max_depth),
+            undo_stack: VecDeque::with_capacity(max_depth),
             redo_stack: Vec::new(),
             max_depth: max_depth.max(5),
         }
@@ -463,15 +461,15 @@ impl UndoHistory {
     /// Push current state to undo history before making modifications.
     pub fn push_snapshot(&mut self, script: &Funscript) {
         if self.undo_stack.len() >= self.max_depth {
-            self.undo_stack.remove(0);
+            self.undo_stack.pop_front();
         }
-        self.undo_stack.push(script.clone());
+        self.undo_stack.push_back(script.clone());
         self.redo_stack.clear();
     }
 
     /// Undo to previous state. Returns true if undo was performed.
     pub fn undo(&mut self, current: &mut Funscript) -> bool {
-        if let Some(prev) = self.undo_stack.pop() {
+        if let Some(prev) = self.undo_stack.pop_back() {
             self.redo_stack.push(current.clone());
             *current = prev;
             true
@@ -483,7 +481,7 @@ impl UndoHistory {
     /// Redo to next state. Returns true if redo was performed.
     pub fn redo(&mut self, current: &mut Funscript) -> bool {
         if let Some(next) = self.redo_stack.pop() {
-            self.undo_stack.push(current.clone());
+            self.undo_stack.push_back(current.clone());
             *current = next;
             true
         } else {
@@ -843,5 +841,46 @@ mod tests {
         assert!(history.redo(&mut script));
         assert_eq!(script.actions.len(), 3);
         assert!(!history.can_redo());
+    }
+
+    #[test]
+    fn test_undo_history_depth_capping() {
+        // max_depth clamped to at least 5
+        let mut history = UndoHistory::new(5);
+        let mut script = Funscript::new(vec![]);
+
+        for i in 0..7 {
+            script.actions.push(Action { at: i * 100, pos: (i * 10) as i32 });
+            history.push_snapshot(&script);
+        }
+
+        // Only 5 most recent snapshots should be retained
+        let mut count = 0;
+        while history.undo(&mut script) {
+            count += 1;
+        }
+        assert_eq!(count, 5);
+    }
+
+    #[test]
+    fn test_load_save_compact() {
+        let temp_dir = std::env::temp_dir();
+        let path = temp_dir.join("open_fungen_test_compact.funscript");
+
+        let script = Funscript::new(vec![
+            Action { at: 0, pos: 10 },
+            Action { at: 500, pos: 90 },
+        ]);
+
+        script.save(&path).expect("Failed to save funscript");
+
+        let raw = std::fs::read_to_string(&path).expect("Failed to read back funscript file");
+        // Compact JSON should not contain multi-line formatting or indented spaces
+        assert!(!raw.contains('\n'));
+
+        let loaded = Funscript::load(&path).expect("Failed to load funscript");
+        assert_eq!(script, loaded);
+
+        let _ = std::fs::remove_file(path);
     }
 }

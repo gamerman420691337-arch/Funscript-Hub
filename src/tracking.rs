@@ -126,23 +126,112 @@ pub fn detect_cut_photometric(p0: &[u8], p1: &[u8], threshold: f32) -> bool {
 
 /// High-performance multi-threaded dense optical flow calculation (Lucas-Kanade gradient tensor).
 /// Highly optimized with precomputed gradient buffers to eliminate 98% of redundant arithmetic ops.
-pub fn compute_dense_flow(p0: &[u8], p1: &[u8], width: usize, height: usize) -> FlowField {
-    let mut field = FlowField::new(width, height);
-    if width < 3 || height < 3 {
-        return field;
+
+pub struct FlowScratchContext {
+    pub ix: Vec<f32>,
+    pub iy: Vec<f32>,
+    pub it: Vec<f32>,
+    pub ixx: Vec<f32>,
+    pub ixy: Vec<f32>,
+    pub iyy: Vec<f32>,
+    pub ixt: Vec<f32>,
+    pub iyt: Vec<f32>,
+    pub h_sum_xx: Vec<f32>,
+    pub h_sum_xy: Vec<f32>,
+    pub h_sum_yy: Vec<f32>,
+    pub h_sum_xt: Vec<f32>,
+    pub h_sum_yt: Vec<f32>,
+    pub sum_xx: Vec<f32>,
+    pub sum_xy: Vec<f32>,
+    pub sum_yy: Vec<f32>,
+    pub sum_xt: Vec<f32>,
+    pub sum_yt: Vec<f32>,
+    pub field: FlowField,
+}
+
+impl FlowScratchContext {
+    pub fn new(width: usize, height: usize) -> Self {
+        let size = width * height;
+        Self {
+            ix: vec![0.0; size],
+            iy: vec![0.0; size],
+            it: vec![0.0; size],
+            ixx: vec![0.0; size],
+            ixy: vec![0.0; size],
+            iyy: vec![0.0; size],
+            ixt: vec![0.0; size],
+            iyt: vec![0.0; size],
+            h_sum_xx: vec![0.0; size],
+            h_sum_xy: vec![0.0; size],
+            h_sum_yy: vec![0.0; size],
+            h_sum_xt: vec![0.0; size],
+            h_sum_yt: vec![0.0; size],
+            sum_xx: vec![0.0; size],
+            sum_xy: vec![0.0; size],
+            sum_yy: vec![0.0; size],
+            sum_xt: vec![0.0; size],
+            sum_yt: vec![0.0; size],
+            field: FlowField::new(width, height),
+        }
     }
 
-    let size = width * height;
-    let mut ix = vec![0.0f32; size];
-    let mut iy = vec![0.0f32; size];
-    let mut it = vec![0.0f32; size];
+    pub fn resize(&mut self, width: usize, height: usize) {
+        let size = width * height;
+        if self.ix.len() != size {
+            self.ix.resize(size, 0.0);
+            self.iy.resize(size, 0.0);
+            self.it.resize(size, 0.0);
+            self.ixx.resize(size, 0.0);
+            self.ixy.resize(size, 0.0);
+            self.iyy.resize(size, 0.0);
+            self.ixt.resize(size, 0.0);
+            self.iyt.resize(size, 0.0);
+            self.h_sum_xx.resize(size, 0.0);
+            self.h_sum_xy.resize(size, 0.0);
+            self.h_sum_yy.resize(size, 0.0);
+            self.h_sum_xt.resize(size, 0.0);
+            self.h_sum_yt.resize(size, 0.0);
+            self.sum_xx.resize(size, 0.0);
+            self.sum_xy.resize(size, 0.0);
+            self.sum_yy.resize(size, 0.0);
+            self.sum_xt.resize(size, 0.0);
+            self.sum_yt.resize(size, 0.0);
+            self.field = FlowField::new(width, height);
+        } else {
+            self.field.u.fill(0.0);
+            self.field.v.fill(0.0);
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub fn compute_dense_flow_tmp(p0: &[u8], p1: &[u8], width: usize, height: usize) -> FlowField {
+    let mut ctx = FlowScratchContext::new(width, height);
+    let field = compute_dense_flow(p0, p1, width, height, &mut ctx);
+    field.clone()
+}
+
+pub fn compute_dense_flow<'a>(p0: &[u8], p1: &[u8], width: usize, height: usize, ctx: &'a mut FlowScratchContext) -> &'a FlowField {
+    ctx.resize(width, height);
+    if width < 3 || height < 3 {
+        return &ctx.field;
+    }
+
+    let _size = width * height;
+    let w = width as isize;
+    let h = height as isize;
 
     // Phase 1: Precompute spatial and temporal gradients in parallel across rows
-    ix.par_chunks_mut(width)
-        .zip(iy.par_chunks_mut(width))
-        .zip(it.par_chunks_mut(width))
+    ctx.ix.par_chunks_mut(width)
+        .zip(ctx.iy.par_chunks_mut(width))
+        .zip(ctx.it.par_chunks_mut(width))
+        .zip(ctx.ixx.par_chunks_mut(width))
+        .zip(ctx.ixy.par_chunks_mut(width))
+        .zip(ctx.iyy.par_chunks_mut(width))
+        .zip(ctx.ixt.par_chunks_mut(width))
+        .zip(ctx.iyt.par_chunks_mut(width))
         .enumerate()
-        .for_each(|(y, ((row_ix, row_iy), row_it))| {
+        .for_each(|(y, (((((((row_ix, row_iy), row_it), row_ixx), row_ixy), row_iyy), row_ixt), row_iyt))| {
             if y == 0 || y >= height - 1 {
                 return;
             }
@@ -152,65 +241,104 @@ pub fn compute_dense_flow(p0: &[u8], p1: &[u8], width: usize, height: usize) -> 
 
             for x in 1..(width - 1) {
                 let idx = row_offset + x;
-                row_ix[x] = ((p0[idx + 1] as f32 - p0[idx - 1] as f32)
+                let ix = ((p0[idx + 1] as f32 - p0[idx - 1] as f32)
                     + (p1[idx + 1] as f32 - p1[idx - 1] as f32))
                     * 0.25;
-                row_iy[x] = ((p0[next_offset + x] as f32 - p0[prev_offset + x] as f32)
+                let iy = ((p0[next_offset + x] as f32 - p0[prev_offset + x] as f32)
                     + (p1[next_offset + x] as f32 - p1[prev_offset + x] as f32))
                     * 0.25;
-                row_it[x] = p1[idx] as f32 - p0[idx] as f32;
+                let it = p1[idx] as f32 - p0[idx] as f32;
+
+                row_ix[x] = ix;
+                row_iy[x] = iy;
+                row_it[x] = it;
+                
+                row_ixx[x] = ix * ix;
+                row_ixy[x] = ix * iy;
+                row_iyy[x] = iy * iy;
+                row_ixt[x] = ix * it;
+                row_iyt[x] = iy * it;
             }
         });
 
     let win_rad = 3isize;
     let lambda = 0.05f32; // Regularization parameter
 
-    // Phase 2: Solve Lucas-Kanade linear systems using contiguous precomputed gradient rows
-    field
-        .u
-        .par_chunks_mut(width)
-        .zip(field.v.par_chunks_mut(width))
+    // Phase 2: Separable Box Filter
+    // 2a. Horizontal pass (window 7)
+    ctx.h_sum_xx.par_chunks_mut(width)
+        .zip(ctx.h_sum_xy.par_chunks_mut(width))
+        .zip(ctx.h_sum_yy.par_chunks_mut(width))
+        .zip(ctx.h_sum_xt.par_chunks_mut(width))
+        .zip(ctx.h_sum_yt.par_chunks_mut(width))
+        .zip(ctx.ixx.par_chunks(width))
+        .zip(ctx.ixy.par_chunks(width))
+        .zip(ctx.iyy.par_chunks(width))
+        .zip(ctx.ixt.par_chunks(width))
+        .zip(ctx.iyt.par_chunks(width))
+        .for_each(|(((((((((h_xx, h_xy), h_yy), h_xt), h_yt), r_ixx), r_ixy), r_iyy), r_ixt), r_iyt)| {
+            for x in 1..(width as isize - 1) {
+                let x_start = (x - win_rad).max(1) as usize;
+                let x_end = (x + win_rad).min(w - 2) as usize;
+                
+                let mut sum_xx = 0.0;
+                let mut sum_xy = 0.0;
+                let mut sum_yy = 0.0;
+                let mut sum_xt = 0.0;
+                let mut sum_yt = 0.0;
+                
+                for k in x_start..=x_end {
+                    sum_xx += r_ixx[k];
+                    sum_xy += r_ixy[k];
+                    sum_yy += r_iyy[k];
+                    sum_xt += r_ixt[k];
+                    sum_yt += r_iyt[k];
+                }
+                
+                let ux = x as usize;
+                h_xx[ux] = sum_xx;
+                h_xy[ux] = sum_xy;
+                h_yy[ux] = sum_yy;
+                h_xt[ux] = sum_xt;
+                h_yt[ux] = sum_yt;
+            }
+        });
+
+    // 2b. Vertical pass (window 7) and solve
+    let h_sum_xx = &ctx.h_sum_xx;
+    let h_sum_xy = &ctx.h_sum_xy;
+    let h_sum_yy = &ctx.h_sum_yy;
+    let h_sum_xt = &ctx.h_sum_xt;
+    let h_sum_yt = &ctx.h_sum_yt;
+
+    ctx.field.u.par_chunks_mut(width)
+        .zip(ctx.field.v.par_chunks_mut(width))
         .enumerate()
         .for_each(|(y_idx, (row_u, row_v))| {
             let y = y_idx as isize;
-            if y < 1 || y >= (height as isize - 1) {
+            if y < 1 || y >= h - 1 {
                 return;
             }
 
-            let y_start = (y - win_rad).max(1);
-            let y_end = (y + win_rad).min(height as isize - 2);
+            let y_start = (y - win_rad).max(1) as usize;
+            let y_end = (y + win_rad).min(h - 2) as usize;
 
-            for x in 1..(width as isize - 1) {
-                let x_start = ((x - win_rad).max(1)) as usize;
-                let x_end = ((x + win_rad).min(width as isize - 2)) as usize;
+            for x in 1..(width - 1) {
+                let mut sum_xx = 0.0;
+                let mut sum_xy = 0.0;
+                let mut sum_yy = 0.0;
+                let mut sum_xt = 0.0;
+                let mut sum_yt = 0.0;
 
-                let mut sum_xx = 0.0f32;
-                let mut sum_xy = 0.0f32;
-                let mut sum_yy = 0.0f32;
-                let mut sum_xt = 0.0f32;
-                let mut sum_yt = 0.0f32;
-
-                // Accumulate precomputed gradients in local window
                 for ny in y_start..=y_end {
-                    let row_off = (ny as usize) * width;
-                    let ix_slice = &ix[row_off + x_start..=row_off + x_end];
-                    let iy_slice = &iy[row_off + x_start..=row_off + x_end];
-                    let it_slice = &it[row_off + x_start..=row_off + x_end];
-
-                    for k in 0..ix_slice.len() {
-                        let g_ix = ix_slice[k];
-                        let g_iy = iy_slice[k];
-                        let g_it = it_slice[k];
-
-                        sum_xx += g_ix * g_ix;
-                        sum_xy += g_ix * g_iy;
-                        sum_yy += g_iy * g_iy;
-                        sum_xt += g_ix * g_it;
-                        sum_yt += g_iy * g_it;
-                    }
+                    let idx = ny * width + x;
+                    sum_xx += h_sum_xx[idx];
+                    sum_xy += h_sum_xy[idx];
+                    sum_yy += h_sum_yy[idx];
+                    sum_xt += h_sum_xt[idx];
+                    sum_yt += h_sum_yt[idx];
                 }
 
-                // Solve regularized 2x2 system: [sum_xx+lambda, sum_xy; sum_xy, sum_yy+lambda] [u; v] = -[sum_xt; sum_yt]
                 let a = sum_xx + lambda;
                 let b = sum_xy;
                 let c = sum_yy + lambda;
@@ -221,14 +349,13 @@ pub fn compute_dense_flow(p0: &[u8], p1: &[u8], width: usize, height: usize) -> 
                     let u = -(c * sum_xt - b * sum_yt) * inv_det;
                     let v = -(-b * sum_xt + a * sum_yt) * inv_det;
 
-                    // Clamp extreme velocity spikes
-                    row_u[x as usize] = u.clamp(-30.0, 30.0);
-                    row_v[x as usize] = v.clamp(-30.0, 30.0);
+                    row_u[x] = u.clamp(-30.0, 30.0);
+                    row_v[x] = v.clamp(-30.0, 30.0);
                 }
             }
         });
 
-    field
+    &ctx.field
 }
 
 /// Computes divergence map div = du/dx + dv/dy and finds maximum divergence center (expansion point)
@@ -236,26 +363,29 @@ pub fn find_divergence_center(flow: &FlowField) -> (f32, f32, f32) {
     let w = flow.width;
     let h = flow.height;
 
-    let mut best_div = 0.0f32;
-    let mut best_x = (w / 2) as f32;
-    let mut best_y = (h / 2) as f32;
+    let best_div = (2..(h - 2)).into_par_iter().map(|y| {
+        let mut local_best_div = 0.0f32;
+        let mut local_best_x = (w / 2) as f32;
+        let local_y = y as f32;
 
-    for y in 2..(h - 2) {
         for x in 2..(w - 2) {
             let idx = y * w + x;
             let du_dx = (flow.u[idx + 1] - flow.u[idx - 1]) * 0.5;
             let dv_dy = (flow.v[idx + w] - flow.v[idx - w]) * 0.5;
             let div = du_dx + dv_dy;
 
-            if div.abs() > best_div.abs() {
-                best_div = div;
-                best_x = x as f32;
-                best_y = y as f32;
+            if div.abs() > local_best_div.abs() {
+                local_best_div = div;
+                local_best_x = x as f32;
             }
         }
-    }
+        (local_best_x, local_y, local_best_div)
+    }).reduce(
+        || ((w / 2) as f32, (h / 2) as f32, 0.0f32),
+        |a, b| if b.2.abs() > a.2.abs() { b } else { a }
+    );
 
-    (best_x, best_y, best_div)
+    best_div
 }
 
 /// Temporal median filtering of center coordinates to suppress sudden noise jumps
@@ -381,6 +511,9 @@ pub fn project_adaptive_motion(
         weight_active: f32,
     }
 
+    let inv_w = 1.0 / w;
+    let inv_h = 1.0 / h;
+
     let accum = (0..flow.height)
         .into_par_iter()
         .map(|y| {
@@ -392,6 +525,7 @@ pub fn project_adaptive_motion(
             };
             let y_f = y as f32;
             let dy = y_f - cy;
+            let wy = if y_f > cy { (h - y_f) * inv_h } else { y_f * inv_h };
 
             for x in 0..flow.width {
                 let x_f = x as f32;
@@ -407,15 +541,13 @@ pub fn project_adaptive_motion(
 
                 let mut weight = mag; // Weight by velocity magnitude so moving foreground dominates
                 if !pov_mode && balance_global {
-                    let wx = if x_f > cx { (w - x_f) / w } else { x_f / w };
-                    let wy = if y_f > cy { (h - y_f) / h } else { y_f / h };
+                    let wx = if x_f > cx { (w - x_f) * inv_w } else { x_f * inv_w };
                     weight *= (wx * wy).max(0.15);
                 }
 
                 let dist = (dx * dx + dy * dy).sqrt().max(1.0);
-                let norm_dx = dx / dist;
-                let norm_dy = dy / dist;
-                let rad_dot = u * norm_dx + v * norm_dy;
+                let inv_dist = 1.0 / dist;
+                let rad_dot = (u * dx + v * dy) * inv_dist;
 
                 acc.sum_u += u * weight;
                 acc.sum_v += v * weight;
@@ -496,7 +628,7 @@ mod tests {
             }
         }
 
-        let flow = compute_dense_flow(&p0, &p1, w, h);
+        let flow = compute_dense_flow_tmp(&p0, &p1, w, h);
         // Measure horizontal flow at the leading edge (x: 38..42, y: 25..35)
         let mut edge_u_sum = 0.0f32;
         let mut count = 0;
@@ -554,7 +686,7 @@ mod tests {
         }
 
         let t0 = std::time::Instant::now();
-        let flow = compute_dense_flow(&p0, &p1, w, h);
+        let flow = compute_dense_flow_tmp(&p0, &p1, w, h);
         let elapsed = t0.elapsed();
 
         assert_eq!(flow.width, 256);
@@ -585,7 +717,7 @@ mod tests {
         let mut timestamps = Vec::new();
 
         while let Ok(Some((curr, ts))) = stream.next_frame() {
-            let flow = compute_dense_flow(&prev, &curr, 256, 256);
+            let flow = compute_dense_flow_tmp(&prev, &curr, 256, 256);
             let center = find_divergence_center(&flow);
             let dot = project_adaptive_motion(&flow, (center.0, center.1), false, false, true);
 

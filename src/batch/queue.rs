@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Result};
 use crate::funscript::{AxisChannel, Funscript, MultiAxisScript};
 use crate::signal;
-use crate::tracking;
+use crate::tracking::{self, FlowScratchContext};
 use crate::video::{self, FrameStreamReader, StreamConfig};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -189,6 +189,31 @@ impl BatchWorker {
         let is_running = self.is_running.clone();
 
         let handle = thread::spawn(move || {
+            // Optimization: Initialize neural detector once outside the job loop
+            // to reuse the ONNX session across all batch jobs instead of reloading the model per video.
+            let mut detector = if let Some(ref m) = config.model_path {
+                match crate::neural::NeuralDetector::new(m, config.conf) {
+                    Ok(det) => Some(det),
+                    Err(err) => {
+                        for job in jobs {
+                            if job.output_path.exists() && !config.overwrite {
+                                continue;
+                            }
+                            let _ = tx.send(BatchProgressUpdate::JobStarted { id: job.id });
+                            let _ = tx.send(BatchProgressUpdate::JobFailed {
+                                id: job.id,
+                                error: format!("Failed to initialize neural detector: {err}"),
+                            });
+                        }
+                        let _ = tx.send(BatchProgressUpdate::AllJobsCompleted);
+                        is_running.store(false, Ordering::SeqCst);
+                        return;
+                    }
+                }
+            } else {
+                None
+            };
+
             for job in jobs {
                 if !is_running.load(Ordering::SeqCst) {
                     break;
@@ -222,20 +247,23 @@ impl BatchWorker {
 
                     let first = stream.next_frame()?.ok_or_else(|| anyhow!("Zero video frames decoded"))?;
                     let mut last_raw = first.0;
-
-                    let mut detector = if let Some(ref m) = config.model_path {
-                        Some(crate::neural::NeuralDetector::new(m, config.conf)?)
+                    // Optimization: Maintain a persistent grayscale buffer across iterations
+                    // instead of recomputing grayscale on last_raw every frame.
+                    let mut last_gray = if stream_cfg.is_rgb {
+                        Some(video::rgb_to_gray(&last_raw))
                     } else {
                         None
                     };
+
                     let mut tracker = if config.model_path.is_some() {
                         Some(crate::neural::tracker::AnatomicalTracker::new())
                     } else {
                         None
                     };
 
+                    let mut flow_ctx = FlowScratchContext::new(width as usize, height as usize);
                     let mut frame_count = 0u64;
-                    while let Some((curr_raw, ts)) = stream.next_frame()? {
+                    while let Some((mut curr_raw, ts)) = stream.next_frame()? {
                         if !is_running.load(Ordering::SeqCst) {
                             break;
                         }
@@ -251,17 +279,22 @@ impl BatchWorker {
                             });
                         }
 
-                        let (last_gray, curr_gray) = if stream_cfg.is_rgb {
-                            (
-                                video::rgb_to_gray(&last_raw),
-                                video::rgb_to_gray(&curr_raw),
-                            )
+                        // Optimization: When RGB, convert only curr_raw to gray and borrow slices.
+                        // When already grayscale, borrow slices directly from last_raw and curr_raw without cloning.
+                        let curr_gray = if stream_cfg.is_rgb {
+                            Some(video::rgb_to_gray(&curr_raw))
                         } else {
-                            (last_raw.clone(), curr_raw.clone())
+                            None
                         };
 
-                        let is_cut_diff = tracking::detect_cut_photometric(&last_gray, &curr_gray, 30.0);
-                        let flow = tracking::compute_dense_flow(&last_gray, &curr_gray, width as usize, height as usize);
+                        let (prev_gray, curr_gray_ref) = if stream_cfg.is_rgb {
+                            (last_gray.as_ref().unwrap().as_slice(), curr_gray.as_ref().unwrap().as_slice())
+                        } else {
+                            (last_raw.as_slice(), curr_raw.as_slice())
+                        };
+
+                        let is_cut_diff = tracking::detect_cut_photometric(prev_gray, curr_gray_ref, 30.0);
+                        let flow = tracking::compute_dense_flow(prev_gray, curr_gray_ref, width as usize, height as usize, &mut flow_ctx);
                         let is_cut = is_cut_diff || (flow.mean_magnitude() > 8.0);
 
                         let center = if config.pov_mode {
@@ -274,51 +307,78 @@ impl BatchWorker {
                         let radial_dot = tracking::project_radial_motion(&flow, center, is_cut, config.pov_mode, true);
                         all_samples.push((radial_dot, is_cut, ts));
 
-                        if let (Some(ref mut det), Some(ref mut trk)) = (&mut detector, &mut tracker) {
+                        if let (Some(det), Some(ref mut trk)) = (detector.as_mut(), &mut tracker) {
                             let detections = det.detect(&curr_raw, width as usize, height as usize)?;
                             let (pose, _) = trk.update_pose(&detections, Some(&flow));
                             neural_poses.push((pose, ts));
                         }
 
-                        last_raw = curr_raw;
+                        // Advance state for next iteration: avoid redundant cloning and re-conversion
+                        if stream_cfg.is_rgb {
+                            last_gray = curr_gray;
+                        } else {
+                            std::mem::swap(&mut last_raw, &mut curr_raw);
+                        }
                     }
 
                     let mut bundle = MultiAxisScript::new();
 
                     if config.model_path.is_some() && !neural_poses.is_empty() {
-                        let timestamps: Vec<i64> = neural_poses.iter().map(|(_, ts)| *ts).collect();
-                        let stroke_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.stroke).collect();
+                        // Optimization: Single-pass multi-channel extraction to populate
+                        // all axis vectors simultaneously rather than iterating over neural_poses 8 separate times.
+                        let n = neural_poses.len();
+                        let mut timestamps = Vec::with_capacity(n);
+                        let mut stroke_values = Vec::with_capacity(n);
+                        let mut surge_values = if config.multi_axis { Vec::with_capacity(n) } else { Vec::new() };
+                        let mut sway_values = if config.multi_axis { Vec::with_capacity(n) } else { Vec::new() };
+                        let mut pitch_values = if config.multi_axis { Vec::with_capacity(n) } else { Vec::new() };
+                        let mut roll_values = if config.multi_axis { Vec::with_capacity(n) } else { Vec::new() };
+                        let mut twist_values = if config.multi_axis { Vec::with_capacity(n) } else { Vec::new() };
+                        let mut suction_values = if config.multi_axis { Vec::with_capacity(n) } else { Vec::new() };
+
+                        if config.multi_axis {
+                            for (p, ts) in &neural_poses {
+                                timestamps.push(*ts);
+                                stroke_values.push(p.stroke);
+                                surge_values.push(p.surge);
+                                sway_values.push(p.sway);
+                                pitch_values.push(p.pitch);
+                                roll_values.push(p.roll);
+                                twist_values.push(p.twist);
+                                suction_values.push(p.suction);
+                            }
+                        } else {
+                            for (p, ts) in &neural_poses {
+                                timestamps.push(*ts);
+                                stroke_values.push(p.stroke);
+                            }
+                        }
+
                         let mut stroke_script = Funscript::new(signal::extract_actions(&stroke_values, &timestamps, true));
                         stroke_script.sanitize();
                         bundle.channels.insert(AxisChannel::Stroke, stroke_script);
 
                         if config.multi_axis {
-                            let surge_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.surge).collect();
                             let mut surge_script = Funscript::new(signal::extract_actions(&surge_values, &timestamps, true));
                             surge_script.sanitize();
                             bundle.channels.insert(AxisChannel::Surge, surge_script);
 
-                            let sway_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.sway).collect();
                             let mut sway_script = Funscript::new(signal::extract_actions(&sway_values, &timestamps, true));
                             sway_script.sanitize();
                             bundle.channels.insert(AxisChannel::Sway, sway_script);
 
-                            let pitch_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.pitch).collect();
                             let mut pitch_script = Funscript::new(signal::extract_actions(&pitch_values, &timestamps, true));
                             pitch_script.sanitize();
                             bundle.channels.insert(AxisChannel::Pitch, pitch_script);
 
-                            let roll_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.roll).collect();
                             let mut roll_script = Funscript::new(signal::extract_actions(&roll_values, &timestamps, true));
                             roll_script.sanitize();
                             bundle.channels.insert(AxisChannel::Roll, roll_script);
 
-                            let twist_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.twist).collect();
                             let mut twist_script = Funscript::new(signal::extract_actions(&twist_values, &timestamps, true));
                             twist_script.sanitize();
                             bundle.channels.insert(AxisChannel::Twist, twist_script);
 
-                            let suction_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.suction).collect();
                             let mut suction_script = Funscript::new(signal::extract_actions(&suction_values, &timestamps, true));
                             suction_script.sanitize();
                             bundle.channels.insert(AxisChannel::Suction, suction_script);
@@ -457,5 +517,45 @@ mod tests {
 
         let _ = fs::remove_file(vid);
         let _ = fs::remove_dir(temp_dir);
+    }
+
+    #[test]
+    fn test_batch_worker_with_invalid_model_path() {
+        let mut worker = BatchWorker::new();
+        let job = BatchJob {
+            id: 42,
+            video_path: PathBuf::from("nonexistent.mp4"),
+            output_path: PathBuf::from("nonexistent.funscript"),
+            status: BatchJobStatus::Queued,
+        };
+
+        let mut cfg = BatchJobConfig::default();
+        cfg.model_path = Some(PathBuf::from("definitely_nonexistent_model.onnx"));
+
+        worker.start(vec![job], cfg);
+
+        let mut got_failed = false;
+        let mut got_all_completed = false;
+        let start_time = std::time::Instant::now();
+        while start_time.elapsed().as_secs() < 5 {
+            if let Ok(msg) = worker.rx.recv_timeout(std::time::Duration::from_millis(200)) {
+                match msg {
+                    BatchProgressUpdate::JobFailed { id, error } => {
+                        assert_eq!(id, 42);
+                        assert!(error.contains("Failed to initialize neural detector"));
+                        got_failed = true;
+                    }
+                    BatchProgressUpdate::AllJobsCompleted => {
+                        got_all_completed = true;
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        assert!(got_failed);
+        assert!(got_all_completed);
+        worker.stop();
     }
 }

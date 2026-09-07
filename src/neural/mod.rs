@@ -28,6 +28,8 @@ impl NeuralDetector {
         let session = builder
             .with_intra_threads(4)
             .map_err(|e| anyhow::anyhow!("Failed to configure thread count: {e}"))?
+            .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Level3)
+            .map_err(|e| anyhow::anyhow!("Failed to configure optimization level: {e}"))?
             .commit_from_file(&path_buf)
             .map_err(|e| anyhow::anyhow!("Failed to load ONNX model from {path_buf:?}: {e}"))?;
 

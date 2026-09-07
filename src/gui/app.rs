@@ -493,8 +493,11 @@ impl eframe::App for FunGenApp {
         self.render_about_dialog(ctx);
 
         // Request repaint if playing, generating, or running batch worker
-        if self.is_playing || self.is_generating || self.batch_worker.is_active() {
-            ctx.request_repaint();
+        if self.is_playing {
+            ctx.request_repaint(); // Immediate for smooth 60 FPS playback
+        } else if self.is_generating || self.batch_worker.is_active() {
+            // Cap progress spinner to 30 FPS to avoid pegging CPU at uncapped FPS
+            ctx.request_repaint_after(std::time::Duration::from_millis(33));
         }
     }
 }
@@ -730,8 +733,8 @@ impl FunGenApp {
     fn update_video_texture(&mut self, ctx: &EguiContext) {
         self.poll_video_frames(ctx);
 
-        let video_path = match self.video_path.as_ref() {
-            Some(p) => p.clone(),
+        let video_path_ref = match self.video_path.as_ref() {
+            Some(p) => p,
             None => return,
         };
 
@@ -741,21 +744,14 @@ impl FunGenApp {
             return;
         }
 
-        // Fast path: reuse recently decoded frame from LRU cache
-        if let Some((_, cached_tex)) = self.video_frame_cache.iter().find(|(ts, _)| (*ts - cur_time).abs() <= 35) {
-            self.video_texture = Some(cached_tex.clone());
-            self.last_video_frame_ts = cur_time;
-            return;
-        }
-
-        let w = 480;
-        let h = 270;
+        let w = 480u32;
+        let h = 270u32;
 
         // High-performance streaming path: query buffered background PlaybackStreamer (zero process spawns)
         if self.playback_streamer.is_none() {
             let fps = self.target_fps.max(12.0);
             self.playback_streamer = Some(crate::video::PlaybackStreamer::new(
-                &video_path,
+                video_path_ref,
                 w,
                 h,
                 fps,
@@ -766,16 +762,16 @@ impl FunGenApp {
         if let Some(ref streamer) = self.playback_streamer {
             if let Some((ts, rgb_data)) = streamer.get_frame(cur_time) {
                 let color_image = egui::ColorImage::from_rgb([w as usize, h as usize], &rgb_data);
-                let texture = ctx.load_texture(
-                    "current_video_frame",
-                    color_image,
-                    egui::TextureOptions::LINEAR,
-                );
-                if self.video_frame_cache.len() >= 32 {
-                    self.video_frame_cache.pop_front();
+                // Reuse single persistent GPU texture handle — eliminates per-frame allocation/destruction
+                if let Some(ref mut tex) = self.video_texture {
+                    tex.set(color_image, egui::TextureOptions::LINEAR);
+                } else {
+                    self.video_texture = Some(ctx.load_texture(
+                        "current_video_frame",
+                        color_image,
+                        egui::TextureOptions::LINEAR,
+                    ));
                 }
-                self.video_frame_cache.push_back((ts, texture.clone()));
-                self.video_texture = Some(texture);
                 self.last_video_frame_ts = ts;
                 self.video_pending_req_ts = None;
                 ctx.request_repaint();
@@ -790,6 +786,8 @@ impl FunGenApp {
             }
         }
 
+        // Borrow path for fallback worker request
+        let video_path = video_path_ref.clone();
         let tx = self.ensure_video_worker();
         let _ = tx.send(VideoFrameRequest {
             path: video_path,
@@ -905,15 +903,14 @@ impl FunGenApp {
 
             // Hardware Kinematics & T-Code Streaming
             let positions = self.evaluate_current_positions();
-            let limits = self.device_profile.limits.clone();
-            self.kinematic_state.update(&positions, self.timeline_state.cursor_time_ms, &limits);
+            let limits = &self.device_profile.limits;
+            self.kinematic_state.update(&positions, self.timeline_state.cursor_time_ms, limits);
             self.thermal_model.step(dt_secs as f32, self.kinematic_state.instantaneous_speed, self.kinematic_state.instantaneous_accel);
 
             let interval_ms = (dt_secs * 1000.0).round().max(10.0) as u32;
-            let tcode = format_tcode_v03(&positions, Some(interval_ms));
-            self.last_tcode_string = tcode.clone();
+            self.last_tcode_string = format_tcode_v03(&positions, Some(interval_ms));
             if self.sync_udp_enabled {
-                self.tcode_dispatcher.send(&tcode);
+                self.tcode_dispatcher.send(&self.last_tcode_string);
             }
 
             // The Handy Hardware Streaming
@@ -2262,6 +2259,7 @@ impl FunGenApp {
                     None
                 };
 
+                let mut flow_ctx = crate::tracking::FlowScratchContext::new(width as usize, height as usize);
                 let mut frame_count = 0;
                 while let Some((curr_raw, ts)) = stream.next_frame()? {
                     frame_count += 1;
@@ -2285,7 +2283,7 @@ impl FunGenApp {
                     };
 
                     let is_cut_diff = crate::tracking::detect_cut_photometric(&last_gray, &curr_gray, 30.0);
-                    let flow = crate::tracking::compute_dense_flow(&last_gray, &curr_gray, width as usize, height as usize);
+                    let flow = crate::tracking::compute_dense_flow(&last_gray, &curr_gray, width as usize, height as usize, &mut flow_ctx);
                     let is_cut = is_cut_diff || (flow.mean_magnitude() > 8.0);
 
                     let center = if pov {

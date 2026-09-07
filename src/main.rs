@@ -1,3 +1,7 @@
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 mod audio;
 mod batch;
 mod funscript;
@@ -417,7 +421,7 @@ fn run_generate(
     height: u32,
     _detrend_window: f64,
     _norm_window: f64,
-    batch_size: usize,
+    _batch_size: usize,
     vr_mode: bool,
     pov_mode: bool,
     balance_global: bool,
@@ -493,89 +497,155 @@ fn run_generate(
 
     let mut all_samples: Vec<(f32, bool, i64)> = Vec::new();
     let mut neural_poses: Vec<(crate::neural::Pose3D, i64)> = Vec::new();
-    let mut frame_batch: Vec<(Vec<u8>, i64)> = Vec::with_capacity(batch_size);
+
+    let mut flow_ctx = crate::tracking::FlowScratchContext::new(0, 0);
+
+    // Helper for 2x2 average downscale to 256x256
+    fn downscale_to_256(input: &[u8], width: usize, height: usize) -> Vec<u8> {
+        let mut out = vec![0; 256 * 256];
+        let dx = width as f32 / 256.0;
+        let dy = height as f32 / 256.0;
+        for y in 0..256 {
+            for x in 0..256 {
+                let sx = (x as f32 * dx) as usize;
+                let sy = (y as f32 * dy) as usize;
+                let sx2 = (sx + 1).min(width - 1);
+                let sy2 = (sy + 1).min(height - 1);
+                
+                let i0 = sy * width + sx;
+                let i1 = sy * width + sx2;
+                let i2 = sy2 * width + sx;
+                let i3 = sy2 * width + sx2;
+                
+                let v = (input[i0] as u16 + input[i1] as u16 + input[i2] as u16 + input[i3] as u16) / 4;
+                out[y * 256 + x] = v as u8;
+            }
+        }
+        out
+    }
+
+    struct BufferedFrame {
+        raw: Option<Vec<u8>>,
+        ts: i64,
+        flow: crate::tracking::FlowField,
+        center: (f32, f32),
+        is_cut: bool,
+    }
+
+    let mut window: Vec<BufferedFrame> = Vec::with_capacity(14);
+    
+    // Process a frame at target_idx in the window
+    let emit_frame = |target_idx: usize, window: &[BufferedFrame], all_samples: &mut Vec<_>, neural_poses: &mut Vec<_>, detector: &mut Option<NeuralDetector>, tracker: &mut Option<AnatomicalTracker>| -> Result<()> {
+        let centers: Vec<_> = window.iter().map(|w| w.center).collect();
+        let filtered = filter_centers_median(&centers, 6);
+        let target_center = filtered[target_idx];
+        
+        let frame = &window[target_idx];
+        let dot = project_adaptive_motion(&frame.flow, target_center, frame.is_cut, pov_mode, balance_global);
+        all_samples.push((dot, frame.is_cut, frame.ts));
+        
+        if let (Some(det), Some(trk)) = (detector, tracker) {
+            if let Some(raw_frame) = &frame.raw {
+                let detections = det.detect(raw_frame, width as usize, height as usize)?;
+                let (pose, _) = trk.update_pose(&detections, Some(&frame.flow));
+                neural_poses.push((pose, frame.ts));
+            }
+        }
+        Ok(())
+    };
 
     // Seed first frame
-    let first = stream.next_frame()?.context("Video stream returned zero frames")?;
-    let mut last_raw = first.0;
+    let (mut last_raw, _first_ts) = stream.next_frame()?.context("Video stream returned zero frames")?;
+    let mut last_gray = if stream_cfg.is_rgb { Some(rgb_to_gray(&last_raw)) } else { None };
+    let mut last_flow_gray = if is_neural {
+        let ref_frame = last_gray.as_ref().unwrap_or(&last_raw);
+        Some(downscale_to_256(ref_frame, width as usize, height as usize))
+    } else {
+        None
+    };
 
     let mut total_processed = 0u64;
 
-    loop {
-        frame_batch.clear();
-        while frame_batch.len() < batch_size {
-            match stream.next_frame()? {
-                Some(f) => frame_batch.push(f),
-                None => break,
-            }
+    while let Some((mut curr_raw, curr_ts)) = stream.next_frame()? {
+        let curr_gray = if stream_cfg.is_rgb { Some(rgb_to_gray(&curr_raw)) } else { None };
+        let curr_flow_gray = if is_neural {
+            let ref_frame = curr_gray.as_ref().unwrap_or(&curr_raw);
+            Some(downscale_to_256(ref_frame, width as usize, height as usize))
+        } else {
+            None
+        };
+
+        let flow_w = if is_neural { 256 } else { width as usize };
+        let flow_h = if is_neural { 256 } else { height as usize };
+
+        let (prev_ref, curr_ref) = if is_neural {
+            (last_flow_gray.as_ref().unwrap().as_slice(), curr_flow_gray.as_ref().unwrap().as_slice())
+        } else if stream_cfg.is_rgb {
+            (last_gray.as_ref().unwrap().as_slice(), curr_gray.as_ref().unwrap().as_slice())
+        } else {
+            (last_raw.as_slice(), curr_raw.as_slice())
+        };
+
+        let is_cut_diff = detect_cut_photometric(prev_ref, curr_ref, cut_diff_threshold);
+        let flow = compute_dense_flow(prev_ref, curr_ref, flow_w, flow_h, &mut flow_ctx).clone();
+        let is_cut = is_cut_diff && (flow.mean_magnitude() > cut_flow_threshold);
+
+        let center = if pov_mode {
+            ((flow_w / 2) as f32, (flow_h - 1) as f32)
+        } else {
+            let (cx, cy, _) = find_divergence_center(&flow);
+            (cx, cy)
+        };
+
+        let frame_raw = if is_neural {
+            std::mem::take(&mut curr_raw)
+        } else {
+            Vec::new()
+        };
+
+        window.push(BufferedFrame {
+            raw: if is_neural { Some(frame_raw) } else { None },
+            ts: curr_ts,
+            flow,
+            center,
+            is_cut,
+        });
+
+        // Advance state
+        if stream_cfg.is_rgb {
+            last_gray = curr_gray;
+        } else {
+            std::mem::swap(&mut last_raw, &mut curr_raw);
+        }
+        if is_neural {
+            last_flow_gray = curr_flow_gray;
         }
 
-        if frame_batch.is_empty() {
-            break;
+        if window.len() == 13 {
+            emit_frame(6, &window, &mut all_samples, &mut neural_poses, &mut neural_detector, &mut anatomical_tracker)?;
+            window.remove(0);
+            total_processed += 1;
+        } else if window.len() >= 7 {
+            let emit_idx = window.len() - 7;
+            emit_frame(emit_idx, &window, &mut all_samples, &mut neural_poses, &mut neural_detector, &mut anatomical_tracker)?;
+            total_processed += 1;
         }
 
-        let batch_len = frame_batch.len();
-
-        // 1. Process consecutive frame pairs in batch
-        let mut raw_flows = Vec::with_capacity(batch_len);
-        let mut raw_centers = Vec::with_capacity(batch_len);
-        let mut cuts = Vec::with_capacity(batch_len);
-
-        for (curr_raw, _curr_ts) in &frame_batch {
-            let (last_gray, curr_gray) = if stream_cfg.is_rgb {
-                (
-                    rgb_to_gray(&last_raw),
-                    rgb_to_gray(curr_raw),
-                )
-            } else {
-                (last_raw.clone(), curr_raw.clone())
-            };
-
-            let is_cut_diff = detect_cut_photometric(&last_gray, &curr_gray, cut_diff_threshold);
-            let flow = compute_dense_flow(&last_gray, &curr_gray, width as usize, height as usize);
-            let is_cut = is_cut_diff && (flow.mean_magnitude() > cut_flow_threshold);
-
-            let center = if pov_mode {
-                ((width / 2) as f32, (height - 1) as f32)
-            } else {
-                let (cx, cy, _) = find_divergence_center(&flow);
-                (cx, cy)
-            };
-
-            raw_flows.push(flow);
-            raw_centers.push(center);
-            cuts.push(is_cut);
-
-            last_raw = curr_raw.clone();
+        if total_processed % 10 == 0 {
+            pb.set_position(total_processed);
+            pb.set_message(format!("{:.1}x speed", (total_processed as f64 / effective_fps) / t0.elapsed().as_secs_f64()));
         }
+    }
 
-        // 2. Filter center outliers
-        let filtered_centers = filter_centers_median(&raw_centers, 6);
-
-        // 3. Project adaptive motions & execute neural tracking if active
-        for j in 0..batch_len {
-            let (ref raw_frame, ts) = frame_batch[j];
-            let dot = project_adaptive_motion(
-                &raw_flows[j],
-                filtered_centers[j],
-                cuts[j],
-                pov_mode,
-                balance_global,
-            );
-            all_samples.push((dot, cuts[j], ts));
-
-            if let (Some(ref mut detector), Some(ref mut tracker)) =
-                (&mut neural_detector, &mut anatomical_tracker)
-            {
-                let detections = detector.detect(raw_frame, width as usize, height as usize)?;
-                let (pose, _) = tracker.update_pose(&detections, Some(&raw_flows[j]));
-                neural_poses.push((pose, ts));
-            }
+    // Flush remaining
+    let remaining = window.len();
+    if remaining > 0 {
+        let start_idx = if remaining >= 7 { remaining - 6 } else { 0 };
+        for i in start_idx..remaining {
+            emit_frame(i, &window, &mut all_samples, &mut neural_poses, &mut neural_detector, &mut anatomical_tracker)?;
+            total_processed += 1;
         }
-
-        total_processed += batch_len as u64;
         pb.set_position(total_processed);
-        pb.set_message(format!("{:.1}x speed", (total_processed as f64 / effective_fps) / t0.elapsed().as_secs_f64()));
     }
 
     pb.finish_with_message("Tracking complete");

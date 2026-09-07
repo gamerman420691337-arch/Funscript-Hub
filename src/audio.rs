@@ -1,7 +1,7 @@
 //! Audio extraction and multi-band waveform analysis for timeline visualization.
 
 use anyhow::{Context, Result};
-use std::io::Read;
+use std::io::{BufReader, Read};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -97,6 +97,8 @@ pub fn extract_audio_waveform<P: AsRef<Path>>(video_path: P) -> Result<AudioWave
         .arg(video_path.as_ref())
         .args([
             "-vn",
+            "-sn",
+            "-dn",
             "-ac",
             "1",
             "-ar",
@@ -114,39 +116,59 @@ pub fn extract_audio_waveform<P: AsRef<Path>>(video_path: P) -> Result<AudioWave
         .stdout
         .as_mut()
         .context("Failed to open ffmpeg audio stdout")?;
-    let mut raw_bytes = Vec::new();
-    stdout.read_to_end(&mut raw_bytes)?;
+    let mut reader = BufReader::new(stdout);
+
+    // Streaming RMS computation: process chunks of `samples_per_bin * 2` bytes (160 bytes) directly from stdout,
+    // avoiding large intermediate memory buffers for raw audio bytes and sample vectors.
+    let chunk_size = samples_per_bin * 2;
+    let mut chunk_buf = vec![0u8; chunk_size];
+    let mut peaks = Vec::new();
+    let mut max_observed_rms = 0.001f32;
+
+    loop {
+        let mut bytes_read = 0;
+        while bytes_read < chunk_size {
+            match reader.read(&mut chunk_buf[bytes_read..chunk_size]) {
+                Ok(0) => break, // EOF reached
+                Ok(n) => bytes_read += n,
+                Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e.into()),
+            }
+        }
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        let num_samples = bytes_read / 2;
+        if num_samples > 0 {
+            let mut sum_sq = 0.0f64;
+            for chunk in chunk_buf[..num_samples * 2].chunks_exact(2) {
+                let val = i16::from_le_bytes([chunk[0], chunk[1]]);
+                let normalized = val as f64 / 32768.0;
+                sum_sq += normalized * normalized;
+            }
+            let rms = (sum_sq / num_samples as f64).sqrt() as f32;
+            if rms > max_observed_rms {
+                max_observed_rms = rms;
+            }
+            peaks.push(rms);
+        }
+
+        if bytes_read < chunk_size {
+            break;
+        }
+    }
+
+    drop(reader);
     let status = child.wait()?;
 
     if !status.success() {
         anyhow::bail!("FFmpeg failed to extract audio from media");
     }
 
-    if raw_bytes.is_empty() {
+    if peaks.is_empty() {
         return Ok(AudioWaveform::default());
-    }
-
-    let num_samples = raw_bytes.len() / 2;
-    let mut samples = Vec::with_capacity(num_samples);
-    for chunk in raw_bytes.chunks_exact(2) {
-        let val = i16::from_le_bytes([chunk[0], chunk[1]]);
-        samples.push(val);
-    }
-
-    let mut peaks = Vec::with_capacity(num_samples / samples_per_bin + 1);
-    let mut max_observed_rms = 0.001f32;
-
-    for chunk in samples.chunks(samples_per_bin) {
-        let mut sum_sq = 0.0f64;
-        for &s in chunk {
-            let normalized = s as f64 / 32768.0;
-            sum_sq += normalized * normalized;
-        }
-        let rms = (sum_sq / chunk.len() as f64).sqrt() as f32;
-        if rms > max_observed_rms {
-            max_observed_rms = rms;
-        }
-        peaks.push(rms);
     }
 
     // Normalize peaks to [0.0, 1.0]

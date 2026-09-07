@@ -194,12 +194,18 @@ impl FrameStreamReader {
             "-nostdin",
             "-hwaccel",
             "auto",
+            // Fast probing: minimize startup latency
+            "-probesize", "32768",
+            "-analyzeduration", "0",
+            "-fflags", "+nobuffer+fastseek",
         ]);
         if start_time_secs > 0.01 {
             cmd.args(["-ss", &format!("{:.3}", start_time_secs)]);
         }
         cmd.arg("-i").arg(video_path.as_ref());
         cmd.args([
+            // Disable non-video streams
+            "-an", "-sn", "-dn",
             "-vf",
             &filter,
             "-f",
@@ -262,7 +268,7 @@ impl Drop for FrameStreamReader {
 /// High-performance buffered playback streamer that decodes frames sequentially
 /// in a background thread and keeps a bounded ring buffer for zero-latency UI display.
 pub struct PlaybackStreamer {
-    queue: Arc<Mutex<VecDeque<(i64, Vec<u8>)>>>,
+    queue: Arc<Mutex<VecDeque<(i64, Arc<Vec<u8>>)>>>,
     seek_target: Arc<AtomicI64>,
     stop_flag: Arc<AtomicBool>,
     _worker: JoinHandle<()>,
@@ -277,7 +283,7 @@ impl PlaybackStreamer {
         start_time_ms: i64,
     ) -> Self {
         let path = video_path.as_ref().to_path_buf();
-        let queue = Arc::new(Mutex::new(VecDeque::<(i64, Vec<u8>)>::with_capacity(64)));
+        let queue = Arc::new(Mutex::new(VecDeque::<(i64, Arc<Vec<u8>>)>::with_capacity(64)));
         let seek_target = Arc::new(AtomicI64::new(start_time_ms.max(0)));
         let stop_flag = Arc::new(AtomicBool::new(false));
 
@@ -330,7 +336,7 @@ impl PlaybackStreamer {
                     match reader.next_frame() {
                         Ok(Some((bytes, ts))) => {
                             if let Ok(mut q) = q_clone.lock() {
-                                q.push_back((ts, bytes));
+                                q.push_back((ts, Arc::new(bytes)));
                             }
                         }
                         Ok(None) => {
@@ -362,7 +368,8 @@ impl PlaybackStreamer {
 
     /// Retrieve the frame matching `target_time_ms`.
     /// Automatically advances the ring buffer and discards elapsed frames.
-    pub fn get_frame(&self, target_time_ms: i64) -> Option<(i64, Vec<u8>)> {
+    /// Returns Arc-wrapped frame data for zero-copy sharing with the GUI.
+    pub fn get_frame(&self, target_time_ms: i64) -> Option<(i64, Arc<Vec<u8>>)> {
         let mut q = self.queue.lock().ok()?;
 
         // If target is significantly behind what's queued, auto-seek backwards
@@ -388,7 +395,7 @@ impl PlaybackStreamer {
         // Return current front frame if it is within reasonable temporal range (within 250ms)
         if let Some((ts, rgb)) = q.front() {
             if (target_time_ms - *ts).abs() <= 250 {
-                return Some((*ts, rgb.clone()));
+                return Some((*ts, Arc::clone(rgb)));
             }
         }
 
@@ -437,7 +444,10 @@ pub fn extract_frame_at<P: AsRef<Path>>(
 
     let expected_bytes = (target_width * target_height * 3) as usize;
     if output.stdout.len() >= expected_bytes {
-        Ok(output.stdout[..expected_bytes].to_vec())
+        // Zero-copy: truncate the owned buffer instead of cloning
+        let mut buf = output.stdout;
+        buf.truncate(expected_bytes);
+        Ok(buf)
     } else {
         bail!(
             "Insufficient bytes returned by ffmpeg for frame at {}ms (expected {}, got {})",
