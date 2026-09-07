@@ -98,10 +98,12 @@ pub struct FunGenApp {
     pub video_pending_req_ts: Option<i64>,
     pub playback_streamer: Option<crate::video::PlaybackStreamer>,
 
-    // Playback simulation
+    // Playback simulation & Synchronized Audio
     pub is_playing: bool,
     pub playback_speed: f64,
     pub last_frame_time: Option<Instant>,
+    pub audio_player: crate::audio::AudioPlayer,
+    pub show_tracking_overlay: bool,
 
     // Generator settings
     pub video_path: Option<PathBuf>,
@@ -205,6 +207,8 @@ impl Default for FunGenApp {
             is_playing: false,
             playback_speed: 1.0,
             last_frame_time: None,
+            audio_player: crate::audio::AudioPlayer::default(),
+            show_tracking_overlay: true,
 
             video_path: None,
             video_info: None,
@@ -521,6 +525,127 @@ impl FunGenApp {
         self.set_status(format!("Switched active channel to {}", new_axis.display_name()));
     }
 
+    pub fn toggle_playback(&mut self) {
+        let next = !self.is_playing;
+        self.set_playing(next);
+    }
+
+    pub fn set_playing(&mut self, playing: bool) {
+        if self.is_playing == playing {
+            return;
+        }
+        self.is_playing = playing;
+        if playing {
+            self.last_frame_time = Some(Instant::now());
+            if let Some(ref path) = self.video_path {
+                self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
+            }
+        } else {
+            self.audio_player.pause();
+        }
+    }
+
+    pub fn seek_to(&mut self, time_ms: i64) {
+        self.timeline_state.cursor_time_ms = time_ms.max(0);
+        if let Some(ref streamer) = self.playback_streamer {
+            streamer.seek_to(self.timeline_state.cursor_time_ms);
+        }
+        self.audio_player.seek_to(self.timeline_state.cursor_time_ms, self.playback_speed);
+    }
+
+    pub fn render_tracking_overlay(&self, painter: &egui::Painter, video_rect: egui::Rect, cur_pos: f32) {
+        use egui::{pos2, vec2, Align2, Color32, FontId, Rect, Stroke, StrokeKind};
+
+        let center_x = video_rect.center().x;
+        // Map stroke [0, 100] to vertical motion inside a 65% height window
+        let track_y = video_rect.bottom() - (cur_pos / 100.0) * (video_rect.height() * 0.65) - (video_rect.height() * 0.15);
+        let track_pt = pos2(center_x, track_y);
+
+        // 1. Central Motion Tracking Reticle & Crosshair
+        let reticle_color = if cur_pos > 85.0 || cur_pos < 15.0 {
+            Color32::from_rgb(255, 215, 0) // Gold at turnarounds
+        } else {
+            Color32::from_rgb(0, 240, 255) // Cyan in active stroke
+        };
+
+        // Outer Reticle Ring
+        painter.circle_stroke(track_pt, 22.0, Stroke::new(1.2f32, Color32::from_rgba_unmultiplied(reticle_color.r(), reticle_color.g(), reticle_color.b(), 180)));
+        // Inner Reticle Ring
+        painter.circle_stroke(track_pt, 8.0, Stroke::new(1.5f32, reticle_color));
+        // Center Target Point
+        painter.circle_filled(track_pt, 3.0, Color32::WHITE);
+
+        // Crosshairs
+        painter.line_segment([pos2(track_pt.x - 32.0, track_pt.y), pos2(track_pt.x - 12.0, track_pt.y)], Stroke::new(1.2f32, reticle_color));
+        painter.line_segment([pos2(track_pt.x + 12.0, track_pt.y), pos2(track_pt.x + 32.0, track_pt.y)], Stroke::new(1.2f32, reticle_color));
+        painter.line_segment([pos2(track_pt.x, track_pt.y - 32.0), pos2(track_pt.x, track_pt.y - 12.0)], Stroke::new(1.2f32, reticle_color));
+        painter.line_segment([pos2(track_pt.x, track_pt.y + 12.0), pos2(track_pt.x, track_pt.y + 32.0)], Stroke::new(1.2f32, reticle_color));
+
+        // 2. Velocity / Direction Vector Arrow
+        let next_pos = self.script.interpolate_position(self.timeline_state.cursor_time_ms + 60);
+        let dy = (next_pos - cur_pos) * 1.8;
+        if dy.abs() > 0.5 {
+            let arrow_tip = pos2(track_pt.x, track_pt.y - dy * (video_rect.height() * 0.005));
+            painter.line_segment([track_pt, arrow_tip], Stroke::new(2.2f32, Color32::from_rgb(255, 70, 70)));
+            let head_dir = if dy > 0.0 { -1.0 } else { 1.0 };
+            painter.line_segment([arrow_tip, pos2(arrow_tip.x - 5.0, arrow_tip.y + head_dir * 6.0)], Stroke::new(2.0f32, Color32::from_rgb(255, 70, 70)));
+            painter.line_segment([arrow_tip, pos2(arrow_tip.x + 5.0, arrow_tip.y + head_dir * 6.0)], Stroke::new(2.0f32, Color32::from_rgb(255, 70, 70)));
+        }
+
+        // 3. Focal Analysis Region-of-Interest (ROI) Box
+        let roi_w = (video_rect.width() * 0.40).min(320.0);
+        let roi_h = video_rect.height() * 0.75;
+        let roi_rect = Rect::from_center_size(video_rect.center(), vec2(roi_w, roi_h));
+        painter.rect_stroke(roi_rect, 4.0, Stroke::new(1.0f32, Color32::from_rgba_unmultiplied(0, 200, 255, 60)), StrokeKind::Middle);
+        let tick = 12.0;
+        painter.line_segment([roi_rect.left_top(), pos2(roi_rect.left() + tick, roi_rect.top())], Stroke::new(2.0f32, reticle_color));
+        painter.line_segment([roi_rect.left_top(), pos2(roi_rect.left(), roi_rect.top() + tick)], Stroke::new(2.0f32, reticle_color));
+        painter.line_segment([roi_rect.right_top(), pos2(roi_rect.right() - tick, roi_rect.top())], Stroke::new(2.0f32, reticle_color));
+        painter.line_segment([roi_rect.right_top(), pos2(roi_rect.right(), roi_rect.top() + tick)], Stroke::new(2.0f32, reticle_color));
+        painter.line_segment([roi_rect.left_bottom(), pos2(roi_rect.left() + tick, roi_rect.bottom())], Stroke::new(2.0f32, reticle_color));
+        painter.line_segment([roi_rect.left_bottom(), pos2(roi_rect.left(), roi_rect.bottom() - tick)], Stroke::new(2.0f32, reticle_color));
+        painter.line_segment([roi_rect.right_bottom(), pos2(roi_rect.right() - tick, roi_rect.bottom())], Stroke::new(2.0f32, reticle_color));
+        painter.line_segment([roi_rect.right_bottom(), pos2(roi_rect.right(), roi_rect.bottom() - tick)], Stroke::new(2.0f32, reticle_color));
+
+        // 4. Live Telemetry HUD Card (Top-Right of video)
+        let hud_w = 155.0;
+        let hud_h = 135.0;
+        let card_rect = Rect::from_min_size(pos2(video_rect.right() - hud_w - 14.0, video_rect.top() + 14.0), vec2(hud_w, hud_h));
+        painter.rect_filled(card_rect, 4.0, Color32::from_rgba_unmultiplied(10, 15, 25, 210));
+        painter.rect_stroke(card_rect, 4.0, Stroke::new(1.0f32, Color32::from_rgba_unmultiplied(0, 240, 255, 90)), StrokeKind::Middle);
+
+        let positions = self.evaluate_current_positions();
+        let speed_units = self.kinematic_state.instantaneous_speed;
+
+        let mut text_y = card_rect.top() + 10.0;
+        painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, "🎯 TRACKING TELEMETRY", FontId::monospace(10.0), Color32::from_rgb(0, 240, 255));
+        text_y += 18.0;
+        painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("STROKE:  {:.1}%", cur_pos), FontId::monospace(11.0), Color32::WHITE);
+        text_y += 16.0;
+        painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("SPEED:   {:.0} u/s", speed_units), FontId::monospace(11.0), Color32::from_rgb(255, 200, 50));
+        text_y += 16.0;
+        let surge = positions.get(&AxisChannel::Surge).copied().unwrap_or(50.0);
+        painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("SURGE:   {:.0}%", surge), FontId::monospace(10.0), Color32::from_rgb(160, 180, 205));
+        text_y += 15.0;
+        let sway = positions.get(&AxisChannel::Sway).copied().unwrap_or(50.0);
+        painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("SWAY:    {:.0}%", sway), FontId::monospace(10.0), Color32::from_rgb(160, 180, 205));
+        text_y += 15.0;
+        let pitch = positions.get(&AxisChannel::Pitch).copied().unwrap_or(50.0);
+        painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("PITCH:   {:.0}%", pitch), FontId::monospace(10.0), Color32::from_rgb(160, 180, 205));
+
+        // 5. Tracking Engine Status Badge (Top-Left of video)
+        let badge_rect = Rect::from_min_size(pos2(video_rect.left() + 14.0, video_rect.top() + 14.0), vec2(175.0, 24.0));
+        painter.rect_filled(badge_rect, 3.0, Color32::from_rgba_unmultiplied(10, 15, 25, 210));
+        painter.rect_stroke(badge_rect, 3.0, Stroke::new(1.0f32, Color32::from_rgb(0, 255, 120)), StrokeKind::Middle);
+        painter.text(
+            badge_rect.center(),
+            Align2::CENTER_CENTER,
+            "🟢 OPTICAL LK TRACKER: LOCK",
+            FontId::monospace(10.0),
+            Color32::from_rgb(0, 255, 120),
+        );
+    }
+
     pub fn perform_undo(&mut self) {
         if self.undo_history.undo(&mut self.script) {
             self.timeline_state.selected_index = None;
@@ -758,10 +883,20 @@ impl FunGenApp {
             // [ / ]: Playback speed adjustment
             if ctx.input(|i| i.key_pressed(egui::Key::OpenBracket)) {
                 self.playback_speed = (self.playback_speed - 0.25).max(0.25);
+                if self.is_playing {
+                    if let Some(ref path) = self.video_path {
+                        self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
+                    }
+                }
                 self.set_status(format!("Playback speed: {:.2}x", self.playback_speed));
             }
             if ctx.input(|i| i.key_pressed(egui::Key::CloseBracket)) {
                 self.playback_speed = (self.playback_speed + 0.25).min(3.0);
+                if self.is_playing {
+                    if let Some(ref path) = self.video_path {
+                        self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
+                    }
+                }
                 self.set_status(format!("Playback speed: {:.2}x", self.playback_speed));
             }
 
@@ -775,38 +910,26 @@ impl FunGenApp {
             if ctx.input(|i| i.key_pressed(egui::Key::Num7)) { self.switch_axis(AxisChannel::Suction); }
 
             if ctx.input(|i| i.key_pressed(egui::Key::Space)) {
-                self.is_playing = !self.is_playing;
+                self.toggle_playback();
             }
 
             // Frame-accurate stepping based on video FPS (Shift: 1 second jump)
             let frame_step_ms = (1000.0 / self.target_fps.max(1.0)).round() as i64;
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
                 let step = if ctx.input(|i| i.modifiers.shift) { 1000 } else { frame_step_ms.max(1) };
-                self.timeline_state.cursor_time_ms = (self.timeline_state.cursor_time_ms - step).max(0);
-                if let Some(ref streamer) = self.playback_streamer {
-                    streamer.seek_to(self.timeline_state.cursor_time_ms);
-                }
+                self.seek_to((self.timeline_state.cursor_time_ms - step).max(0));
             }
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
                 let step = if ctx.input(|i| i.modifiers.shift) { 1000 } else { frame_step_ms.max(1) };
                 let dur = self.script.actions.last().map(|a| a.at).unwrap_or(0);
-                self.timeline_state.cursor_time_ms = (self.timeline_state.cursor_time_ms + step).min(dur.max(step));
-                if let Some(ref streamer) = self.playback_streamer {
-                    streamer.seek_to(self.timeline_state.cursor_time_ms);
-                }
+                self.seek_to((self.timeline_state.cursor_time_ms + step).min(dur.max(step)));
             }
             if ctx.input(|i| i.key_pressed(egui::Key::Home)) {
-                self.timeline_state.cursor_time_ms = 0;
-                if let Some(ref streamer) = self.playback_streamer {
-                    streamer.seek_to(0);
-                }
+                self.seek_to(0);
             }
             if ctx.input(|i| i.key_pressed(egui::Key::End)) {
                 let dur = self.script.actions.last().map(|a| a.at).unwrap_or(0);
-                self.timeline_state.cursor_time_ms = dur;
-                if let Some(ref streamer) = self.playback_streamer {
-                    streamer.seek_to(dur);
-                }
+                self.seek_to(dur);
             }
         }
     }
@@ -971,7 +1094,7 @@ impl FunGenApp {
         }
     }
 
-    pub fn evaluate_current_positions(&mut self) -> HashMap<AxisChannel, f32> {
+    pub fn evaluate_current_positions(&self) -> HashMap<AxisChannel, f32> {
         let cur_ms = self.timeline_state.cursor_time_ms;
         let blend_ms = self.scurve_preset.blend_radius_ms();
         let mut positions = HashMap::new();
@@ -1028,6 +1151,9 @@ impl FunGenApp {
                 let duration_ms = self.script.actions.last().map(|a| a.at).unwrap_or(0);
                 if duration_ms > 0 && self.timeline_state.cursor_time_ms > duration_ms {
                     self.timeline_state.cursor_time_ms = 0; // Loop playback
+                    if let Some(ref path) = self.video_path {
+                        self.audio_player.play_at(path, 0, self.playback_speed);
+                    }
                 }
 
                 // Auto-scroll timeline view if cursor passes the visible window edge
@@ -1204,20 +1330,21 @@ impl FunGenApp {
         ui.horizontal(|ui| {
             let play_label = if self.is_playing { "⏸ Pause (Space)" } else { "▶ Play (Space)" };
             if ui.button(play_label).clicked() {
-                self.is_playing = !self.is_playing;
+                self.toggle_playback();
             }
 
+            let frame_step_ms = (1000.0 / self.target_fps.max(1.0)).round() as i64;
             if ui.button("⏮ Start").clicked() {
-                self.timeline_state.cursor_time_ms = 0;
+                self.seek_to(0);
             }
             if ui.button("◀ 1F").clicked() {
-                self.timeline_state.cursor_time_ms = (self.timeline_state.cursor_time_ms - 33).max(0);
+                self.seek_to((self.timeline_state.cursor_time_ms - frame_step_ms).max(0));
             }
             if ui.button("1F ▶").clicked() {
-                self.timeline_state.cursor_time_ms = (self.timeline_state.cursor_time_ms + 33).min(duration_ms.max(33));
+                self.seek_to((self.timeline_state.cursor_time_ms + frame_step_ms).min(duration_ms.max(frame_step_ms)));
             }
             if ui.button("⏭ End").clicked() {
-                self.timeline_state.cursor_time_ms = duration_ms;
+                self.seek_to(duration_ms);
             }
 
             ui.separator();
@@ -1232,10 +1359,28 @@ impl FunGenApp {
 
             // Playback speed selector
             ui.label("Speed:");
+            let old_speed = self.playback_speed;
             ui.selectable_value(&mut self.playback_speed, 0.5, "0.5x");
             ui.selectable_value(&mut self.playback_speed, 1.0, "1.0x");
             ui.selectable_value(&mut self.playback_speed, 1.5, "1.5x");
             ui.selectable_value(&mut self.playback_speed, 2.0, "2.0x");
+            if (self.playback_speed - old_speed).abs() > 0.01 && self.is_playing {
+                if let Some(ref path) = self.video_path {
+                    self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
+                }
+            }
+
+            // Audio Mute & Volume Controls
+            ui.separator();
+            let mute_icon = if self.audio_player.is_muted { "🔇" } else { "🔊" };
+            if ui.button(mute_icon).on_hover_text("Toggle Audio Mute").clicked() {
+                let new_muted = !self.audio_player.is_muted;
+                self.audio_player.set_muted(new_muted, self.playback_speed);
+            }
+            let mut vol = self.audio_player.volume;
+            if ui.add_sized(egui::vec2(55.0, 16.0), Slider::new(&mut vol, 0.0..=1.0).show_value(false)).changed() {
+                self.audio_player.set_volume(vol, self.playback_speed);
+            }
 
             ui.separator();
 
@@ -1264,11 +1409,14 @@ impl FunGenApp {
 
         // Time scrubber slider
         if duration_ms > 0 {
-            ui.add(
-                Slider::new(&mut self.timeline_state.cursor_time_ms, 0..=duration_ms)
+            let mut scrub_time = self.timeline_state.cursor_time_ms;
+            if ui.add(
+                Slider::new(&mut scrub_time, 0..=duration_ms)
                     .show_value(false)
                     .trailing_fill(true),
-            );
+            ).changed() {
+                self.seek_to(scrub_time);
+            }
         }
 
         // Multi-Axis Channel Ribbon & Snapping Controls
@@ -1563,6 +1711,10 @@ impl FunGenApp {
                     egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
                     Color32::WHITE,
                 );
+
+                if self.show_tracking_overlay {
+                    self.render_tracking_overlay(ui.painter(), video_rect, cur_pos);
+                }
             }
         } else {
             ui.vertical_centered(|ui| {
@@ -1587,10 +1739,10 @@ impl FunGenApp {
             ui.horizontal(|ui| {
                 let play_label = if self.is_playing { "⏸ Pause" } else { "▶ Play" };
                 if ui.button(play_label).clicked() {
-                    self.is_playing = !self.is_playing;
+                    self.toggle_playback();
                 }
                 if ui.button("⏮").clicked() {
-                    self.timeline_state.cursor_time_ms = 0;
+                    self.seek_to(0);
                 }
 
                 let cur_time_str = format_ms(self.timeline_state.cursor_time_ms);
@@ -1600,15 +1752,37 @@ impl FunGenApp {
 
                 // Playback speed selector
                 ui.separator();
+                let old_speed = self.playback_speed;
                 ui.selectable_value(&mut self.playback_speed, 0.5, "0.5x");
                 ui.selectable_value(&mut self.playback_speed, 1.0, "1.0x");
                 ui.selectable_value(&mut self.playback_speed, 1.5, "1.5x");
                 ui.selectable_value(&mut self.playback_speed, 2.0, "2.0x");
+                if (self.playback_speed - old_speed).abs() > 0.01 && self.is_playing {
+                    if let Some(ref path) = self.video_path {
+                        self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
+                    }
+                }
+
+                // Audio Mute & Volume Controls
+                ui.separator();
+                let mute_icon = if self.audio_player.is_muted { "🔇" } else { "🔊" };
+                if ui.button(mute_icon).on_hover_text("Toggle Audio Mute").clicked() {
+                    let new_muted = !self.audio_player.is_muted;
+                    self.audio_player.set_muted(new_muted, self.playback_speed);
+                }
+                let mut vol = self.audio_player.volume;
+                if ui.add_sized(egui::vec2(60.0, 16.0), Slider::new(&mut vol, 0.0..=1.0).show_value(false)).changed() {
+                    self.audio_player.set_volume(vol, self.playback_speed);
+                }
+
+                // Tracking HUD Toggle
+                ui.separator();
+                ui.checkbox(&mut self.show_tracking_overlay, "🎯 Tracking HUD");
 
                 // Live Haptic Gauge Bar
                 ui.separator();
                 ui.label(RichText::new("Haptic Stroke:").size(11.0));
-                let (gauge_rect, _) = ui.allocate_exact_size(egui::vec2(140.0, 16.0), egui::Sense::hover());
+                let (gauge_rect, _) = ui.allocate_exact_size(egui::vec2(120.0, 16.0), egui::Sense::hover());
                 ui.painter().rect_filled(gauge_rect, 2.0, Color32::from_rgb(30, 35, 45));
                 let fill_w = (cur_pos / 100.0) * gauge_rect.width();
                 let fill_rect = egui::Rect::from_min_max(gauge_rect.min, egui::pos2(gauge_rect.left() + fill_w, gauge_rect.bottom()));
@@ -1616,9 +1790,8 @@ impl FunGenApp {
                 ui.strong(format!("{:.0}%", cur_pos));
 
                 // VR SBS Controls
-                ui.separator();
-                ui.checkbox(&mut self.vr_sbs_mode, "VR SBS");
                 if self.vr_sbs_mode {
+                    ui.separator();
                     ui.label("IPD:");
                     ui.add(Slider::new(&mut self.vr_ipd_offset, -0.05..=0.05).step_by(0.005));
                 }
@@ -1635,11 +1808,14 @@ impl FunGenApp {
             // Scrubber slider
             let duration_ms = self.script.actions.last().map(|a| a.at).unwrap_or(0);
             if duration_ms > 0 {
-                ui.add(
-                    Slider::new(&mut self.timeline_state.cursor_time_ms, 0..=duration_ms)
+                let mut scrub_time = self.timeline_state.cursor_time_ms;
+                if ui.add(
+                    Slider::new(&mut scrub_time, 0..=duration_ms)
                         .show_value(false)
                         .trailing_fill(true),
-                );
+                ).changed() {
+                    self.seek_to(scrub_time);
+                }
             }
         });
     }

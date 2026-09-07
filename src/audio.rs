@@ -181,6 +181,149 @@ pub fn extract_audio_waveform<P: AsRef<Path>>(video_path: P) -> Result<AudioWave
     Ok(AudioWaveform::new(peaks, bins_per_sec))
 }
 
+use std::path::PathBuf;
+
+/// Synchronized audio player backed by ffplay subprocess
+#[derive(Debug)]
+pub struct AudioPlayer {
+    current_process: Option<std::process::Child>,
+    current_path: Option<PathBuf>,
+    pub volume: f32, // 0.0 to 1.0 (default 0.8)
+    pub is_muted: bool,
+    pub is_playing: bool,
+    current_time_ms: i64,
+}
+
+impl Default for AudioPlayer {
+    fn default() -> Self {
+        Self {
+            current_process: None,
+            current_path: None,
+            volume: 0.8,
+            is_muted: false,
+            is_playing: false,
+            current_time_ms: 0,
+        }
+    }
+}
+
+impl AudioPlayer {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Check if ffplay is available on the host system
+    #[allow(dead_code)]
+    pub fn is_backend_available() -> bool {
+        Command::new("ffplay")
+            .arg("-version")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+
+    /// Start or resume audio playback at the specified timestamp in milliseconds
+    pub fn play_at<P: AsRef<Path>>(&mut self, video_path: P, start_time_ms: i64, playback_speed: f64) {
+        self.stop();
+
+        let path = video_path.as_ref().to_path_buf();
+        self.current_path = Some(path.clone());
+        self.current_time_ms = start_time_ms.max(0);
+        self.is_playing = true;
+
+        if self.is_muted || self.volume <= 0.001 {
+            return;
+        }
+
+        let start_sec = (self.current_time_ms as f64 / 1000.0).max(0.0);
+        let vol_int = (self.volume * 100.0).round().clamp(0.0, 100.0) as i32;
+
+        let mut cmd = Command::new("ffplay");
+        cmd.args(["-nodisp", "-autoexit", "-vn", "-sn", "-dn"]);
+        cmd.arg("-ss").arg(format!("{:.3}", start_sec));
+        cmd.arg("-volume").arg(format!("{}", vol_int));
+
+        if (playback_speed - 1.0).abs() > 0.02 {
+            let speed_clamped = playback_speed.clamp(0.25, 4.0);
+            cmd.arg("-af").arg(format!("atempo={:.2}", speed_clamped));
+        }
+
+        cmd.arg("-i").arg(path);
+        cmd.stdout(Stdio::null());
+        cmd.stderr(Stdio::null());
+
+        match cmd.spawn() {
+            Ok(child) => {
+                self.current_process = Some(child);
+            }
+            Err(e) => {
+                eprintln!("[AudioPlayer] Failed to spawn ffplay: {e}");
+            }
+        }
+    }
+
+    /// Pause / stop current audio playback
+    pub fn pause(&mut self) {
+        self.stop();
+        self.is_playing = false;
+    }
+
+    /// Seek to a new timestamp. If currently playing, re-spawns at the new position.
+    pub fn seek_to(&mut self, time_ms: i64, playback_speed: f64) {
+        self.current_time_ms = time_ms.max(0);
+        if self.is_playing {
+            if let Some(path) = self.current_path.clone() {
+                self.play_at(path, self.current_time_ms, playback_speed);
+            }
+        } else {
+            self.stop();
+        }
+    }
+
+    /// Set playback volume (0.0 to 1.0)
+    pub fn set_volume(&mut self, vol: f32, playback_speed: f64) {
+        let clamped = vol.clamp(0.0, 1.0);
+        if (self.volume - clamped).abs() > 0.01 {
+            self.volume = clamped;
+            if self.is_playing && !self.is_muted {
+                if let Some(path) = self.current_path.clone() {
+                    self.play_at(path, self.current_time_ms, playback_speed);
+                }
+            }
+        }
+    }
+
+    /// Toggle mute
+    pub fn set_muted(&mut self, muted: bool, playback_speed: f64) {
+        if self.is_muted != muted {
+            self.is_muted = muted;
+            if self.is_playing {
+                if muted {
+                    self.stop();
+                } else if let Some(path) = self.current_path.clone() {
+                    self.play_at(path, self.current_time_ms, playback_speed);
+                }
+            }
+        }
+    }
+
+    /// Terminate background playback process
+    pub fn stop(&mut self) {
+        if let Some(mut child) = self.current_process.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+impl Drop for AudioPlayer {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,5 +367,26 @@ mod tests {
 
         // Query at 120ms with 35ms window -> within 20ms, snaps to 100ms
         assert_eq!(wf.find_nearest_transient(120, 35), Some(100));
+    }
+
+    #[test]
+    fn test_audio_player_state_transitions() {
+        let mut player = AudioPlayer::new();
+        assert!((player.volume - 0.8).abs() < 0.01);
+        assert!(!player.is_muted);
+        assert!(!player.is_playing);
+
+        player.set_volume(0.4, 1.0);
+        assert!((player.volume - 0.4).abs() < 0.01);
+
+        player.set_muted(true, 1.0);
+        assert!(player.is_muted);
+
+        player.set_muted(false, 1.0);
+        assert!(!player.is_muted);
+
+        player.pause();
+        assert!(!player.is_playing);
+        assert!(AudioPlayer::is_backend_available());
     }
 }
