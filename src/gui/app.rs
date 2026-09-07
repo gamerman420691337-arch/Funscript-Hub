@@ -2215,8 +2215,8 @@ impl FunGenApp {
         let pov = self.pov_mode;
         let vr = self.vr_mode;
         let conf = self.neural_conf;
-        let detrend_win = self.detrend_window;
-        let norm_win = self.norm_window;
+        let _detrend_win = self.detrend_window;
+        let _norm_win = self.norm_window;
         let multi_axis = self.generate_multi_axis;
 
         let (tx, rx): (Sender<WorkerMessage>, Receiver<WorkerMessage>) = channel();
@@ -2243,6 +2243,10 @@ impl FunGenApp {
 
                 let mut stream = crate::video::FrameStreamReader::new(&video, &stream_cfg)?;
                 let mut all_samples = Vec::new();
+                let mut surge_samples = Vec::new();
+                let mut sway_samples = Vec::new();
+                let mut pitch_samples = Vec::new();
+                let mut roll_samples = Vec::new();
                 let mut neural_poses: Vec<(crate::neural::Pose3D, i64)> = Vec::new();
 
                 let first = stream.next_frame()?.context("Zero video frames")?;
@@ -2293,8 +2297,16 @@ impl FunGenApp {
                         (cx, cy)
                     };
 
-                    let radial_dot = crate::tracking::project_radial_motion(&flow, center, is_cut, pov, true);
-                    all_samples.push((radial_dot, is_cut, ts));
+                    let motion_dot = crate::tracking::project_adaptive_motion(&flow, center, is_cut, pov, true);
+                    all_samples.push((motion_dot, is_cut, ts));
+
+                    if multi_axis {
+                        let (surge, sway, pitch, roll) = crate::tracking::project_companion_motion(&flow, center, is_cut, pov, true);
+                        surge_samples.push((surge, is_cut, ts));
+                        sway_samples.push((sway, is_cut, ts));
+                        pitch_samples.push((pitch, is_cut, ts));
+                        roll_samples.push((roll, is_cut, ts));
+                    }
 
                     if let (Some(ref mut det), Some(ref mut trk)) = (&mut detector, &mut tracker) {
                         let detections = det.detect(&curr_raw, width as usize, height as usize)?;
@@ -2310,7 +2322,7 @@ impl FunGenApp {
                 if model.is_some() && !neural_poses.is_empty() {
                     let timestamps: Vec<i64> = neural_poses.iter().map(|(_, ts)| *ts).collect();
                     let stroke_values: Vec<f32> = neural_poses.iter().map(|(p, _)| p.stroke).collect();
-                    let mut stroke_script = Funscript::new(crate::signal::extract_actions(&stroke_values, &timestamps, true));
+                    let mut stroke_script = Funscript::new(crate::signal::extract_actions_full_range(&stroke_values, &timestamps, 3.5, true));
                     stroke_script.sanitize();
                     bundle.channels.insert(AxisChannel::Stroke, stroke_script);
 
@@ -2347,10 +2359,35 @@ impl FunGenApp {
                     }
                 } else {
                     let (cum, ts) = crate::signal::integrate_flow(&all_samples);
-                    let norm = crate::signal::detrend_and_normalize(&cum, fps, detrend_win, norm_win, 1000.0);
-                    let mut stroke_script = Funscript::new(crate::signal::extract_actions(&norm, &ts, true));
+                    let mut stroke_script = Funscript::new(crate::signal::extract_actions_full_range(&cum, &ts, 0.8, true));
                     stroke_script.sanitize();
                     bundle.channels.insert(AxisChannel::Stroke, stroke_script);
+
+                    if multi_axis {
+                        let (surge_cum, _) = crate::signal::integrate_flow(&surge_samples);
+                        let surge_norm = crate::signal::detrend_and_normalize(&surge_cum, fps, 2.0, 3.0, 50.0);
+                        let mut surge_script = Funscript::new(crate::signal::extract_actions(&surge_norm, &ts, true));
+                        surge_script.sanitize();
+                        bundle.channels.insert(AxisChannel::Surge, surge_script);
+
+                        let (sway_cum, _) = crate::signal::integrate_flow(&sway_samples);
+                        let sway_norm = crate::signal::detrend_and_normalize(&sway_cum, fps, 2.0, 3.0, 50.0);
+                        let mut sway_script = Funscript::new(crate::signal::extract_actions(&sway_norm, &ts, true));
+                        sway_script.sanitize();
+                        bundle.channels.insert(AxisChannel::Sway, sway_script);
+
+                        let (pitch_cum, _) = crate::signal::integrate_flow(&pitch_samples);
+                        let pitch_norm = crate::signal::detrend_and_normalize(&pitch_cum, fps, 2.0, 3.0, 50.0);
+                        let mut pitch_script = Funscript::new(crate::signal::extract_actions(&pitch_norm, &ts, true));
+                        pitch_script.sanitize();
+                        bundle.channels.insert(AxisChannel::Pitch, pitch_script);
+
+                        let (roll_cum, _) = crate::signal::integrate_flow(&roll_samples);
+                        let roll_norm = crate::signal::detrend_and_normalize(&roll_cum, fps, 2.0, 3.0, 50.0);
+                        let mut roll_script = Funscript::new(crate::signal::extract_actions(&roll_norm, &ts, true));
+                        roll_script.sanitize();
+                        bundle.channels.insert(AxisChannel::Roll, roll_script);
+                    }
                 }
 
                 Ok(bundle)

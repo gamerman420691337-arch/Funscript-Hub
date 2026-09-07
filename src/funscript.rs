@@ -7,12 +7,18 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
+fn default_version() -> String {
+    "1.0".to_string()
+}
+
 /// Canonical `.funscript` file schema
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Funscript {
+    #[serde(default = "default_version")]
     pub version: String,
+    #[serde(default)]
     pub actions: Vec<Action>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Metadata>,
 }
 
@@ -101,7 +107,8 @@ impl Funscript {
 
         for i in 1..self.actions.len() {
             let dt = (self.actions[i].at - self.actions[i - 1].at).max(1) as f64 / 1000.0;
-            let max_allowed_delta = (max_safe_speed * dt).round() as i32;
+            // Floor ensures the resulting discrete delta strictly does not exceed max_safe_speed
+            let max_allowed_delta = (max_safe_speed * dt).floor() as i32;
 
             let prev_pos = self.actions[i - 1].pos;
             let curr_pos = self.actions[i].pos;
@@ -882,5 +889,13 @@ mod tests {
         assert_eq!(script, loaded);
 
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn test_funscript_without_version_field() {
+        let json = r#"{"actions":[{"at":0,"pos":0},{"at":500,"pos":100}]}"#;
+        let script: Funscript = serde_json::from_str(json).expect("Should parse funscript without version field");
+        assert_eq!(script.version, "1.0");
+        assert_eq!(script.actions.len(), 2);
     }
 }

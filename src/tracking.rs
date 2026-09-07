@@ -481,6 +481,66 @@ pub fn project_radial_motion(
     sum_dot / (total_pixels as f32)
 }
 
+/// Derives 6-DOF companion motion signals from optical flow and interaction center.
+/// Returns (surge_velocity, sway_velocity, pitch_velocity, roll_velocity).
+pub fn project_companion_motion(
+    flow: &FlowField,
+    center: (f32, f32),
+    is_cut: bool,
+    pov_mode: bool,
+    balance_global: bool,
+) -> (f32, f32, f32, f32) {
+    if is_cut || flow.width == 0 || flow.height == 0 {
+        return (0.0, 0.0, 0.0, 0.0);
+    }
+    // 1. Surge: radial expansion/contraction (depth thrust)
+    let surge = project_radial_motion(flow, center, is_cut, pov_mode, balance_global);
+
+    // 2. Sway: lateral horizontal velocity (mean u in central 50% ROI)
+    let w = flow.width;
+    let h = flow.height;
+    let mut sum_u = 0.0f32;
+    let mut count = 0usize;
+    let x_start = w / 4;
+    let x_end = (3 * w) / 4;
+    let y_start = h / 4;
+    let y_end = (3 * h) / 4;
+    for y in y_start..y_end {
+        let row = y * w;
+        for x in x_start..x_end {
+            sum_u += flow.u[row + x];
+            count += 1;
+        }
+    }
+    let sway = if count > 0 { (sum_u / count as f32) * 5.0 } else { 0.0 };
+
+    // 3. Roll: rotational curl around center
+    let norm_cx = (center.0 / w as f32).clamp(0.1, 0.9);
+    let norm_cy = (center.1 / h as f32).clamp(0.1, 0.9);
+    let roll = flow.compute_vorticity(norm_cx, norm_cy, 0.25) * 10.0;
+
+    // 4. Pitch: differential vertical flow between top and bottom halves
+    let mut top_v = 0.0f32;
+    let mut bot_v = 0.0f32;
+    let half_h = h / 2;
+    let half_count = (half_h * (x_end - x_start)).max(1) as f32;
+    for y in 0..half_h {
+        let row = y * w;
+        for x in x_start..x_end {
+            top_v += flow.v[row + x];
+        }
+    }
+    for y in half_h..h {
+        let row = y * w;
+        for x in x_start..x_end {
+            bot_v += flow.v[row + x];
+        }
+    }
+    let pitch = ((top_v - bot_v) / half_count) * 5.0;
+
+    (surge, sway, pitch, roll)
+}
+
 /// Adaptive motion projection: automatically determines dominant motion axis (linear stroke vs radial expansion).
 /// Focuses on actively moving pixels so static backgrounds do not dilute motion velocity.
 /// Inverts screen-space Y velocity so moving UP corresponds to positive velocity (towards 100).

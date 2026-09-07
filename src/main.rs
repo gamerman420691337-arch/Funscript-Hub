@@ -21,12 +21,12 @@ use funscript::{diagnose_funscript, AxisChannel, DoctorConfig, Funscript, MultiA
 use indicatif::{ProgressBar, ProgressStyle};
 use neural::tracker::AnatomicalTracker;
 use neural::NeuralDetector;
-use signal::{extract_actions, extract_actions_full_range, integrate_flow};
+use signal::{detrend_and_normalize, extract_actions, extract_actions_full_range, integrate_flow};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracking::{
     compute_dense_flow, detect_cut_photometric, filter_centers_median, find_divergence_center,
-    project_adaptive_motion,
+    project_adaptive_motion, project_companion_motion,
 };
 use video::{probe_video, rgb_to_gray, FrameStreamReader, StreamConfig};
 
@@ -184,6 +184,7 @@ enum Commands {
 #[derive(Subcommand)]
 enum StashCommands {
     /// Query Stash server for scenes missing .funscripts
+    #[command(alias = "query")]
     ListMissing {
         /// Maximum number of scenes to query
         #[arg(long, default_value_t = 50)]
@@ -496,6 +497,10 @@ fn run_generate(
     );
 
     let mut all_samples: Vec<(f32, bool, i64)> = Vec::new();
+    let mut surge_samples: Vec<(f32, bool, i64)> = Vec::new();
+    let mut sway_samples: Vec<(f32, bool, i64)> = Vec::new();
+    let mut pitch_samples: Vec<(f32, bool, i64)> = Vec::new();
+    let mut roll_samples: Vec<(f32, bool, i64)> = Vec::new();
     let mut neural_poses: Vec<(crate::neural::Pose3D, i64)> = Vec::new();
 
     let mut flow_ctx = crate::tracking::FlowScratchContext::new(0, 0);
@@ -535,15 +540,39 @@ fn run_generate(
     let mut window: Vec<BufferedFrame> = Vec::with_capacity(14);
     
     // Process a frame at target_idx in the window
-    let emit_frame = |target_idx: usize, window: &[BufferedFrame], all_samples: &mut Vec<_>, neural_poses: &mut Vec<_>, detector: &mut Option<NeuralDetector>, tracker: &mut Option<AnatomicalTracker>| -> Result<()> {
+    let emit_frame = |target_idx: usize,
+                      window: &[BufferedFrame],
+                      all_samples: &mut Vec<(f32, bool, i64)>,
+                      surge_samples: &mut Vec<(f32, bool, i64)>,
+                      sway_samples: &mut Vec<(f32, bool, i64)>,
+                      pitch_samples: &mut Vec<(f32, bool, i64)>,
+                      roll_samples: &mut Vec<(f32, bool, i64)>,
+                      neural_poses: &mut Vec<_>,
+                      detector: &mut Option<NeuralDetector>,
+                      tracker: &mut Option<AnatomicalTracker>|
+     -> Result<()> {
         let centers: Vec<_> = window.iter().map(|w| w.center).collect();
         let filtered = filter_centers_median(&centers, 6);
         let target_center = filtered[target_idx];
-        
+
         let frame = &window[target_idx];
         let dot = project_adaptive_motion(&frame.flow, target_center, frame.is_cut, pov_mode, balance_global);
         all_samples.push((dot, frame.is_cut, frame.ts));
-        
+
+        if multi_axis {
+            let (surge, sway, pitch, roll) = project_companion_motion(
+                &frame.flow,
+                target_center,
+                frame.is_cut,
+                pov_mode,
+                balance_global,
+            );
+            surge_samples.push((surge, frame.is_cut, frame.ts));
+            sway_samples.push((sway, frame.is_cut, frame.ts));
+            pitch_samples.push((pitch, frame.is_cut, frame.ts));
+            roll_samples.push((roll, frame.is_cut, frame.ts));
+        }
+
         if let (Some(det), Some(trk)) = (detector, tracker) {
             if let Some(raw_frame) = &frame.raw {
                 let detections = det.detect(raw_frame, width as usize, height as usize)?;
@@ -622,12 +651,12 @@ fn run_generate(
         }
 
         if window.len() == 13 {
-            emit_frame(6, &window, &mut all_samples, &mut neural_poses, &mut neural_detector, &mut anatomical_tracker)?;
+            emit_frame(6, &window, &mut all_samples, &mut surge_samples, &mut sway_samples, &mut pitch_samples, &mut roll_samples, &mut neural_poses, &mut neural_detector, &mut anatomical_tracker)?;
             window.remove(0);
             total_processed += 1;
         } else if window.len() >= 7 {
             let emit_idx = window.len() - 7;
-            emit_frame(emit_idx, &window, &mut all_samples, &mut neural_poses, &mut neural_detector, &mut anatomical_tracker)?;
+            emit_frame(emit_idx, &window, &mut all_samples, &mut surge_samples, &mut sway_samples, &mut pitch_samples, &mut roll_samples, &mut neural_poses, &mut neural_detector, &mut anatomical_tracker)?;
             total_processed += 1;
         }
 
@@ -642,7 +671,7 @@ fn run_generate(
     if remaining > 0 {
         let start_idx = if remaining >= 7 { remaining - 6 } else { 0 };
         for i in start_idx..remaining {
-            emit_frame(i, &window, &mut all_samples, &mut neural_poses, &mut neural_detector, &mut anatomical_tracker)?;
+            emit_frame(i, &window, &mut all_samples, &mut surge_samples, &mut sway_samples, &mut pitch_samples, &mut roll_samples, &mut neural_poses, &mut neural_detector, &mut anatomical_tracker)?;
             total_processed += 1;
         }
         pb.set_position(total_processed);
@@ -721,6 +750,33 @@ fn run_generate(
         ));
         stroke_script.sanitize();
         bundle.channels.insert(AxisChannel::Stroke, stroke_script);
+
+        if multi_axis {
+            println!("-> Synthesizing optical 6-DOF companion channels from motion geometry...");
+            let (surge_cum, _) = integrate_flow(&surge_samples);
+            let surge_norm = detrend_and_normalize(&surge_cum, effective_fps, 2.0, 3.0, 50.0);
+            let mut surge_script = Funscript::new(extract_actions(&surge_norm, &timestamps, keyframe_reduction));
+            surge_script.sanitize();
+            bundle.channels.insert(AxisChannel::Surge, surge_script);
+
+            let (sway_cum, _) = integrate_flow(&sway_samples);
+            let sway_norm = detrend_and_normalize(&sway_cum, effective_fps, 2.0, 3.0, 50.0);
+            let mut sway_script = Funscript::new(extract_actions(&sway_norm, &timestamps, keyframe_reduction));
+            sway_script.sanitize();
+            bundle.channels.insert(AxisChannel::Sway, sway_script);
+
+            let (pitch_cum, _) = integrate_flow(&pitch_samples);
+            let pitch_norm = detrend_and_normalize(&pitch_cum, effective_fps, 2.0, 3.0, 50.0);
+            let mut pitch_script = Funscript::new(extract_actions(&pitch_norm, &timestamps, keyframe_reduction));
+            pitch_script.sanitize();
+            bundle.channels.insert(AxisChannel::Pitch, pitch_script);
+
+            let (roll_cum, _) = integrate_flow(&roll_samples);
+            let roll_norm = detrend_and_normalize(&roll_cum, effective_fps, 2.0, 3.0, 50.0);
+            let mut roll_script = Funscript::new(extract_actions(&roll_norm, &timestamps, keyframe_reduction));
+            roll_script.sanitize();
+            bundle.channels.insert(AxisChannel::Roll, roll_script);
+        }
     };
 
     if multi_axis {

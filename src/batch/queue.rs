@@ -243,6 +243,10 @@ impl BatchWorker {
 
                     let mut stream = FrameStreamReader::new(&job.video_path, &stream_cfg)?;
                     let mut all_samples = Vec::new();
+                    let mut surge_samples = Vec::new();
+                    let mut sway_samples = Vec::new();
+                    let mut pitch_samples = Vec::new();
+                    let mut roll_samples = Vec::new();
                     let mut neural_poses: Vec<(crate::neural::Pose3D, i64)> = Vec::new();
 
                     let first = stream.next_frame()?.ok_or_else(|| anyhow!("Zero video frames decoded"))?;
@@ -304,8 +308,16 @@ impl BatchWorker {
                             (cx, cy)
                         };
 
-                        let radial_dot = tracking::project_radial_motion(&flow, center, is_cut, config.pov_mode, true);
-                        all_samples.push((radial_dot, is_cut, ts));
+                        let motion_dot = tracking::project_adaptive_motion(&flow, center, is_cut, config.pov_mode, true);
+                        all_samples.push((motion_dot, is_cut, ts));
+
+                        if config.multi_axis {
+                            let (surge, sway, pitch, roll) = tracking::project_companion_motion(&flow, center, is_cut, config.pov_mode, true);
+                            surge_samples.push((surge, is_cut, ts));
+                            sway_samples.push((sway, is_cut, ts));
+                            pitch_samples.push((pitch, is_cut, ts));
+                            roll_samples.push((roll, is_cut, ts));
+                        }
 
                         if let (Some(det), Some(ref mut trk)) = (detector.as_mut(), &mut tracker) {
                             let detections = det.detect(&curr_raw, width as usize, height as usize)?;
@@ -354,7 +366,7 @@ impl BatchWorker {
                             }
                         }
 
-                        let mut stroke_script = Funscript::new(signal::extract_actions(&stroke_values, &timestamps, true));
+                        let mut stroke_script = Funscript::new(signal::extract_actions_full_range(&stroke_values, &timestamps, 3.5, true));
                         stroke_script.sanitize();
                         bundle.channels.insert(AxisChannel::Stroke, stroke_script);
 
@@ -385,10 +397,35 @@ impl BatchWorker {
                         }
                     } else {
                         let (cum, ts) = signal::integrate_flow(&all_samples);
-                        let norm = signal::detrend_and_normalize(&cum, config.fps, 1.5, 3.0, 1000.0);
-                        let mut stroke_script = Funscript::new(signal::extract_actions(&norm, &ts, true));
+                        let mut stroke_script = Funscript::new(signal::extract_actions_full_range(&cum, &ts, 0.8, true));
                         stroke_script.sanitize();
                         bundle.channels.insert(AxisChannel::Stroke, stroke_script);
+
+                        if config.multi_axis {
+                            let (surge_cum, _) = signal::integrate_flow(&surge_samples);
+                            let surge_norm = signal::detrend_and_normalize(&surge_cum, config.fps, 2.0, 3.0, 50.0);
+                            let mut surge_script = Funscript::new(signal::extract_actions(&surge_norm, &ts, true));
+                            surge_script.sanitize();
+                            bundle.channels.insert(AxisChannel::Surge, surge_script);
+
+                            let (sway_cum, _) = signal::integrate_flow(&sway_samples);
+                            let sway_norm = signal::detrend_and_normalize(&sway_cum, config.fps, 2.0, 3.0, 50.0);
+                            let mut sway_script = Funscript::new(signal::extract_actions(&sway_norm, &ts, true));
+                            sway_script.sanitize();
+                            bundle.channels.insert(AxisChannel::Sway, sway_script);
+
+                            let (pitch_cum, _) = signal::integrate_flow(&pitch_samples);
+                            let pitch_norm = signal::detrend_and_normalize(&pitch_cum, config.fps, 2.0, 3.0, 50.0);
+                            let mut pitch_script = Funscript::new(signal::extract_actions(&pitch_norm, &ts, true));
+                            pitch_script.sanitize();
+                            bundle.channels.insert(AxisChannel::Pitch, pitch_script);
+
+                            let (roll_cum, _) = signal::integrate_flow(&roll_samples);
+                            let roll_norm = signal::detrend_and_normalize(&roll_cum, config.fps, 2.0, 3.0, 50.0);
+                            let mut roll_script = Funscript::new(signal::extract_actions(&roll_norm, &ts, true));
+                            roll_script.sanitize();
+                            bundle.channels.insert(AxisChannel::Roll, roll_script);
+                        }
                     }
 
                     if config.multi_axis && bundle.channels.len() > 1 {
