@@ -5,6 +5,8 @@ use eframe::egui::{
     pos2, vec2, Color32, Mesh, Painter, Pos2, Rect, Response, Sense, Shape, Stroke, Ui,
 };
 
+use std::collections::BTreeSet;
+
 #[derive(Debug, Clone)]
 pub struct TimelineState {
     /// Start of visible time window in milliseconds
@@ -13,8 +15,14 @@ pub struct TimelineState {
     pub view_duration_ms: f64,
     /// Current playhead position in milliseconds
     pub cursor_time_ms: i64,
-    /// Index of currently selected keyframe action
+    /// Index of primary / lead selected keyframe action
     pub selected_index: Option<usize>,
+    /// Set of all selected keyframe action indices (multi-selection)
+    pub selected_indices: BTreeSet<usize>,
+    /// Starting point of active marquee selection box (if dragging)
+    pub marquee_start: Option<Pos2>,
+    /// Current pointer position of active marquee selection box
+    pub marquee_current: Option<Pos2>,
     /// Whether a keyframe point is actively being dragged
     pub is_dragging_point: bool,
     /// Whether magnetic snapping to audio waveform transients is enabled
@@ -30,6 +38,9 @@ impl Default for TimelineState {
             view_duration_ms: 10_000.0, // Default 10 second window
             cursor_time_ms: 0,
             selected_index: None,
+            selected_indices: BTreeSet::new(),
+            marquee_start: None,
+            marquee_current: None,
             is_dragging_point: false,
             magnetic_snapping: true,
             snapped_transient_ms: None,
@@ -61,6 +72,40 @@ impl TimelineState {
         let inner_height = (rect.height() - pad * 2.0).max(10.0);
         let frac = (rect.bottom() - pad - y) / inner_height;
         (frac * 100.0).round().clamp(0.0, 100.0) as i32
+    }
+
+    pub fn select_single(&mut self, idx: usize) {
+        self.selected_index = Some(idx);
+        self.selected_indices.clear();
+        self.selected_indices.insert(idx);
+    }
+
+    pub fn toggle_selection(&mut self, idx: usize) {
+        if self.selected_indices.contains(&idx) {
+            self.selected_indices.remove(&idx);
+            if self.selected_index == Some(idx) {
+                self.selected_index = self.selected_indices.iter().next().copied();
+            }
+        } else {
+            self.selected_indices.insert(idx);
+            self.selected_index = Some(idx);
+        }
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selected_index = None;
+        self.selected_indices.clear();
+        self.marquee_start = None;
+        self.marquee_current = None;
+    }
+
+    pub fn select_all(&mut self, total_count: usize) {
+        self.selected_indices = (0..total_count).collect();
+        self.selected_index = self.selected_indices.iter().next().copied();
+    }
+
+    pub fn is_selected(&self, idx: usize) -> bool {
+        self.selected_indices.contains(&idx) || self.selected_index == Some(idx)
     }
 }
 
@@ -114,6 +159,18 @@ pub fn show_timeline(
 
     // 3. Render Action Curve, Ghost Multi-Axis Curves, & Highlights
     draw_action_curve(&painter, rect, script, state, doctor_report, ghost_axes, active_color);
+
+    // 3b. Render Marquee Selection Box
+    if let (Some(m_start), Some(m_curr)) = (state.marquee_start, state.marquee_current) {
+        let m_rect = Rect::from_two_pos(m_start, m_curr);
+        painter.rect_filled(m_rect, 0.0, Color32::from_rgba_unmultiplied(0, 180, 255, 40));
+        painter.rect_stroke(
+            m_rect,
+            0.0,
+            Stroke::new(1.2f32, Color32::from_rgb(0, 210, 255)),
+            eframe::egui::StrokeKind::Middle,
+        );
+    }
 
     // 4. Handle Keyframe Point Selection, Dragging, Adding & Deleting (with Magnetic Snapping)
     handle_point_interactions(ui, &response, rect, script, state, waveform, undo_history);
@@ -323,7 +380,7 @@ fn draw_action_curve(
         let y = TimelineState::pos_to_screen_y(a.pos, rect);
         let p = pos2(x, y);
 
-        let is_selected = state.selected_index == Some(actual_idx);
+        let is_selected = state.is_selected(actual_idx);
         let radius = if is_selected { 5.5 } else { 3.5 };
         let fill = if is_selected {
             Color32::from_rgb(255, 220, 50)
@@ -339,7 +396,7 @@ fn draw_action_curve(
 }
 
 fn handle_point_interactions(
-    _ui: &mut Ui,
+    ui: &mut Ui,
     response: &Response,
     rect: Rect,
     script: &mut Funscript,
@@ -348,31 +405,38 @@ fn handle_point_interactions(
     mut undo_history: Option<&mut crate::funscript::UndoHistory>,
 ) {
     let pointer = response.interact_pointer_pos();
+    let shift_held = ui.input(|i| i.modifiers.shift);
+    let ctrl_held = ui.input(|i| i.modifiers.command || i.modifiers.ctrl);
 
     // 1. Hit-test keyframe points for selection and dragging using binary search time radius
     if let Some(pos) = pointer {
-        if response.clicked() {
-            let click_time = state.screen_x_to_time(pos.x, rect);
-            let time_radius = ((14.0 / rect.width().max(1.0)) as f64 * state.view_duration_ms).max(20.0) as i64;
-            let search_start = script.actions.partition_point(|a| a.at < click_time - time_radius);
-            let search_end = (script.actions.partition_point(|a| a.at <= click_time + time_radius) + 1).min(script.actions.len());
+        let click_time = state.screen_x_to_time(pos.x, rect);
+        let time_radius = ((14.0 / rect.width().max(1.0)) as f64 * state.view_duration_ms).max(20.0) as i64;
+        let search_start = script.actions.partition_point(|a| a.at < click_time - time_radius);
+        let search_end = (script.actions.partition_point(|a| a.at <= click_time + time_radius) + 1).min(script.actions.len());
 
-            let mut hit: Option<usize> = None;
-            for i in search_start..search_end {
-                let a = &script.actions[i];
-                let px = state.time_to_screen_x(a.at as f64, rect);
-                let py = TimelineState::pos_to_screen_y(a.pos, rect);
-                let dist = ((px - pos.x).powi(2) + (py - pos.y).powi(2)).sqrt();
-                if dist < 12.0 {
-                    hit = Some(i);
-                    break;
-                }
+        let mut hit: Option<usize> = None;
+        for i in search_start..search_end {
+            let a = &script.actions[i];
+            let px = state.time_to_screen_x(a.at as f64, rect);
+            let py = TimelineState::pos_to_screen_y(a.pos, rect);
+            let dist = ((px - pos.x).powi(2) + (py - pos.y).powi(2)).sqrt();
+            if dist < 12.0 {
+                hit = Some(i);
+                break;
             }
+        }
 
-            state.selected_index = hit;
+        if response.clicked() {
             if let Some(idx) = hit {
+                if shift_held {
+                    state.toggle_selection(idx);
+                } else {
+                    state.select_single(idx);
+                }
                 state.cursor_time_ms = script.actions[idx].at;
-            } else {
+            } else if !shift_held {
+                state.clear_selection();
                 state.cursor_time_ms = click_time.max(0);
             }
         }
@@ -397,83 +461,139 @@ fn handle_point_interactions(
             script.actions.push(Action { at: t, pos: p });
             script.sanitize();
 
-            // Find new index
-            state.selected_index = script.actions.iter().position(|a| a.at == t);
+            if let Some(new_idx) = script.actions.iter().position(|a| a.at == t) {
+                state.select_single(new_idx);
+            }
             state.cursor_time_ms = t;
         }
 
-        // Dragging a selected keyframe (with magnetic audio snapping if enabled)
-        if response.dragged_by(eframe::egui::PointerButton::Primary) {
-            if let Some(idx) = state.selected_index {
-                if idx < script.actions.len() {
-                    if !state.is_dragging_point {
-                        if let Some(ref mut uh) = undo_history {
-                            uh.push_snapshot(script);
-                        }
-                        state.is_dragging_point = true;
-                    }
-
-                    let mut new_t = state.screen_x_to_time(pos.x, rect);
-                    let new_p = TimelineState::screen_y_to_pos(pos.y, rect);
-
-                    if state.magnetic_snapping {
-                        if let Some(wf) = waveform {
-                            if let Some(snap) = wf.find_nearest_transient(new_t, 35) {
-                                new_t = snap;
-                                state.snapped_transient_ms = Some(snap);
-                            } else {
-                                state.snapped_transient_ms = None;
-                            }
-                        }
+        // Drag start & continuous drag handling
+        if response.drag_started_by(eframe::egui::PointerButton::Primary) && !ctrl_held {
+            if let Some(idx) = hit {
+                if !state.is_selected(idx) {
+                    if shift_held {
+                        state.toggle_selection(idx);
                     } else {
-                        state.snapped_transient_ms = None;
+                        state.select_single(idx);
                     }
-
-                    script.actions[idx].at = new_t;
-                    script.actions[idx].pos = new_p;
-                    state.cursor_time_ms = new_t;
                 }
-            }
-        } else {
-            if state.is_dragging_point {
-                state.is_dragging_point = false;
-                state.snapped_transient_ms = None;
-                script.sanitize();
-            }
-        }
-
-        // Scrub cursor time when primary-dragging empty timeline canvas (without pan modifier)
-        if response.dragged_by(eframe::egui::PointerButton::Primary)
-            && state.selected_index.is_none()
-            && !_ui.input(|i| i.modifiers.command || i.modifiers.ctrl)
-        {
-            state.cursor_time_ms = state.screen_x_to_time(pos.x, rect).max(0);
-        }
-
-        // Right-click: Delete hovered keyframe
-        if response.secondary_clicked() {
-            let click_time = state.screen_x_to_time(pos.x, rect);
-            let time_radius = ((14.0 / rect.width().max(1.0)) as f64 * state.view_duration_ms).max(20.0) as i64;
-            let search_start = script.actions.partition_point(|a| a.at < click_time - time_radius);
-            let search_end = (script.actions.partition_point(|a| a.at <= click_time + time_radius) + 1).min(script.actions.len());
-
-            let mut delete_idx: Option<usize> = None;
-            for i in search_start..search_end {
-                let a = &script.actions[i];
-                let px = state.time_to_screen_x(a.at as f64, rect);
-                let py = TimelineState::pos_to_screen_y(a.pos, rect);
-                let dist = ((px - pos.x).powi(2) + (py - pos.y).powi(2)).sqrt();
-                if dist < 12.0 {
-                    delete_idx = Some(i);
-                    break;
-                }
-            }
-            if let Some(idx) = delete_idx {
+                state.is_dragging_point = true;
+                state.marquee_start = None;
+                state.marquee_current = None;
                 if let Some(ref mut uh) = undo_history {
                     uh.push_snapshot(script);
                 }
-                script.actions.remove(idx);
-                state.selected_index = None;
+            } else if shift_held {
+                state.marquee_start = Some(pos);
+                state.marquee_current = Some(pos);
+            }
+        }
+
+        if response.dragged_by(eframe::egui::PointerButton::Primary) && !ctrl_held {
+            if state.is_dragging_point {
+                if let Some(lead_idx) = state.selected_index {
+                    if lead_idx < script.actions.len() {
+                        let mut new_t = state.screen_x_to_time(pos.x, rect);
+                        let new_p = TimelineState::screen_y_to_pos(pos.y, rect);
+
+                        if state.magnetic_snapping {
+                            if let Some(wf) = waveform {
+                                if let Some(snap) = wf.find_nearest_transient(new_t, 35) {
+                                    new_t = snap;
+                                    state.snapped_transient_ms = Some(snap);
+                                } else {
+                                    state.snapped_transient_ms = None;
+                                }
+                            }
+                        } else {
+                            state.snapped_transient_ms = None;
+                        }
+
+                        let dt = new_t - script.actions[lead_idx].at;
+                        let dp = new_p - script.actions[lead_idx].pos;
+
+                        if dt != 0 || dp != 0 {
+                            for &idx in &state.selected_indices {
+                                if idx < script.actions.len() {
+                                    script.actions[idx].at = (script.actions[idx].at + dt).max(0);
+                                    script.actions[idx].pos = (script.actions[idx].pos + dp).clamp(0, 100);
+                                }
+                            }
+                            state.cursor_time_ms = new_t;
+                        }
+                    }
+                }
+            } else if let Some(m_start) = state.marquee_start {
+                state.marquee_current = Some(pos);
+                let m_rect = Rect::from_two_pos(m_start, pos);
+
+                let view_start = state.view_start_ms as i64;
+                let view_end = (state.view_start_ms + state.view_duration_ms) as i64;
+                let start_idx = script.actions.partition_point(|a| a.at < view_start).saturating_sub(1);
+                let end_idx = (script.actions.partition_point(|a| a.at <= view_end) + 1).min(script.actions.len());
+
+                for i in start_idx..end_idx {
+                    let a = &script.actions[i];
+                    let kx = state.time_to_screen_x(a.at as f64, rect);
+                    let ky = TimelineState::pos_to_screen_y(a.pos, rect);
+                    if m_rect.contains(pos2(kx, ky)) {
+                        state.selected_indices.insert(i);
+                        if state.selected_index.is_none() {
+                            state.selected_index = Some(i);
+                        }
+                    }
+                }
+            } else if state.selected_indices.is_empty() {
+                // Dragging empty canvas without Shift: scrub cursor time
+                state.cursor_time_ms = state.screen_x_to_time(pos.x, rect).max(0);
+            }
+        }
+
+        // Drag release
+        if response.drag_stopped() {
+            if state.is_dragging_point {
+                state.is_dragging_point = false;
+                state.snapped_transient_ms = None;
+
+                let selected_ats: Vec<i64> = state
+                    .selected_indices
+                    .iter()
+                    .filter_map(|&i| script.actions.get(i).map(|a| a.at))
+                    .collect();
+                script.sanitize();
+                state.selected_indices = script
+                    .actions
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, a)| if selected_ats.contains(&a.at) { Some(i) } else { None })
+                    .collect();
+                state.selected_index = state.selected_indices.iter().next().copied();
+            }
+
+            if state.marquee_start.is_some() {
+                state.marquee_start = None;
+                state.marquee_current = None;
+                state.selected_index = state.selected_indices.iter().next().copied();
+            }
+        }
+
+        // Right-click: Delete hovered keyframe or selection
+        if response.secondary_clicked() {
+            if let Some(idx) = hit {
+                if let Some(ref mut uh) = undo_history {
+                    uh.push_snapshot(script);
+                }
+                if state.selected_indices.contains(&idx) && state.selected_indices.len() > 1 {
+                    for &i in state.selected_indices.iter().rev() {
+                        if i < script.actions.len() {
+                            script.actions.remove(i);
+                        }
+                    }
+                    state.clear_selection();
+                } else {
+                    script.actions.remove(idx);
+                    state.clear_selection();
+                }
             }
         }
     }
@@ -543,5 +663,37 @@ mod tests {
         let state = TimelineState::default();
         assert!(state.magnetic_snapping);
         assert_eq!(state.snapped_transient_ms, None);
+        assert!(state.selected_indices.is_empty());
+        assert_eq!(state.selected_index, None);
+    }
+
+    #[test]
+    fn test_timeline_state_multi_selection() {
+        let mut state = TimelineState::default();
+        state.select_single(3);
+        assert_eq!(state.selected_index, Some(3));
+        assert!(state.is_selected(3));
+        assert!(!state.is_selected(4));
+        assert_eq!(state.selected_indices.len(), 1);
+
+        state.toggle_selection(5);
+        assert!(state.is_selected(3));
+        assert!(state.is_selected(5));
+        assert_eq!(state.selected_indices.len(), 2);
+
+        state.toggle_selection(3);
+        assert!(!state.is_selected(3));
+        assert!(state.is_selected(5));
+        assert_eq!(state.selected_index, Some(5));
+
+        state.select_all(10);
+        assert_eq!(state.selected_indices.len(), 10);
+        for i in 0..10 {
+            assert!(state.is_selected(i));
+        }
+
+        state.clear_selection();
+        assert!(state.selected_indices.is_empty());
+        assert_eq!(state.selected_index, None);
     }
 }

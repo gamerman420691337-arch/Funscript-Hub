@@ -537,6 +537,127 @@ impl FunGenApp {
         }
     }
 
+    pub fn delete_selected_keyframes(&mut self) {
+        if self.script.actions.is_empty() {
+            return;
+        }
+        let count = if !self.timeline_state.selected_indices.is_empty() {
+            self.undo_history.push_snapshot(&self.script);
+            let n = self.timeline_state.selected_indices.len();
+            for &idx in self.timeline_state.selected_indices.iter().rev() {
+                if idx < self.script.actions.len() {
+                    self.script.actions.remove(idx);
+                }
+            }
+            self.timeline_state.clear_selection();
+            n
+        } else if let Some(idx) = self.timeline_state.selected_index {
+            if idx < self.script.actions.len() {
+                self.undo_history.push_snapshot(&self.script);
+                self.script.actions.remove(idx);
+                self.timeline_state.clear_selection();
+                1
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
+        if count > 0 {
+            self.run_doctor();
+            self.set_status(format!("Deleted {} keyframe(s)", count));
+        }
+    }
+
+    pub fn invert_selection(&mut self) {
+        if self.script.actions.is_empty() {
+            return;
+        }
+        self.undo_history.push_snapshot(&self.script);
+        if !self.timeline_state.selected_indices.is_empty() {
+            let n = self.timeline_state.selected_indices.len();
+            for &idx in &self.timeline_state.selected_indices {
+                if idx < self.script.actions.len() {
+                    self.script.actions[idx].pos = 100 - self.script.actions[idx].pos.clamp(0, 100);
+                }
+            }
+            self.run_doctor();
+            self.set_status(format!("Inverted {} selected keyframe(s)", n));
+        } else {
+            self.script.invert_positions();
+            self.run_doctor();
+            self.set_status(format!("Inverted all {} keyframe(s)", self.script.actions.len()));
+        }
+    }
+
+    pub fn scale_selection(&mut self, factor: f32) {
+        if self.script.actions.is_empty() {
+            return;
+        }
+        self.undo_history.push_snapshot(&self.script);
+
+        let indices: Vec<usize> = if !self.timeline_state.selected_indices.is_empty() {
+            self.timeline_state.selected_indices.iter().copied().collect()
+        } else {
+            (0..self.script.actions.len()).collect()
+        };
+
+        if indices.is_empty() {
+            return;
+        }
+
+        let sum_pos: f32 = indices.iter().filter_map(|&i| self.script.actions.get(i).map(|a| a.pos as f32)).sum();
+        let center = sum_pos / indices.len() as f32;
+
+        for &i in &indices {
+            if let Some(action) = self.script.actions.get_mut(i) {
+                let shifted = (action.pos as f32 - center) * factor + center;
+                action.pos = shifted.round().clamp(0.0, 100.0) as i32;
+            }
+        }
+
+        self.run_doctor();
+        self.set_status(format!("Scaled {} keyframe(s) by {:.2}x around centroid {:.0}", indices.len(), factor, center));
+    }
+
+    pub fn shift_selection_time(&mut self, delta_ms: i64) {
+        if self.script.actions.is_empty() || delta_ms == 0 {
+            return;
+        }
+        self.undo_history.push_snapshot(&self.script);
+
+        let indices: Vec<usize> = if !self.timeline_state.selected_indices.is_empty() {
+            self.timeline_state.selected_indices.iter().copied().collect()
+        } else {
+            (0..self.script.actions.len()).collect()
+        };
+
+        let mut target_ats = Vec::new();
+        for &i in &indices {
+            if let Some(action) = self.script.actions.get_mut(i) {
+                action.at = (action.at + delta_ms).max(0);
+                target_ats.push(action.at);
+            }
+        }
+
+        self.script.sanitize();
+
+        if !self.timeline_state.selected_indices.is_empty() {
+            self.timeline_state.selected_indices = self.script
+                .actions
+                .iter()
+                .enumerate()
+                .filter_map(|(i, a)| if target_ats.contains(&a.at) { Some(i) } else { None })
+                .collect();
+            self.timeline_state.selected_index = self.timeline_state.selected_indices.iter().next().copied();
+        }
+
+        self.run_doctor();
+        let sign = if delta_ms > 0 { "+" } else { "" };
+        self.set_status(format!("Shifted {} keyframe(s) by {}{}ms", indices.len(), sign, delta_ms));
+    }
+
     fn handle_shortcuts(&mut self, ctx: &EguiContext) {
         // Global Undo / Redo shortcuts
         if ctx.input(|i| (i.modifiers.command || i.modifiers.ctrl) && i.key_pressed(egui::Key::Z) && !i.modifiers.shift) {
@@ -560,6 +681,18 @@ impl FunGenApp {
             self.open_funscript_dialog();
         }
 
+        // Select All (Ctrl+A)
+        if ctx.input(|i| (i.modifiers.command || i.modifiers.ctrl) && i.key_pressed(egui::Key::A)) {
+            self.timeline_state.select_all(self.script.actions.len());
+            self.set_status(format!("Selected all {} keyframes", self.timeline_state.selected_indices.len()));
+        }
+
+        // Clear Selection (Escape)
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.timeline_state.clear_selection();
+            self.set_status("Cleared selection".to_string());
+        }
+
         if ctx.input(|i| i.key_pressed(egui::Key::F1)) {
             self.active_tab = HubTab::Studio;
         }
@@ -581,35 +714,37 @@ impl FunGenApp {
 
         // Editing, playback, frame stepping, and axis channel hotkeys (when not typing in an input field)
         if !ctx.wants_keyboard_input() {
-            // Delete / Backspace: delete selected keyframe
+            // Delete / Backspace: delete selected keyframe(s)
             if ctx.input(|i| i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace)) {
-                if let Some(idx) = self.timeline_state.selected_index {
-                    if idx < self.script.actions.len() {
-                        self.undo_history.push_snapshot(&self.script);
-                        self.script.actions.remove(idx);
-                        self.timeline_state.selected_index = None;
-                        self.run_doctor();
-                        self.set_status("Deleted selected keyframe".to_string());
-                    }
-                }
+                self.delete_selected_keyframes();
             }
 
-            // Up / Down Arrow: nudge selected keyframe position (Shift: by 5, normal: by 1)
-            if let Some(idx) = self.timeline_state.selected_index {
-                if idx < self.script.actions.len() {
-                    let step = if ctx.input(|i| i.modifiers.shift) { 5 } else { 1 };
-                    if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
-                        self.undo_history.push_snapshot(&self.script);
-                        self.script.actions[idx].pos = (self.script.actions[idx].pos + step).min(100);
-                        self.run_doctor();
-                        self.set_status(format!("Keyframe #{} position: {}", idx + 1, self.script.actions[idx].pos));
+            // Up / Down Arrow: nudge selected keyframe(s) position (Shift: by 5, normal: by 1)
+            if ctx.input(|i| i.key_pressed(egui::Key::ArrowUp) || i.key_pressed(egui::Key::ArrowDown)) {
+                let is_up = ctx.input(|i| i.key_pressed(egui::Key::ArrowUp));
+                let step = if ctx.input(|i| i.modifiers.shift) { 5 } else { 1 };
+                let indices: Vec<usize> = if !self.timeline_state.selected_indices.is_empty() {
+                    self.timeline_state.selected_indices.iter().copied().collect()
+                } else if let Some(idx) = self.timeline_state.selected_index {
+                    vec![idx]
+                } else {
+                    Vec::new()
+                };
+
+                if !indices.is_empty() {
+                    self.undo_history.push_snapshot(&self.script);
+                    for &i in &indices {
+                        if let Some(action) = self.script.actions.get_mut(i) {
+                            if is_up {
+                                action.pos = (action.pos + step).min(100);
+                            } else {
+                                action.pos = (action.pos - step).max(0);
+                            }
+                        }
                     }
-                    if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-                        self.undo_history.push_snapshot(&self.script);
-                        self.script.actions[idx].pos = (self.script.actions[idx].pos - step).max(0);
-                        self.run_doctor();
-                        self.set_status(format!("Keyframe #{} position: {}", idx + 1, self.script.actions[idx].pos));
-                    }
+                    self.run_doctor();
+                    let dir_str = if is_up { "Up" } else { "Down" };
+                    self.set_status(format!("Nudged {} keyframe(s) {} (±{})", indices.len(), dir_str, step));
                 }
             }
 
@@ -642,15 +777,18 @@ impl FunGenApp {
             if ctx.input(|i| i.key_pressed(egui::Key::Space)) {
                 self.is_playing = !self.is_playing;
             }
+
+            // Frame-accurate stepping based on video FPS (Shift: 1 second jump)
+            let frame_step_ms = (1000.0 / self.target_fps.max(1.0)).round() as i64;
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-                let step = if ctx.input(|i| i.modifiers.shift) { 1000 } else { 33 };
+                let step = if ctx.input(|i| i.modifiers.shift) { 1000 } else { frame_step_ms.max(1) };
                 self.timeline_state.cursor_time_ms = (self.timeline_state.cursor_time_ms - step).max(0);
                 if let Some(ref streamer) = self.playback_streamer {
                     streamer.seek_to(self.timeline_state.cursor_time_ms);
                 }
             }
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
-                let step = if ctx.input(|i| i.modifiers.shift) { 1000 } else { 33 };
+                let step = if ctx.input(|i| i.modifiers.shift) { 1000 } else { frame_step_ms.max(1) };
                 let dur = self.script.actions.last().map(|a| a.at).unwrap_or(0);
                 self.timeline_state.cursor_time_ms = (self.timeline_state.cursor_time_ms + step).min(dur.max(step));
                 if let Some(ref streamer) = self.playback_streamer {
@@ -1254,9 +1392,66 @@ impl FunGenApp {
 
         ui.add_space(2.0);
 
+        // Studio Selection & Transform Ribbon
+        ui.horizontal(|ui| {
+            let sel_count = if !self.timeline_state.selected_indices.is_empty() {
+                self.timeline_state.selected_indices.len()
+            } else if self.timeline_state.selected_index.is_some() {
+                1
+            } else {
+                0
+            };
+
+            ui.label(
+                RichText::new(format!("Selection: {} pts", sel_count))
+                    .strong()
+                    .color(if sel_count > 0 { Color32::from_rgb(255, 220, 50) } else { Color32::from_rgb(140, 150, 165) }),
+            );
+
+            if ui.button("Select All (Ctrl+A)").clicked() {
+                self.timeline_state.select_all(self.script.actions.len());
+                self.set_status(format!("Selected all {} keyframes", self.timeline_state.selected_indices.len()));
+            }
+
+            if sel_count > 0 && ui.button("Clear (Esc)").clicked() {
+                self.timeline_state.clear_selection();
+            }
+
+            ui.separator();
+
+            if ui.button("Invert ↕").on_hover_text("Invert positions (pos -> 100 - pos) of selection or all").clicked() {
+                self.invert_selection();
+            }
+
+            if ui.button("0.8x Scale").on_hover_text("Scale range down by 0.8x around centroid").clicked() {
+                self.scale_selection(0.8);
+            }
+
+            if ui.button("1.2x Scale").on_hover_text("Scale range up by 1.2x around centroid").clicked() {
+                self.scale_selection(1.2);
+            }
+
+            ui.separator();
+
+            if ui.button("⏪ -100ms").on_hover_text("Shift selected keyframes earlier by 100ms").clicked() {
+                self.shift_selection_time(-100);
+            }
+
+            if ui.button("+100ms ⏩").on_hover_text("Shift selected keyframes later by 100ms").clicked() {
+                self.shift_selection_time(100);
+            }
+
+            if sel_count > 0 {
+                ui.separator();
+                if ui.button(RichText::new("🗑 Delete Selected (Del)").color(Color32::from_rgb(255, 100, 100))).clicked() {
+                    self.delete_selected_keyframes();
+                }
+            }
+        });
+
         // Timeline Canvas with Audio Waveform and Ghost Axis Overlays
         ui.label(
-            RichText::new("Timeline Curve & Audio Waveform | Left Drag: Keyframe | Double-Click: Add | Scroll: Zoom | Middle/Ctrl+Drag: Pan | Arrows: Step Frame")
+            RichText::new("Timeline Curve & Audio Waveform | Left Drag: Keyframe | Shift+Drag: Marquee Box | Double-Click: Add | Scroll: Zoom | Middle/Ctrl+Drag: Pan | Arrows: Step Frame")
                 .size(11.0)
                 .color(Color32::from_rgb(130, 140, 155)),
         );
