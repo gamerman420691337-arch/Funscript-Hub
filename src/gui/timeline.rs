@@ -7,6 +7,13 @@ use eframe::egui::{
 
 use std::collections::BTreeSet;
 
+/// Scene or chapter bookmark timestamp with a descriptive label.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Bookmark {
+    pub time_ms: i64,
+    pub name: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct TimelineState {
     /// Start of visible time window in milliseconds
@@ -29,6 +36,14 @@ pub struct TimelineState {
     pub magnetic_snapping: bool,
     /// Currently snapped acoustic transient timestamp (if active)
     pub snapped_transient_ms: Option<i64>,
+    /// A/B Loop In point in milliseconds
+    pub loop_in_ms: Option<i64>,
+    /// A/B Loop Out point in milliseconds
+    pub loop_out_ms: Option<i64>,
+    /// Whether A/B looping is active
+    pub loop_enabled: bool,
+    /// Scene / chapter bookmarks
+    pub bookmarks: Vec<Bookmark>,
 }
 
 impl Default for TimelineState {
@@ -44,6 +59,10 @@ impl Default for TimelineState {
             is_dragging_point: false,
             magnetic_snapping: true,
             snapped_transient_ms: None,
+            loop_in_ms: None,
+            loop_out_ms: None,
+            loop_enabled: false,
+            bookmarks: Vec::new(),
         }
     }
 }
@@ -107,6 +126,52 @@ impl TimelineState {
     pub fn is_selected(&self, idx: usize) -> bool {
         self.selected_indices.contains(&idx) || self.selected_index == Some(idx)
     }
+
+    /// Set A/B loop In point
+    pub fn set_loop_in(&mut self, time_ms: i64) {
+        self.loop_in_ms = Some(time_ms);
+        if let Some(out) = self.loop_out_ms {
+            if time_ms >= out {
+                self.loop_out_ms = Some(time_ms + 1000);
+            }
+        }
+        self.loop_enabled = true;
+    }
+
+    /// Set A/B loop Out point
+    pub fn set_loop_out(&mut self, time_ms: i64) {
+        self.loop_out_ms = Some(time_ms);
+        if let Some(in_t) = self.loop_in_ms {
+            if time_ms <= in_t {
+                self.loop_in_ms = Some(time_ms.saturating_sub(1000));
+            }
+        }
+        self.loop_enabled = true;
+    }
+
+    /// Clear A/B loop region
+    pub fn clear_loop(&mut self) {
+        self.loop_in_ms = None;
+        self.loop_out_ms = None;
+        self.loop_enabled = false;
+    }
+
+    /// Add a bookmark at the given timestamp
+    pub fn add_bookmark(&mut self, time_ms: i64, name: String) {
+        self.bookmarks.push(Bookmark { time_ms, name });
+        self.bookmarks.sort_by_key(|b| b.time_ms);
+        self.bookmarks.dedup_by_key(|b| b.time_ms);
+    }
+
+    /// Jump to the next bookmark after current playhead
+    pub fn next_bookmark(&self, cur_time: i64) -> Option<i64> {
+        self.bookmarks.iter().find(|b| b.time_ms > cur_time).map(|b| b.time_ms)
+    }
+
+    /// Jump to the previous bookmark before current playhead
+    pub fn prev_bookmark(&self, cur_time: i64) -> Option<i64> {
+        self.bookmarks.iter().rev().find(|b| b.time_ms < cur_time).map(|b| b.time_ms)
+    }
 }
 
 /// Render and handle interactions on the interactive timeline canvas
@@ -154,8 +219,14 @@ pub fn show_timeline(
     painter.rect_filled(rect, 4.0, Color32::from_rgb(22, 24, 29));
     draw_grids(&painter, rect, state);
 
+    // 2a. Render A/B Loop Region (if active)
+    draw_loop_region(&painter, rect, state);
+
     // 2b. Render Audio Waveform (translucent acoustic bars under curve)
     draw_audio_waveform(&painter, rect, state, waveform);
+
+    // 2c. Render Scene Bookmarks
+    draw_bookmarks(&painter, rect, state);
 
     // 3. Render Action Curve, Ghost Multi-Axis Curves, & Highlights
     draw_action_curve(&painter, rect, script, state, doctor_report, ghost_axes, active_color);
@@ -257,6 +328,89 @@ fn draw_grids(painter: &Painter, rect: Rect, state: &TimelineState) {
     }
 }
 
+fn draw_loop_region(painter: &Painter, rect: Rect, state: &TimelineState) {
+    if !state.loop_enabled {
+        return;
+    }
+    if let (Some(in_ms), Some(out_ms)) = (state.loop_in_ms, state.loop_out_ms) {
+        if out_ms > in_ms {
+            let x_in = state.time_to_screen_x(in_ms as f64, rect);
+            let x_out = state.time_to_screen_x(out_ms as f64, rect);
+
+            let visible_left = x_in.clamp(rect.left(), rect.right());
+            let visible_right = x_out.clamp(rect.left(), rect.right());
+
+            if visible_right > visible_left {
+                let loop_rect = Rect::from_x_y_ranges(visible_left..=visible_right, rect.top()..=rect.bottom());
+                painter.rect_filled(loop_rect, 0.0, Color32::from_rgba_unmultiplied(0, 160, 255, 35));
+            }
+
+            // Loop In boundary flag
+            if x_in >= rect.left() && x_in <= rect.right() {
+                painter.line_segment(
+                    [pos2(x_in, rect.top()), pos2(x_in, rect.bottom())],
+                    Stroke::new(1.8f32, Color32::from_rgb(0, 210, 255)),
+                );
+                painter.text(
+                    pos2(x_in + 4.0, rect.top() + 4.0),
+                    eframe::egui::Align2::LEFT_TOP,
+                    "⟪ LOOP IN",
+                    eframe::egui::FontId::monospace(9.5),
+                    Color32::from_rgb(0, 220, 255),
+                );
+            }
+
+            // Loop Out boundary flag
+            if x_out >= rect.left() && x_out <= rect.right() {
+                painter.line_segment(
+                    [pos2(x_out, rect.top()), pos2(x_out, rect.bottom())],
+                    Stroke::new(1.8f32, Color32::from_rgb(0, 210, 255)),
+                );
+                painter.text(
+                    pos2(x_out - 4.0, rect.top() + 4.0),
+                    eframe::egui::Align2::RIGHT_TOP,
+                    "LOOP OUT ⟫",
+                    eframe::egui::FontId::monospace(9.5),
+                    Color32::from_rgb(0, 220, 255),
+                );
+            }
+        }
+    }
+}
+
+fn draw_bookmarks(painter: &Painter, rect: Rect, state: &TimelineState) {
+    for bm in &state.bookmarks {
+        let x = state.time_to_screen_x(bm.time_ms as f64, rect);
+        if x >= rect.left() && x <= rect.right() {
+            let top_y = rect.top() + 7.0;
+            let diamond_pts = [
+                pos2(x, top_y - 5.0),
+                pos2(x + 4.0, top_y),
+                pos2(x, top_y + 5.0),
+                pos2(x - 4.0, top_y),
+            ];
+            painter.add(Shape::convex_polygon(
+                diamond_pts.to_vec(),
+                Color32::from_rgb(255, 180, 50),
+                Stroke::new(1.0f32, Color32::from_rgb(30, 30, 30)),
+            ));
+
+            painter.line_segment(
+                [pos2(x, top_y + 5.0), pos2(x, rect.bottom())],
+                Stroke::new(1.0f32, Color32::from_rgba_unmultiplied(255, 180, 50, 45)),
+            );
+
+            painter.text(
+                pos2(x + 5.0, top_y - 6.0),
+                eframe::egui::Align2::LEFT_TOP,
+                &bm.name,
+                eframe::egui::FontId::proportional(9.0),
+                Color32::from_rgb(255, 200, 80),
+            );
+        }
+    }
+}
+
 fn draw_audio_waveform(
     painter: &Painter,
     rect: Rect,
@@ -274,6 +428,7 @@ fn draw_audio_waveform(
 
     let mut mesh = Mesh::default();
     let mut x = rect.left();
+    let mut transients = Vec::new();
     while x <= rect.right() {
         let time_ms = state.screen_x_to_time(x, rect);
         let peak = wf.get_peak_at(time_ms);
@@ -281,11 +436,21 @@ fn draw_audio_waveform(
             let bar_h = peak * max_height;
             let bar_rect = Rect::from_min_max(pos2(x - 0.9, base_y - bar_h), pos2(x + 0.9, base_y));
             mesh.add_colored_rect(bar_rect, bar_color);
+
+            // Mark strong rhythmic beats
+            if peak >= 0.60 {
+                transients.push(pos2(x, base_y - bar_h - 2.0));
+            }
         }
         x += 2.0;
     }
     if !mesh.is_empty() {
         painter.add(Shape::Mesh(mesh.into()));
+    }
+
+    // Draw transient rhythm dots
+    for p in transients {
+        painter.circle_filled(p, 1.8, Color32::from_rgb(255, 205, 70));
     }
 }
 
@@ -696,4 +861,51 @@ mod tests {
         assert!(state.selected_indices.is_empty());
         assert_eq!(state.selected_index, None);
     }
+
+    #[test]
+    fn test_timeline_loop_and_bookmarks() {
+        let mut state = TimelineState::default();
+        assert!(!state.loop_enabled);
+        assert_eq!(state.loop_in_ms, None);
+        assert_eq!(state.loop_out_ms, None);
+
+        state.set_loop_in(1000);
+        assert_eq!(state.loop_in_ms, Some(1000));
+        assert!(state.loop_enabled);
+
+        state.set_loop_out(3500);
+        assert_eq!(state.loop_out_ms, Some(3500));
+        assert!(state.loop_enabled);
+
+        // Setting in > out auto-adjusts (4000 + 1000 = 5000)
+        state.set_loop_in(4000);
+        assert_eq!(state.loop_in_ms, Some(4000));
+        assert_eq!(state.loop_out_ms, Some(5000));
+
+        state.clear_loop();
+        assert!(!state.loop_enabled);
+        assert_eq!(state.loop_in_ms, None);
+        assert_eq!(state.loop_out_ms, None);
+
+        // Bookmarks
+        state.add_bookmark(1500, "Drop 1".into());
+        state.add_bookmark(500, "Intro".into());
+        state.add_bookmark(3000, "Climax".into());
+
+        // Should be ordered by time_ms: 500, 1500, 3000
+        assert_eq!(state.bookmarks[0].time_ms, 500);
+        assert_eq!(state.bookmarks[1].time_ms, 1500);
+        assert_eq!(state.bookmarks[2].time_ms, 3000);
+
+        assert_eq!(state.next_bookmark(0), Some(500));
+        assert_eq!(state.next_bookmark(500), Some(1500));
+        assert_eq!(state.next_bookmark(2000), Some(3000));
+        assert_eq!(state.next_bookmark(3500), None);
+
+        assert_eq!(state.prev_bookmark(4000), Some(3000));
+        assert_eq!(state.prev_bookmark(3000), Some(1500));
+        assert_eq!(state.prev_bookmark(1000), Some(500));
+        assert_eq!(state.prev_bookmark(500), None);
+    }
 }
+

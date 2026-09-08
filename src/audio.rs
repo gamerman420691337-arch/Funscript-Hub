@@ -208,6 +208,7 @@ impl Default for AudioPlayer {
 }
 
 impl AudioPlayer {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
     }

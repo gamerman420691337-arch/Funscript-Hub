@@ -1,6 +1,7 @@
 //! GUI module for Funscript Hub.
 
 pub mod app;
+pub mod rig_simulator;
 pub mod timeline;
 
 use app::FunGenApp;

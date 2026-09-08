@@ -7,10 +7,11 @@ use crate::funscript::{
     diagnose_funscript, AxisChannel, DoctorConfig, DoctorReport, Funscript, InfillPattern,
     MultiAxisScript, UndoHistory,
 };
+use crate::gui::rig_simulator::{show_rig_simulator, RigViewState};
 use crate::gui::timeline::{show_timeline, TimelineState};
 use crate::kinematics::{
     eval_scurve, smooth_funscript, DeviceProfile, DeviceType, KinematicState,
-    SCurvePreset, ThermalModel, ThermalStatus,
+    RigInput, RigModel, SCurvePreset, ThermalModel, ThermalStatus,
 };
 use crate::neural::model_manager::{auto_detect_model, inspect_model, ModelInfo};
 use crate::plugin::engine::PluginHost;
@@ -150,6 +151,11 @@ pub struct FunGenApp {
     pub selected_serial_port: String,
     pub selected_baud_rate: u32,
 
+    // Interactive 3D Hardware Rig Simulator
+    pub show_rig_simulator: bool,
+    pub rig_model: RigModel,
+    pub rig_view_state: RigViewState,
+
     // The Handy Cloud & Local Hardware Sync
     pub handy_dispatcher: HandyDispatcher,
     pub handy_config: HandyConfig,
@@ -264,6 +270,10 @@ impl Default for FunGenApp {
             available_serial_ports: ports,
             selected_serial_port: default_port,
             selected_baud_rate: 115200,
+
+            show_rig_simulator: false,
+            rig_model: RigModel::OSR2,
+            rig_view_state: RigViewState::default(),
 
             playback_streamer: None,
             handy_dispatcher: HandyDispatcher::new(),
@@ -522,6 +532,7 @@ impl eframe::App for FunGenApp {
         self.render_plugin_dialog(ctx);
         self.render_help_dialog(ctx);
         self.render_about_dialog(ctx);
+        self.render_rig_simulator_window(ctx);
 
         // Request repaint if playing, generating, or running batch worker
         if self.is_playing {
@@ -810,6 +821,70 @@ impl FunGenApp {
         self.set_status(format!("Shifted {} keyframe(s) by {}{}ms", indices.len(), sign, delta_ms));
     }
 
+    pub fn snap_selected_to_beats(&mut self) {
+        if self.script.actions.is_empty() {
+            return;
+        }
+        let waveform = match &self.audio_waveform {
+            Some(wf) if !wf.is_empty() => wf,
+            _ => {
+                self.set_status("Beat snap: No audio track loaded or extracted".to_string());
+                return;
+            }
+        };
+
+        self.undo_history.push_snapshot(&self.script);
+
+        let indices: Vec<usize> = if !self.timeline_state.selected_indices.is_empty() {
+            self.timeline_state.selected_indices.iter().copied().collect()
+        } else {
+            (0..self.script.actions.len()).collect()
+        };
+
+        let mut snapped_count = 0;
+        let mut target_ats = Vec::new();
+
+        for &i in &indices {
+            if let Some(action) = self.script.actions.get_mut(i) {
+                // Search radius ±85ms for acoustic transient
+                if let Some(beat_ms) = waveform.find_nearest_transient(action.at, 85) {
+                    if beat_ms != action.at {
+                        action.at = beat_ms;
+                        snapped_count += 1;
+                    }
+                }
+                target_ats.push(action.at);
+            }
+        }
+
+        self.script.sanitize();
+
+        if !self.timeline_state.selected_indices.is_empty() {
+            self.timeline_state.selected_indices = self.script
+                .actions
+                .iter()
+                .enumerate()
+                .filter_map(|(i, a)| if target_ats.contains(&a.at) { Some(i) } else { None })
+                .collect();
+            self.timeline_state.selected_index = self.timeline_state.selected_indices.iter().next().copied();
+        }
+
+        self.run_doctor();
+        self.set_status(format!("Snapped {} keyframe(s) to audio rhythm transients", snapped_count));
+    }
+
+    pub fn current_rig_input(&self) -> RigInput {
+        let positions = self.evaluate_current_positions();
+        RigInput {
+            stroke: *positions.get(&AxisChannel::Stroke).unwrap_or(&50.0),
+            surge: *positions.get(&AxisChannel::Surge).unwrap_or(&50.0),
+            sway: *positions.get(&AxisChannel::Sway).unwrap_or(&50.0),
+            twist: *positions.get(&AxisChannel::Twist).unwrap_or(&50.0),
+            roll: *positions.get(&AxisChannel::Roll).unwrap_or(&50.0),
+            pitch: *positions.get(&AxisChannel::Pitch).unwrap_or(&50.0),
+        }
+    }
+
     fn handle_shortcuts(&mut self, ctx: &EguiContext) {
         // Global Undo / Redo shortcuts
         if ctx.input(|i| (i.modifiers.command || i.modifiers.ctrl) && i.key_pressed(egui::Key::Z) && !i.modifiers.shift) {
@@ -900,31 +975,60 @@ impl FunGenApp {
                 }
             }
 
-            // M: Toggle magnetic audio snapping
-            if ctx.input(|i| i.key_pressed(egui::Key::M)) {
+            // Alt+M: Snap selected keyframes to audio rhythm transients
+            if ctx.input(|i| i.modifiers.alt && i.key_pressed(egui::Key::M)) {
+                self.snap_selected_to_beats();
+            } else if ctx.input(|i| i.key_pressed(egui::Key::M)) {
+                // M: Toggle magnetic audio snapping
                 self.timeline_state.magnetic_snapping = !self.timeline_state.magnetic_snapping;
                 let s = if self.timeline_state.magnetic_snapping { "enabled" } else { "disabled" };
                 self.set_status(format!("Magnetic audio snapping {}", s));
             }
 
-            // [ / ]: Playback speed adjustment
+            // B: Drop Bookmark Marker
+            if ctx.input(|i| i.key_pressed(egui::Key::B) && !i.modifiers.ctrl && !i.modifiers.command && !i.modifiers.alt) {
+                let cur = self.timeline_state.cursor_time_ms;
+                let b_idx = self.timeline_state.bookmarks.len() + 1;
+                self.timeline_state.add_bookmark(cur, format!("Marker {}", b_idx));
+                self.set_status(format!("Dropped bookmark pin #{} at {}ms", b_idx, cur));
+            }
+
+            // [ / ]: A/B Looper markers (Shift + [ / ]: Playback speed adjustment)
             if ctx.input(|i| i.key_pressed(egui::Key::OpenBracket)) {
-                self.playback_speed = (self.playback_speed - 0.25).max(0.25);
-                if self.is_playing {
-                    if let Some(ref path) = self.video_path {
-                        self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
+                if ctx.input(|i| i.modifiers.shift) {
+                    self.playback_speed = (self.playback_speed - 0.25).max(0.25);
+                    if self.is_playing {
+                        if let Some(ref path) = self.video_path {
+                            self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
+                        }
                     }
+                    self.set_status(format!("Playback speed: {:.2}x", self.playback_speed));
+                } else {
+                    let cur = self.timeline_state.cursor_time_ms;
+                    self.timeline_state.set_loop_in(cur);
+                    self.set_status(format!("Set Loop In marker at {}ms", cur));
                 }
-                self.set_status(format!("Playback speed: {:.2}x", self.playback_speed));
             }
             if ctx.input(|i| i.key_pressed(egui::Key::CloseBracket)) {
-                self.playback_speed = (self.playback_speed + 0.25).min(3.0);
-                if self.is_playing {
-                    if let Some(ref path) = self.video_path {
-                        self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
+                if ctx.input(|i| i.modifiers.shift) {
+                    self.playback_speed = (self.playback_speed + 0.25).min(3.0);
+                    if self.is_playing {
+                        if let Some(ref path) = self.video_path {
+                            self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
+                        }
                     }
+                    self.set_status(format!("Playback speed: {:.2}x", self.playback_speed));
+                } else {
+                    let cur = self.timeline_state.cursor_time_ms;
+                    self.timeline_state.set_loop_out(cur);
+                    self.set_status(format!("Set Loop Out marker at {}ms", cur));
                 }
-                self.set_status(format!("Playback speed: {:.2}x", self.playback_speed));
+            }
+
+            // \: Clear A/B Section Loop
+            if ctx.input(|i| i.key_pressed(egui::Key::Backslash)) {
+                self.timeline_state.clear_loop();
+                self.set_status("Cleared A/B section loop".to_string());
             }
 
             // Hotkeys 1-7: Switch active multi-axis channel
@@ -940,16 +1044,30 @@ impl FunGenApp {
                 self.toggle_playback();
             }
 
-            // Frame-accurate stepping based on video FPS (Shift: 1 second jump)
+            // Frame-accurate stepping based on video FPS (Shift: 1 second jump, Alt: Bookmark jump)
             let frame_step_ms = (1000.0 / self.target_fps.max(1.0)).round() as i64;
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowLeft)) {
-                let step = if ctx.input(|i| i.modifiers.shift) { 1000 } else { frame_step_ms.max(1) };
-                self.seek_to((self.timeline_state.cursor_time_ms - step).max(0));
+                if ctx.input(|i| i.modifiers.alt) {
+                    if let Some(bm_ms) = self.timeline_state.prev_bookmark(self.timeline_state.cursor_time_ms) {
+                        self.seek_to(bm_ms);
+                        self.set_status(format!("Jumped to bookmark at {}ms", bm_ms));
+                    }
+                } else {
+                    let step = if ctx.input(|i| i.modifiers.shift) { 1000 } else { frame_step_ms.max(1) };
+                    self.seek_to((self.timeline_state.cursor_time_ms - step).max(0));
+                }
             }
             if ctx.input(|i| i.key_pressed(egui::Key::ArrowRight)) {
-                let step = if ctx.input(|i| i.modifiers.shift) { 1000 } else { frame_step_ms.max(1) };
-                let dur = self.script.actions.last().map(|a| a.at).unwrap_or(0);
-                self.seek_to((self.timeline_state.cursor_time_ms + step).min(dur.max(step)));
+                if ctx.input(|i| i.modifiers.alt) {
+                    if let Some(bm_ms) = self.timeline_state.next_bookmark(self.timeline_state.cursor_time_ms) {
+                        self.seek_to(bm_ms);
+                        self.set_status(format!("Jumped to bookmark at {}ms", bm_ms));
+                    }
+                } else {
+                    let step = if ctx.input(|i| i.modifiers.shift) { 1000 } else { frame_step_ms.max(1) };
+                    let dur = self.script.actions.last().map(|a| a.at).unwrap_or(0);
+                    self.seek_to((self.timeline_state.cursor_time_ms + step).min(dur.max(step)));
+                }
             }
             if ctx.input(|i| i.key_pressed(egui::Key::Home)) {
                 self.seek_to(0);
@@ -1175,11 +1293,25 @@ impl FunGenApp {
                 let advance_ms = (dt_secs * 1000.0 * self.playback_speed).round() as i64;
                 self.timeline_state.cursor_time_ms += advance_ms;
 
-                let duration_ms = self.script.actions.last().map(|a| a.at).unwrap_or(0);
-                if duration_ms > 0 && self.timeline_state.cursor_time_ms > duration_ms {
-                    self.timeline_state.cursor_time_ms = 0; // Loop playback
-                    if let Some(ref path) = self.video_path {
-                        self.audio_player.play_at(path, 0, self.playback_speed);
+                // A/B Section Looping or full script loop
+                let mut looped = false;
+                if self.timeline_state.loop_enabled {
+                    if let (Some(in_ms), Some(out_ms)) = (self.timeline_state.loop_in_ms, self.timeline_state.loop_out_ms) {
+                        if out_ms > in_ms && self.timeline_state.cursor_time_ms >= out_ms {
+                            self.timeline_state.cursor_time_ms = in_ms;
+                            self.audio_player.seek_to(in_ms, self.playback_speed);
+                            looped = true;
+                        }
+                    }
+                }
+
+                if !looped {
+                    let duration_ms = self.script.actions.last().map(|a| a.at).unwrap_or(0);
+                    if duration_ms > 0 && self.timeline_state.cursor_time_ms > duration_ms {
+                        self.timeline_state.cursor_time_ms = 0; // Loop playback
+                        if let Some(ref path) = self.video_path {
+                            self.audio_player.play_at(path, 0, self.playback_speed);
+                        }
                     }
                 }
 
@@ -1643,9 +1775,66 @@ impl FunGenApp {
 
             if sel_count > 0 {
                 ui.separator();
-                if ui.button(RichText::new("🗑 Delete Selected (Del)").color(Color32::from_rgb(255, 100, 100))).clicked() {
+                if ui.button(RichText::new("🗑 Delete (Del)").color(Color32::from_rgb(255, 100, 100))).clicked() {
                     self.delete_selected_keyframes();
                 }
+            }
+
+            ui.separator();
+
+            if ui.button("🎵 Snap Beat (Alt+M)")
+                .on_hover_text("Snap selected keyframe timestamps directly to nearest acoustic beat transients")
+                .clicked()
+            {
+                self.snap_selected_to_beats();
+            }
+
+            ui.separator();
+
+            let in_lbl = if let Some(t) = self.timeline_state.loop_in_ms {
+                format!("⟪ In: {}ms ([)", t)
+            } else {
+                "⟪ Set In ([)".to_string()
+            };
+            if ui.button(in_lbl).on_hover_text("Set A/B Loop In point at current playhead").clicked() {
+                let cur = self.timeline_state.cursor_time_ms;
+                self.timeline_state.set_loop_in(cur);
+                self.set_status(format!("Set Loop In marker at {}ms", cur));
+            }
+
+            let out_lbl = if let Some(t) = self.timeline_state.loop_out_ms {
+                format!("Out: {}ms (]) ⟫", t)
+            } else {
+                "Set Out (]) ⟫".to_string()
+            };
+            if ui.button(out_lbl).on_hover_text("Set A/B Loop Out point at current playhead").clicked() {
+                let cur = self.timeline_state.cursor_time_ms;
+                self.timeline_state.set_loop_out(cur);
+                self.set_status(format!("Set Loop Out marker at {}ms", cur));
+            }
+
+            if self.timeline_state.loop_enabled {
+                if ui.button(RichText::new("✕ Clear Loop (\\)").color(Color32::from_rgb(0, 200, 255))).clicked() {
+                    self.timeline_state.clear_loop();
+                    self.set_status("Cleared A/B loop".to_string());
+                }
+            }
+
+            if ui.button("🔖 Bookmark (B)").on_hover_text("Drop a bookmark marker pin at current playhead (Alt+Left / Alt+Right to jump)").clicked() {
+                let cur = self.timeline_state.cursor_time_ms;
+                let b_idx = self.timeline_state.bookmarks.len() + 1;
+                self.timeline_state.add_bookmark(cur, format!("Marker {}", b_idx));
+                self.set_status(format!("Added bookmark marker #{} at {}ms", b_idx, cur));
+            }
+
+            ui.separator();
+
+            let rig_text = if self.show_rig_simulator { "🤖 3D Rig: ON" } else { "🤖 3D Rig: OFF" };
+            if ui.selectable_label(self.show_rig_simulator, rig_text)
+                .on_hover_text("Toggle interactive 3D OSR2 / SR6 robot rig simulator")
+                .clicked()
+            {
+                self.show_rig_simulator = !self.show_rig_simulator;
             }
         });
 
@@ -1827,9 +2016,10 @@ impl FunGenApp {
                     self.audio_player.set_volume(vol, self.playback_speed);
                 }
 
-                // Tracking HUD Toggle
+                // Tracking HUD & 3D Rig Toggles
                 ui.separator();
                 ui.checkbox(&mut self.show_tracking_overlay, "🎯 Tracking HUD");
+                ui.checkbox(&mut self.show_rig_simulator, "🤖 3D Rig");
 
                 // Live Haptic Gauge Bar
                 ui.separator();
@@ -2467,7 +2657,30 @@ impl FunGenApp {
 
             ui.add_space(10.0);
 
-            // 3. Physical Hardware Controllers (Serial COM Port & UDP Network)
+            // 3. Interactive 3D Mechanism Kinematic Simulator (OSR2 / SR6)
+            ui.group(|ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("Interactive 3D Robotic Rig Simulator");
+                    ui.separator();
+                    ui.radio_value(&mut self.rig_model, RigModel::OSR2, "OSR2 (3-DOF)");
+                    ui.radio_value(&mut self.rig_model, RigModel::SR6, "SR6 (6-DOF)");
+                    ui.separator();
+                    if ui.button("↺ Reset Camera Orbit").clicked() {
+                        self.rig_view_state = RigViewState::default();
+                    }
+                });
+                ui.label("Real-time forward kinematic linkage simulation with hardware endstop limits. Drag to rotate 3D mechanism.");
+                ui.add_space(4.0);
+
+                let sim_w = ui.available_width().min(600.0);
+                let rig_size = egui::vec2(sim_w, 220.0);
+                let input = self.current_rig_input();
+                show_rig_simulator(ui, self.rig_model, &input, &mut self.rig_view_state, rig_size);
+            });
+
+            ui.add_space(10.0);
+
+            // 4. Physical Hardware Controllers (Serial COM Port & UDP Network)
             ui.columns(2, |columns| {
                 // Column 1: Direct USB Serial Port Hardware (OSR2, SR6, T-Code)
                 columns[0].group(|ui| {
@@ -3364,9 +3577,44 @@ impl FunGenApp {
                             ui.label("Studio Editor");
                             ui.end_row();
 
-                            ui.monospace("[ / ]");
+                            ui.monospace("Alt + M");
+                            ui.label("Snap selected keyframes to nearest audio beat transients");
+                            ui.label("Studio Editor");
+                            ui.end_row();
+
+                            ui.monospace("[");
+                            ui.label("Set A/B Loop In point at current playhead");
+                            ui.label("Global / Studio");
+                            ui.end_row();
+
+                            ui.monospace("]");
+                            ui.label("Set A/B Loop Out point at current playhead");
+                            ui.label("Global / Studio");
+                            ui.end_row();
+
+                            ui.monospace("\\");
+                            ui.label("Clear active A/B section loop");
+                            ui.label("Global / Studio");
+                            ui.end_row();
+
+                            ui.monospace("Shift + [ / ]");
                             ui.label("Decrease / Increase playback speed (0.25x)");
                             ui.label("Global / Cinema");
+                            ui.end_row();
+
+                            ui.monospace("B");
+                            ui.label("Drop bookmark marker pin at current playhead");
+                            ui.label("Global / Studio");
+                            ui.end_row();
+
+                            ui.monospace("Alt + Left / Right");
+                            ui.label("Jump playhead to Previous / Next bookmark");
+                            ui.label("Global / Studio");
+                            ui.end_row();
+
+                            ui.monospace("Shift + Drag Canvas");
+                            ui.label("Marquee box multi-select keyframes");
+                            ui.label("Timeline");
                             ui.end_row();
 
                             ui.monospace("1 - 7");
@@ -3454,6 +3702,32 @@ impl FunGenApp {
             });
 
         self.about_dialog_open = open;
+    }
+
+    fn render_rig_simulator_window(&mut self, ctx: &EguiContext) {
+        if !self.show_rig_simulator {
+            return;
+        }
+
+        let mut open = self.show_rig_simulator;
+        egui::Window::new("🤖 3D Hardware Rig Simulator (OSR2 / SR6)")
+            .open(&mut open)
+            .default_size([280.0, 260.0])
+            .resizable(true)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.radio_value(&mut self.rig_model, RigModel::OSR2, "OSR2 (3-DOF)");
+                    ui.radio_value(&mut self.rig_model, RigModel::SR6, "SR6 (6-DOF)");
+                    ui.separator();
+                    if ui.button("↺ Reset").on_hover_text("Reset Camera Orbit").clicked() {
+                        self.rig_view_state = RigViewState::default();
+                    }
+                });
+                let avail = ui.available_size();
+                let input = self.current_rig_input();
+                show_rig_simulator(ui, self.rig_model, &input, &mut self.rig_view_state, avail);
+            });
+        self.show_rig_simulator = open;
     }
 
     fn render_automation_view(&mut self, ui: &mut Ui) {
