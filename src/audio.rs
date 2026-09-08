@@ -5,6 +5,14 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+pub mod spectral;
+#[allow(unused_imports)]
+pub use spectral::{
+    generate_multiband_companion_bundle, synthesize_spectral_actions, BiquadFilter, CooleyTukeyFft,
+    FrequencyBand, SpectralAnalysis, SpectralInfillConfig, SpectralInfillMode, FFT_SIZE,
+    NUM_SPEC_BANDS,
+};
+
 /// Normalized audio waveform representation
 #[derive(Debug, Clone, Default)]
 pub struct AudioWaveform {
@@ -15,9 +23,12 @@ pub struct AudioWaveform {
     pub duration_secs: f64,
     /// Normalized peak amplitudes [0.0, 1.0] per bin
     pub peaks: Vec<f32>,
+    /// Multi-band spectral decomposition (Sub-Bass, Mid, High, Spectrogram)
+    pub spectral: Option<SpectralAnalysis>,
 }
 
 impl AudioWaveform {
+    #[allow(dead_code)]
     pub fn new(peaks: Vec<f32>, bins_per_sec: f32) -> Self {
         let duration_secs = if bins_per_sec > 0.0 {
             peaks.len() as f64 / bins_per_sec as f64
@@ -28,6 +39,25 @@ impl AudioWaveform {
             bins_per_sec,
             duration_secs,
             peaks,
+            spectral: None,
+        }
+    }
+
+    pub fn new_with_spectral(
+        peaks: Vec<f32>,
+        spectral: SpectralAnalysis,
+        bins_per_sec: f32,
+    ) -> Self {
+        let duration_secs = if bins_per_sec > 0.0 {
+            peaks.len() as f64 / bins_per_sec as f64
+        } else {
+            0.0
+        };
+        Self {
+            bins_per_sec,
+            duration_secs,
+            peaks,
+            spectral: Some(spectral),
         }
     }
 
@@ -42,6 +72,40 @@ impl AudioWaveform {
         } else {
             0.0
         }
+    }
+
+    /// Query normalized Sub-Bass (20-250 Hz) energy at a specific millisecond timestamp
+    pub fn get_sub_bass_at(&self, time_ms: i64) -> f32 {
+        if let Some(ref s) = self.spectral {
+            s.get_band_energy_at(FrequencyBand::SubBass, time_ms, self.bins_per_sec)
+        } else {
+            self.get_peak_at(time_ms)
+        }
+    }
+
+    /// Query normalized Mid-Range (250-2500 Hz) energy at a specific millisecond timestamp
+    pub fn get_mid_at(&self, time_ms: i64) -> f32 {
+        if let Some(ref s) = self.spectral {
+            s.get_band_energy_at(FrequencyBand::Mid, time_ms, self.bins_per_sec)
+        } else {
+            self.get_peak_at(time_ms)
+        }
+    }
+
+    /// Query normalized Highs / Transients (2.5-8 kHz) energy at a specific millisecond timestamp
+    pub fn get_high_at(&self, time_ms: i64) -> f32 {
+        if let Some(ref s) = self.spectral {
+            s.get_band_energy_at(FrequencyBand::High, time_ms, self.bins_per_sec)
+        } else {
+            self.get_peak_at(time_ms)
+        }
+    }
+
+    /// Query 16-band spectrogram slice at a specific millisecond timestamp
+    pub fn get_spectrogram_at(&self, time_ms: i64) -> Option<&[f32; NUM_SPEC_BANDS]> {
+        self.spectral
+            .as_ref()
+            .and_then(|s| s.get_spectrogram_at(time_ms, self.bins_per_sec))
     }
 
     /// Check if waveform has data
@@ -86,11 +150,11 @@ impl AudioWaveform {
     }
 }
 
-/// Extract PCM audio stream and compute normalized RMS peak bins.
+/// Extract PCM audio stream and compute normalized RMS and multi-band spectral decomposition.
 pub fn extract_audio_waveform<P: AsRef<Path>>(video_path: P) -> Result<AudioWaveform> {
-    let sample_rate = 8000;
+    let sample_rate = 16000;
     let bins_per_sec = 100.0f32;
-    let samples_per_bin = (sample_rate as f32 / bins_per_sec) as usize; // 80 samples per bin
+    let samples_per_bin = (sample_rate as f32 / bins_per_sec) as usize; // 160 samples per bin
 
     let mut child = Command::new("ffmpeg")
         .args(["-nostdin", "-i"])
@@ -102,7 +166,7 @@ pub fn extract_audio_waveform<P: AsRef<Path>>(video_path: P) -> Result<AudioWave
             "-ac",
             "1",
             "-ar",
-            "8000",
+            "16000",
             "-f",
             "s16le",
             "pipe:1",
@@ -118,12 +182,32 @@ pub fn extract_audio_waveform<P: AsRef<Path>>(video_path: P) -> Result<AudioWave
         .context("Failed to open ffmpeg audio stdout")?;
     let mut reader = BufReader::new(stdout);
 
-    // Streaming RMS computation: process chunks of `samples_per_bin * 2` bytes (160 bytes) directly from stdout,
-    // avoiding large intermediate memory buffers for raw audio bytes and sample vectors.
-    let chunk_size = samples_per_bin * 2;
+    // Multi-band DSP filters:
+    // Sub-Bass: 2nd-order Butterworth lowpass at 220 Hz
+    let mut lp_filter = BiquadFilter::lowpass(sample_rate as f32, 220.0, 0.707);
+    // Mid: 2nd-order Butterworth bandpass at 1200 Hz
+    let mut bp_filter = BiquadFilter::bandpass(sample_rate as f32, 1200.0, 1.0);
+    // High: 2nd-order Butterworth highpass at 2500 Hz
+    let mut hp_filter = BiquadFilter::highpass(sample_rate as f32, 2500.0, 0.707);
+
+    // 256-point Cooley-Tukey STFT for 16-band waterfall spectrogram
+    let fft = CooleyTukeyFft::new();
+    let mut fft_window = [0.0f32; FFT_SIZE];
+
+    let chunk_size = samples_per_bin * 2; // 320 bytes = 160 samples
     let mut chunk_buf = vec![0u8; chunk_size];
+
     let mut peaks = Vec::new();
+    let mut sub_bass = Vec::new();
+    let mut mid = Vec::new();
+    let mut high = Vec::new();
+    let mut spectrogram = Vec::new();
+
     let mut max_observed_rms = 0.001f32;
+    let mut max_observed_sub = 0.001f32;
+    let mut max_observed_mid = 0.001f32;
+    let mut max_observed_high = 0.001f32;
+    let mut max_observed_spec = 0.001f32;
 
     loop {
         let mut bytes_read = 0;
@@ -142,17 +226,66 @@ pub fn extract_audio_waveform<P: AsRef<Path>>(video_path: P) -> Result<AudioWave
 
         let num_samples = bytes_read / 2;
         if num_samples > 0 {
-            let mut sum_sq = 0.0f64;
-            for chunk in chunk_buf[..num_samples * 2].chunks_exact(2) {
+            let mut sum_sq_raw = 0.0f64;
+            let mut sum_sq_sub = 0.0f64;
+            let mut sum_sq_mid = 0.0f64;
+            let mut sum_sq_high = 0.0f64;
+
+            // Shift FFT sliding window by 160 samples
+            fft_window.copy_within(num_samples..FFT_SIZE, 0);
+
+            for (idx, chunk) in chunk_buf[..num_samples * 2].chunks_exact(2).enumerate() {
                 let val = i16::from_le_bytes([chunk[0], chunk[1]]);
-                let normalized = val as f64 / 32768.0;
-                sum_sq += normalized * normalized;
+                let x = val as f32 / 32768.0;
+
+                sum_sq_raw += (x * x) as f64;
+
+                let y_sub = lp_filter.process_sample(x);
+                sum_sq_sub += (y_sub * y_sub) as f64;
+
+                let y_mid = bp_filter.process_sample(x);
+                sum_sq_mid += (y_mid * y_mid) as f64;
+
+                let y_high = hp_filter.process_sample(x);
+                sum_sq_high += (y_high * y_high) as f64;
+
+                let fft_pos = (FFT_SIZE - num_samples) + idx;
+                if fft_pos < FFT_SIZE {
+                    fft_window[fft_pos] = x;
+                }
             }
-            let rms = (sum_sq / num_samples as f64).sqrt() as f32;
-            if rms > max_observed_rms {
-                max_observed_rms = rms;
+
+            let rms_raw = (sum_sq_raw / num_samples as f64).sqrt() as f32;
+            let rms_sub = (sum_sq_sub / num_samples as f64).sqrt() as f32;
+            let rms_mid = (sum_sq_mid / num_samples as f64).sqrt() as f32;
+            let rms_high = (sum_sq_high / num_samples as f64).sqrt() as f32;
+
+            if rms_raw > max_observed_rms {
+                max_observed_rms = rms_raw;
             }
-            peaks.push(rms);
+            if rms_sub > max_observed_sub {
+                max_observed_sub = rms_sub;
+            }
+            if rms_mid > max_observed_mid {
+                max_observed_mid = rms_mid;
+            }
+            if rms_high > max_observed_high {
+                max_observed_high = rms_high;
+            }
+
+            peaks.push(rms_raw);
+            sub_bass.push(rms_sub);
+            mid.push(rms_mid);
+            high.push(rms_high);
+
+            // Compute 16-band STFT frame
+            let bands = fft.compute_16_bands(&fft_window);
+            for &val in &bands {
+                if val > max_observed_spec {
+                    max_observed_spec = val;
+                }
+            }
+            spectrogram.push(bands);
         }
 
         if bytes_read < chunk_size {
@@ -171,14 +304,47 @@ pub fn extract_audio_waveform<P: AsRef<Path>>(video_path: P) -> Result<AudioWave
         return Ok(AudioWaveform::default());
     }
 
-    // Normalize peaks to [0.0, 1.0]
+    // Normalize peaks & spectral bands to [0.0, 1.0]
     if max_observed_rms > 0.0001 {
         for p in &mut peaks {
             *p = (*p / max_observed_rms).clamp(0.0, 1.0);
         }
     }
+    if max_observed_sub > 0.0001 {
+        for s in &mut sub_bass {
+            *s = (*s / max_observed_sub).clamp(0.0, 1.0);
+        }
+    }
+    if max_observed_mid > 0.0001 {
+        for m in &mut mid {
+            *m = (*m / max_observed_mid).clamp(0.0, 1.0);
+        }
+    }
+    if max_observed_high > 0.0001 {
+        for h in &mut high {
+            *h = (*h / max_observed_high).clamp(0.0, 1.0);
+        }
+    }
+    if max_observed_spec > 0.0001 {
+        for spec_frame in &mut spectrogram {
+            for b in spec_frame.iter_mut() {
+                *b = (*b / max_observed_spec).clamp(0.0, 1.0);
+            }
+        }
+    }
 
-    Ok(AudioWaveform::new(peaks, bins_per_sec))
+    let spectral = SpectralAnalysis {
+        sub_bass,
+        mid,
+        high,
+        spectrogram,
+    };
+
+    Ok(AudioWaveform::new_with_spectral(
+        peaks,
+        spectral,
+        bins_per_sec,
+    ))
 }
 
 use std::path::PathBuf;

@@ -7,6 +7,40 @@ use eframe::egui::{
 
 use std::collections::BTreeSet;
 
+/// Audio visualization mode on the timeline canvas
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AudioVizMode {
+    #[default]
+    Waveform,    // Standard Cyan RMS envelope
+    MultiBand,   // Tri-color stacked bands: Sub-Bass (Magenta), Mid (Cyan), High (Amber)
+    Spectrogram, // 16-band heat-map waterfall spectrogram (Inferno palette)
+}
+
+impl AudioVizMode {
+    #[allow(dead_code)]
+    pub const ALL: [AudioVizMode; 3] = [
+        AudioVizMode::Waveform,
+        AudioVizMode::MultiBand,
+        AudioVizMode::Spectrogram,
+    ];
+
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            AudioVizMode::Waveform => "Waveform (RMS)",
+            AudioVizMode::MultiBand => "Multi-Band Split",
+            AudioVizMode::Spectrogram => "Waterfall Spectrogram",
+        }
+    }
+
+    pub fn icon(&self) -> &'static str {
+        match self {
+            AudioVizMode::Waveform => "🎵",
+            AudioVizMode::MultiBand => "🌈",
+            AudioVizMode::Spectrogram => "⚡",
+        }
+    }
+}
+
 /// Scene or chapter bookmark timestamp with a descriptive label.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bookmark {
@@ -44,6 +78,8 @@ pub struct TimelineState {
     pub loop_enabled: bool,
     /// Scene / chapter bookmarks
     pub bookmarks: Vec<Bookmark>,
+    /// Audio visualization mode on the timeline canvas
+    pub audio_viz_mode: AudioVizMode,
 }
 
 impl Default for TimelineState {
@@ -63,6 +99,7 @@ impl Default for TimelineState {
             loop_out_ms: None,
             loop_enabled: false,
             bookmarks: Vec::new(),
+            audio_viz_mode: AudioVizMode::default(),
         }
     }
 }
@@ -171,6 +208,15 @@ impl TimelineState {
     /// Jump to the previous bookmark before current playhead
     pub fn prev_bookmark(&self, cur_time: i64) -> Option<i64> {
         self.bookmarks.iter().rev().find(|b| b.time_ms < cur_time).map(|b| b.time_ms)
+    }
+
+    /// Cycle between Waveform, Multi-Band, and Waterfall Spectrogram visual modes
+    pub fn cycle_audio_viz_mode(&mut self) {
+        self.audio_viz_mode = match self.audio_viz_mode {
+            AudioVizMode::Waveform => AudioVizMode::MultiBand,
+            AudioVizMode::MultiBand => AudioVizMode::Spectrogram,
+            AudioVizMode::Spectrogram => AudioVizMode::Waveform,
+        };
     }
 }
 
@@ -411,6 +457,41 @@ fn draw_bookmarks(painter: &Painter, rect: Rect, state: &TimelineState) {
     }
 }
 
+fn inferno_color(val: f32) -> Color32 {
+    let v = val.clamp(0.0, 1.0);
+    if v < 0.05 {
+        Color32::from_rgba_unmultiplied(15, 15, 35, 30)
+    } else if v < 0.30 {
+        // Deep purple to violet
+        let f = (v - 0.05) / 0.25;
+        let r = (40.0 + f * 70.0) as u8;
+        let g = (10.0 + f * 15.0) as u8;
+        let b = (70.0 + f * 80.0) as u8;
+        Color32::from_rgba_unmultiplied(r, g, b, 120)
+    } else if v < 0.65 {
+        // Violet to crimson/red-orange
+        let f = (v - 0.30) / 0.35;
+        let r = (110.0 + f * 110.0) as u8;
+        let g = (25.0 + f * 55.0) as u8;
+        let b = (150.0 - f * 110.0) as u8;
+        Color32::from_rgba_unmultiplied(r, g, b, 180)
+    } else if v < 0.88 {
+        // Crimson to bright amber/gold
+        let f = (v - 0.65) / 0.23;
+        let r = (220.0 + f * 30.0) as u8;
+        let g = (80.0 + f * 110.0) as u8;
+        let b = (40.0 - f * 20.0) as u8;
+        Color32::from_rgba_unmultiplied(r, g, b, 220)
+    } else {
+        // Gold to radiant white-yellow
+        let f = (v - 0.88) / 0.12;
+        let r = 255;
+        let g = (190.0 + f * 60.0) as u8;
+        let b = (20.0 + f * 180.0) as u8;
+        Color32::from_rgba_unmultiplied(r, g, b, 245)
+    }
+}
+
 fn draw_audio_waveform(
     painter: &Painter,
     rect: Rect,
@@ -423,34 +504,105 @@ fn draw_audio_waveform(
     };
 
     let base_y = TimelineState::pos_to_screen_y(0, rect);
-    let max_height = (rect.height() * 0.35).min(100.0);
-    let bar_color = Color32::from_rgba_unmultiplied(0, 180, 240, 65);
+    let max_height = (rect.height() * 0.38).min(110.0);
 
-    let mut mesh = Mesh::default();
-    let mut x = rect.left();
-    let mut transients = Vec::new();
-    while x <= rect.right() {
-        let time_ms = state.screen_x_to_time(x, rect);
-        let peak = wf.get_peak_at(time_ms);
-        if peak > 0.02 {
-            let bar_h = peak * max_height;
-            let bar_rect = Rect::from_min_max(pos2(x - 0.9, base_y - bar_h), pos2(x + 0.9, base_y));
-            mesh.add_colored_rect(bar_rect, bar_color);
+    match state.audio_viz_mode {
+        AudioVizMode::Waveform => {
+            let bar_color = Color32::from_rgba_unmultiplied(0, 180, 240, 65);
+            let mut mesh = Mesh::default();
+            let mut x = rect.left();
+            let mut transients = Vec::new();
 
-            // Mark strong rhythmic beats
-            if peak >= 0.60 {
-                transients.push(pos2(x, base_y - bar_h - 2.0));
+            while x <= rect.right() {
+                let time_ms = state.screen_x_to_time(x, rect);
+                let peak = wf.get_peak_at(time_ms);
+                if peak > 0.02 {
+                    let bar_h = peak * max_height;
+                    let bar_rect = Rect::from_min_max(pos2(x - 0.9, base_y - bar_h), pos2(x + 0.9, base_y));
+                    mesh.add_colored_rect(bar_rect, bar_color);
+
+                    if peak >= 0.60 {
+                        transients.push(pos2(x, base_y - bar_h - 2.0));
+                    }
+                }
+                x += 2.0;
+            }
+            if !mesh.is_empty() {
+                painter.add(Shape::Mesh(mesh.into()));
+            }
+
+            for p in transients {
+                painter.circle_filled(p, 1.8, Color32::from_rgb(255, 205, 70));
             }
         }
-        x += 2.0;
-    }
-    if !mesh.is_empty() {
-        painter.add(Shape::Mesh(mesh.into()));
-    }
+        AudioVizMode::MultiBand => {
+            let sub_color = Color32::from_rgba_unmultiplied(225, 45, 125, 80);  // Deep Magenta
+            let mid_color = Color32::from_rgba_unmultiplied(0, 215, 215, 70);   // Cyan/Teal
+            let high_color = Color32::from_rgba_unmultiplied(255, 195, 40, 90); // Gold/Amber
 
-    // Draw transient rhythm dots
-    for p in transients {
-        painter.circle_filled(p, 1.8, Color32::from_rgb(255, 205, 70));
+            let mut mesh = Mesh::default();
+            let mut x = rect.left();
+            let mut kicks = Vec::new();
+
+            while x <= rect.right() {
+                let time_ms = state.screen_x_to_time(x, rect);
+                let sub = wf.get_sub_bass_at(time_ms);
+                let mid = wf.get_mid_at(time_ms);
+                let high = wf.get_high_at(time_ms);
+
+                if sub > 0.02 {
+                    let h_sub = sub * max_height;
+                    let r_sub = Rect::from_min_max(pos2(x - 0.9, base_y - h_sub), pos2(x + 0.9, base_y));
+                    mesh.add_colored_rect(r_sub, sub_color);
+                    if sub >= 0.55 {
+                        kicks.push(pos2(x, base_y - h_sub - 2.5));
+                    }
+                }
+                if mid > 0.03 {
+                    let h_mid = mid * max_height * 0.85;
+                    let r_mid = Rect::from_min_max(pos2(x - 0.9, base_y - h_mid), pos2(x + 0.9, base_y));
+                    mesh.add_colored_rect(r_mid, mid_color);
+                }
+                if high > 0.03 {
+                    let h_high = high * max_height * 0.65;
+                    let r_high = Rect::from_min_max(pos2(x - 0.9, base_y - h_high), pos2(x + 0.9, base_y));
+                    mesh.add_colored_rect(r_high, high_color);
+                }
+                x += 2.0;
+            }
+            if !mesh.is_empty() {
+                painter.add(Shape::Mesh(mesh.into()));
+            }
+
+            for p in kicks {
+                painter.circle_filled(p, 2.0, Color32::from_rgb(255, 60, 160));
+            }
+        }
+        AudioVizMode::Spectrogram => {
+            let mut mesh = Mesh::default();
+            let mut x = rect.left();
+            let cell_h = (max_height / 16.0).max(1.5);
+
+            while x <= rect.right() {
+                let time_ms = state.screen_x_to_time(x, rect);
+                if let Some(spec) = wf.get_spectrogram_at(time_ms) {
+                    for b in 0..16 {
+                        let val = spec[b];
+                        if val > 0.04 {
+                            let color = inferno_color(val);
+                            let y_top = base_y - (b + 1) as f32 * cell_h;
+                            let y_bot = base_y - b as f32 * cell_h;
+                            let cell_rect = Rect::from_min_max(pos2(x - 1.2, y_top), pos2(x + 1.2, y_bot));
+                            mesh.add_colored_rect(cell_rect, color);
+                        }
+                    }
+                }
+                x += 2.5;
+            }
+            if !mesh.is_empty() {
+                painter.add(Shape::Mesh(mesh.into()));
+            }
+        }
     }
 }
 
@@ -906,6 +1058,28 @@ mod tests {
         assert_eq!(state.prev_bookmark(3000), Some(1500));
         assert_eq!(state.prev_bookmark(1000), Some(500));
         assert_eq!(state.prev_bookmark(500), None);
+    }
+
+    #[test]
+    fn test_audio_viz_mode_lifecycle() {
+        let mut state = TimelineState::default();
+        assert_eq!(state.audio_viz_mode, AudioVizMode::Waveform);
+        assert_eq!(AudioVizMode::ALL.len(), 3);
+
+        state.cycle_audio_viz_mode();
+        assert_eq!(state.audio_viz_mode, AudioVizMode::MultiBand);
+        assert_eq!(state.audio_viz_mode.display_name(), "Multi-Band Split");
+        assert_eq!(state.audio_viz_mode.icon(), "🌈");
+
+        state.cycle_audio_viz_mode();
+        assert_eq!(state.audio_viz_mode, AudioVizMode::Spectrogram);
+        assert_eq!(state.audio_viz_mode.display_name(), "Waterfall Spectrogram");
+        assert_eq!(state.audio_viz_mode.icon(), "⚡");
+
+        state.cycle_audio_viz_mode();
+        assert_eq!(state.audio_viz_mode, AudioVizMode::Waveform);
+        assert_eq!(state.audio_viz_mode.display_name(), "Waveform (RMS)");
+        assert_eq!(state.audio_viz_mode.icon(), "🎵");
     }
 }
 

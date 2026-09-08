@@ -174,6 +174,36 @@ enum Commands {
         overwrite: bool,
     },
 
+    /// Synthesize haptic funscripts directly from audio frequency bands (Sub-Bass, Mid, High)
+    AudioSynth {
+        /// Path to the video or audio file
+        video: PathBuf,
+
+        /// Output .funscript path (defaults to <name>.funscript)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Coupling mode: beats (turnaround pulses), envelope (continuous dynamics), or vibe (8Hz oscillation)
+        #[arg(long, default_value = "beats")]
+        mode: String,
+
+        /// Frequency band for primary channel: bass, mid, high, or full
+        #[arg(long, default_value = "bass")]
+        band: String,
+
+        /// Target hardware channel: stroke, surge, sway, pitch, roll, twist, or suction
+        #[arg(long, default_value = "stroke")]
+        axis: String,
+
+        /// Sensitivity threshold (0.05 to 0.90)
+        #[arg(long, default_value_t = 0.35)]
+        threshold: f32,
+
+        /// Generate full multi-band companion bundle (Bass->Stroke, Bass->Surge, Mid->Twist, High->Suction)
+        #[arg(long, default_value_t = false)]
+        bundle: bool,
+    },
+
     /// Stash Media Server GraphQL integration and automation
     Stash {
         #[command(subcommand)]
@@ -296,6 +326,25 @@ fn main() -> Result<()> {
             overwrite,
         }) => {
             run_batch(&folder, recursive, model.as_deref(), multi_axis, overwrite)?;
+        }
+        Some(Commands::AudioSynth {
+            video,
+            output,
+            mode,
+            band,
+            axis,
+            threshold,
+            bundle,
+        }) => {
+            run_audio_synth(
+                &video,
+                output.as_deref(),
+                &mode,
+                &band,
+                &axis,
+                threshold,
+                bundle,
+            )?;
         }
         Some(Commands::Stash { command }) => match command {
             StashCommands::ListMissing { limit, url, api_key } => {
@@ -1027,3 +1076,135 @@ fn run_stash_auto_generate(
 
     Ok(())
 }
+
+fn run_audio_synth(
+    video_path: &Path,
+    output_path: Option<&Path>,
+    mode_str: &str,
+    band_str: &str,
+    axis_str: &str,
+    threshold: f32,
+    generate_bundle: bool,
+) -> Result<()> {
+    let t0 = Instant::now();
+    println!("==================================================");
+    println!("Funscript Hub: Audio Spectral Haptic Synthesizer");
+    println!("Target: {}", video_path.display());
+    println!("==================================================");
+
+    println!("-> Extracting 16kHz PCM audio and computing multi-band DSP...");
+    let waveform = crate::audio::extract_audio_waveform(video_path)?;
+
+    if waveform.peaks.is_empty() {
+        anyhow::bail!("No audio stream could be extracted from {}", video_path.display());
+    }
+
+    let duration_ms = (waveform.duration_secs * 1000.0).round() as i64;
+    println!(
+        "-> Audio extracted: {:.2}s ({} bins at 100 bins/sec)",
+        waveform.duration_secs,
+        waveform.peaks.len()
+    );
+
+    let effective_output = match output_path {
+        Some(p) => p.to_path_buf(),
+        None => {
+            let mut out = video_path.to_path_buf();
+            out.set_extension("funscript");
+            out
+        }
+    };
+
+    let empty_spec = crate::audio::SpectralAnalysis::default();
+    let spec_ref = waveform.spectral.as_ref().unwrap_or(&empty_spec);
+
+    if generate_bundle {
+        println!("-> Synthesizing full 6-DOF multi-band companion bundle from spectral audio...");
+        let bundle = crate::audio::generate_multiband_companion_bundle(
+            spec_ref,
+            &waveform.peaks,
+            waveform.bins_per_sec,
+            duration_ms,
+        );
+
+        println!("-> Saving multi-axis bundle to companion files...");
+        bundle.save_bundle(&effective_output)?;
+
+        let stroke_actions = bundle
+            .channels
+            .get(&AxisChannel::Stroke)
+            .map(|s| s.actions.len())
+            .unwrap_or(0);
+        println!(
+            "SUCCESS: Synthesized {} channels (Stroke: {} actions) in {:.2}s",
+            bundle.channels.len(),
+            stroke_actions,
+            t0.elapsed().as_secs_f64()
+        );
+    } else {
+        let band = match band_str.to_lowercase().as_str() {
+            "sub" | "subbass" | "bass" => crate::audio::FrequencyBand::SubBass,
+            "mid" | "mids" => crate::audio::FrequencyBand::Mid,
+            "high" | "highs" => crate::audio::FrequencyBand::High,
+            _ => crate::audio::FrequencyBand::FullSpectrum,
+        };
+
+        let mode = match mode_str.to_lowercase().as_str() {
+            "env" | "envelope" => crate::audio::SpectralInfillMode::EnvelopeFollower,
+            "vibe" | "osc" | "oscillation" => crate::audio::SpectralInfillMode::ModulatedOscillation,
+            _ => crate::audio::SpectralInfillMode::RhythmicBeats,
+        };
+
+        let axis = match axis_str.to_lowercase().as_str() {
+            "surge" => AxisChannel::Surge,
+            "sway" => AxisChannel::Sway,
+            "pitch" => AxisChannel::Pitch,
+            "roll" => AxisChannel::Roll,
+            "twist" => AxisChannel::Twist,
+            "suction" => AxisChannel::Suction,
+            _ => AxisChannel::Stroke,
+        };
+
+        let config = crate::audio::SpectralInfillConfig {
+            band,
+            target_axis: axis,
+            mode,
+            threshold,
+            min_pos: 10,
+            max_pos: 90,
+            min_interval_ms: 180,
+            modulation_freq_hz: 8.0,
+        };
+
+        println!(
+            "-> Synthesizing {} channel using {:?} ({:?}, threshold {:.2})...",
+            axis.display_name(),
+            mode,
+            band,
+            threshold
+        );
+
+        let actions = crate::audio::synthesize_spectral_actions(
+            spec_ref,
+            &waveform.peaks,
+            waveform.bins_per_sec,
+            &config,
+            0,
+            duration_ms,
+        );
+
+        let mut script = Funscript::new(actions);
+        script.sanitize();
+        script.save(&effective_output)?;
+
+        println!(
+            "SUCCESS: Synthesized {} actions saved to {} in {:.2}s",
+            script.actions.len(),
+            effective_output.display(),
+            t0.elapsed().as_secs_f64()
+        );
+    }
+
+    Ok(())
+}
+

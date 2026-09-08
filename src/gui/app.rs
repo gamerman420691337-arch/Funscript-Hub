@@ -1,7 +1,10 @@
 //! Main Funscript Hub desktop application window.
 
 use anyhow::Context;
-use crate::audio::AudioWaveform;
+use crate::audio::{
+    generate_multiband_companion_bundle, synthesize_spectral_actions, AudioWaveform, FrequencyBand,
+    SpectralInfillConfig, SpectralInfillMode,
+};
 use crate::batch::queue::{BatchJob, BatchJobConfig, BatchJobStatus, BatchProgressUpdate, BatchQueue, BatchWorker};
 use crate::funscript::{
     diagnose_funscript, AxisChannel, DoctorConfig, DoctorReport, Funscript, InfillPattern,
@@ -184,6 +187,11 @@ pub struct FunGenApp {
     pub selected_plugin_idx: usize,
     pub plugin_param_values: HashMap<String, f32>,
 
+    // Audio Spectral Haptic Infill
+    pub show_spectral_infill_dialog: bool,
+    pub spectral_infill_config: SpectralInfillConfig,
+    pub spectral_use_loop_range: bool,
+
     // Help & About Modals
     pub help_dialog_open: bool,
     pub about_dialog_open: bool,
@@ -298,6 +306,10 @@ impl Default for FunGenApp {
             plugin_dialog_open: false,
             selected_plugin_idx: 0,
             plugin_param_values: HashMap::new(),
+
+            show_spectral_infill_dialog: false,
+            spectral_infill_config: SpectralInfillConfig::default(),
+            spectral_use_loop_range: true,
 
             help_dialog_open: false,
             about_dialog_open: false,
@@ -533,6 +545,7 @@ impl eframe::App for FunGenApp {
         self.render_help_dialog(ctx);
         self.render_about_dialog(ctx);
         self.render_rig_simulator_window(ctx);
+        self.render_spectral_infill_dialog(ctx);
 
         // Request repaint if playing, generating, or running batch worker
         if self.is_playing {
@@ -983,6 +996,21 @@ impl FunGenApp {
                 self.timeline_state.magnetic_snapping = !self.timeline_state.magnetic_snapping;
                 let s = if self.timeline_state.magnetic_snapping { "enabled" } else { "disabled" };
                 self.set_status(format!("Magnetic audio snapping {}", s));
+            }
+
+            // Alt+V: Cycle Audio Visualization Mode (Waveform -> Multi-Band -> Spectrogram)
+            if ctx.input(|i| i.modifiers.alt && i.key_pressed(egui::Key::V)) {
+                self.timeline_state.cycle_audio_viz_mode();
+                self.set_status(format!(
+                    "Audio Visualization: {} {}",
+                    self.timeline_state.audio_viz_mode.icon(),
+                    self.timeline_state.audio_viz_mode.display_name()
+                ));
+            }
+
+            // Alt+I: Open / Toggle Audio Spectral Haptic Infill Modal
+            if ctx.input(|i| i.modifiers.alt && i.key_pressed(egui::Key::I)) {
+                self.show_spectral_infill_dialog = !self.show_spectral_infill_dialog;
             }
 
             // B: Drop Bookmark Marker
@@ -1836,6 +1864,32 @@ impl FunGenApp {
             {
                 self.show_rig_simulator = !self.show_rig_simulator;
             }
+
+            ui.separator();
+
+            let viz_lbl = format!(
+                "{} {} (Alt+V)",
+                self.timeline_state.audio_viz_mode.icon(),
+                self.timeline_state.audio_viz_mode.display_name()
+            );
+            if ui.button(viz_lbl)
+                .on_hover_text("Cycle Audio Visualization: Waveform (RMS), Multi-Band Split, or Waterfall Spectrogram (Alt+V)")
+                .clicked()
+            {
+                self.timeline_state.cycle_audio_viz_mode();
+                self.set_status(format!(
+                    "Audio Visualization: {} {}",
+                    self.timeline_state.audio_viz_mode.icon(),
+                    self.timeline_state.audio_viz_mode.display_name()
+                ));
+            }
+
+            if ui.button(RichText::new("⚡ Spectral Infill (Alt+I)").color(Color32::from_rgb(255, 215, 0)))
+                .on_hover_text("Audio-reactive multi-band frequency infill & companion generation (Alt+I)")
+                .clicked()
+            {
+                self.show_spectral_infill_dialog = true;
+            }
         });
 
         // Timeline Canvas with Audio Waveform and Ghost Axis Overlays
@@ -2020,6 +2074,12 @@ impl FunGenApp {
                 ui.separator();
                 ui.checkbox(&mut self.show_tracking_overlay, "🎯 Tracking HUD");
                 ui.checkbox(&mut self.show_rig_simulator, "🤖 3D Rig");
+                if ui.button(format!("{} Viz", self.timeline_state.audio_viz_mode.icon()))
+                    .on_hover_text("Cycle Audio Visualization: Waveform, Multi-Band, or Spectrogram (Alt+V)")
+                    .clicked()
+                {
+                    self.timeline_state.cycle_audio_viz_mode();
+                }
 
                 // Live Haptic Gauge Bar
                 ui.separator();
@@ -3612,6 +3672,16 @@ impl FunGenApp {
                             ui.label("Global / Studio");
                             ui.end_row();
 
+                            ui.monospace("Alt + V");
+                            ui.label("Cycle Audio Viz mode (Waveform / Multi-Band / Spectrogram)");
+                            ui.label("Studio / Cinema");
+                            ui.end_row();
+
+                            ui.monospace("Alt + I");
+                            ui.label("Open Audio Spectral Haptic Infill Synthesizer");
+                            ui.label("Studio Editor");
+                            ui.end_row();
+
                             ui.monospace("Shift + Drag Canvas");
                             ui.label("Marquee box multi-select keyframes");
                             ui.label("Timeline");
@@ -3728,6 +3798,226 @@ impl FunGenApp {
                 show_rig_simulator(ui, self.rig_model, &input, &mut self.rig_view_state, avail);
             });
         self.show_rig_simulator = open;
+    }
+
+    fn render_spectral_infill_dialog(&mut self, ctx: &EguiContext) {
+        if !self.show_spectral_infill_dialog {
+            return;
+        }
+
+        let mut open = self.show_spectral_infill_dialog;
+        let mut do_apply = false;
+        let mut do_auto_bundle = false;
+
+        egui::Window::new("⚡ Audio Spectral Haptic Infill Synthesizer")
+            .open(&mut open)
+            .resizable(true)
+            .default_width(460.0)
+            .show(ctx, |ui| {
+                ui.label(
+                    RichText::new("Couples audio frequency bands to 6-DOF haptic hardware axes using Biquad filtering & STFT.")
+                        .size(11.0)
+                        .color(Color32::from_rgb(140, 155, 175)),
+                );
+                ui.separator();
+
+                // 1. Source Band Selection
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Frequency Band:").strong());
+                    for band in &FrequencyBand::ALL {
+                        ui.selectable_value(
+                            &mut self.spectral_infill_config.band,
+                            *band,
+                            band.short_name(),
+                        );
+                    }
+                });
+                ui.label(
+                    RichText::new(format!("Active Band: {}", self.spectral_infill_config.band.display_name()))
+                        .size(11.0)
+                        .color(Color32::from_rgb(0, 200, 255)),
+                );
+
+                ui.add_space(4.0);
+
+                // 2. Target Axis Selection
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Target Axis:").strong());
+                    egui::ComboBox::from_id_salt("spectral_target_axis")
+                        .selected_text(self.spectral_infill_config.target_axis.display_name())
+                        .show_ui(ui, |ui| {
+                            for axis in &AxisChannel::ALL {
+                                ui.selectable_value(
+                                    &mut self.spectral_infill_config.target_axis,
+                                    *axis,
+                                    axis.display_name(),
+                                );
+                            }
+                        });
+                });
+
+                ui.add_space(4.0);
+
+                // 3. Coupling Mode Selection
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Coupling Mode:").strong());
+                    egui::ComboBox::from_id_salt("spectral_infill_mode")
+                        .selected_text(self.spectral_infill_config.mode.display_name())
+                        .show_ui(ui, |ui| {
+                            for mode in &SpectralInfillMode::ALL {
+                                ui.selectable_value(
+                                    &mut self.spectral_infill_config.mode,
+                                    *mode,
+                                    mode.display_name(),
+                                );
+                            }
+                        });
+                });
+
+                ui.separator();
+
+                // 4. Sliders & Tuning Parameters
+                ui.horizontal(|ui| {
+                    ui.label("Sensitivity Threshold:");
+                    ui.add(Slider::new(&mut self.spectral_infill_config.threshold, 0.05..=0.90).step_by(0.01));
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("Position Range:");
+                    ui.add(Slider::new(&mut self.spectral_infill_config.min_pos, 0..=100).text("Min"));
+                    ui.add(Slider::new(&mut self.spectral_infill_config.max_pos, 0..=100).text("Max"));
+                });
+
+                match self.spectral_infill_config.mode {
+                    SpectralInfillMode::RhythmicBeats => {
+                        ui.horizontal(|ui| {
+                            ui.label("Min Beat Interval:");
+                            ui.add(Slider::new(&mut self.spectral_infill_config.min_interval_ms, 50..=500).suffix(" ms"));
+                        });
+                    }
+                    SpectralInfillMode::ModulatedOscillation => {
+                        ui.horizontal(|ui| {
+                            ui.label("Oscillation Freq:");
+                            ui.add(Slider::new(&mut self.spectral_infill_config.modulation_freq_hz, 1.0..=20.0).suffix(" Hz"));
+                        });
+                    }
+                    SpectralInfillMode::EnvelopeFollower => {}
+                }
+
+                ui.separator();
+
+                // 5. Scope Selection (Entire Media vs A/B Loop)
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Scope:").strong());
+                    let has_loop = self.timeline_state.loop_in_ms.is_some() && self.timeline_state.loop_out_ms.is_some();
+                    if has_loop {
+                        let l_in = self.timeline_state.loop_in_ms.unwrap();
+                        let l_out = self.timeline_state.loop_out_ms.unwrap();
+                        ui.checkbox(&mut self.spectral_use_loop_range, format!("A/B Loop [{}ms - {}ms]", l_in, l_out));
+                    } else {
+                        ui.label("Entire Media (Set [ and ] loop markers to isolate a section)");
+                    }
+                });
+
+                ui.separator();
+
+                // 6. Action buttons
+                ui.horizontal(|ui| {
+                    let has_audio = self.audio_waveform.as_ref().map(|w| !w.is_empty()).unwrap_or(false);
+                    if ui.add_enabled(has_audio, egui::Button::new(RichText::new("⚡ Synthesize Axis").strong().color(Color32::from_rgb(255, 215, 0)))).clicked() {
+                        do_apply = true;
+                    }
+
+                    if ui.add_enabled(has_audio, egui::Button::new(RichText::new("📦 Auto-Generate 6-DOF Bundle").color(Color32::from_rgb(0, 210, 255)))).clicked() {
+                        do_auto_bundle = true;
+                    }
+                });
+
+                if self.audio_waveform.is_none() {
+                    ui.colored_label(Color32::from_rgb(255, 120, 80), "⚠ Load a video or audio file first to extract spectral waveform.");
+                }
+            });
+
+        self.show_spectral_infill_dialog = open;
+
+        if do_apply {
+            if let Some(ref wf) = self.audio_waveform {
+                let (start_ms, end_ms) = if self.spectral_use_loop_range && self.timeline_state.loop_in_ms.is_some() && self.timeline_state.loop_out_ms.is_some() {
+                    (self.timeline_state.loop_in_ms.unwrap(), self.timeline_state.loop_out_ms.unwrap())
+                } else {
+                    let dur = (wf.duration_secs * 1000.0).round() as i64;
+                    (0, dur.max(self.script.actions.last().map(|a| a.at).unwrap_or(10_000)))
+                };
+
+                let empty_spec = crate::audio::SpectralAnalysis::default();
+                let spec_ref = wf.spectral.as_ref().unwrap_or(&empty_spec);
+
+                let generated_actions = synthesize_spectral_actions(
+                    spec_ref,
+                    &wf.peaks,
+                    wf.bins_per_sec,
+                    &self.spectral_infill_config,
+                    start_ms,
+                    end_ms,
+                );
+
+                if !generated_actions.is_empty() {
+                    let target_axis = self.spectral_infill_config.target_axis;
+                    let target_script = self.multi_axis.get_or_create(target_axis);
+
+                    if target_axis == self.active_axis {
+                        self.undo_history.push_snapshot(&self.script);
+                        self.script.actions.retain(|a| a.at < start_ms || a.at > end_ms);
+                        self.script.actions.extend(generated_actions.clone());
+                        self.script.sanitize();
+                        *target_script = self.script.clone();
+                    } else {
+                        target_script.actions.retain(|a| a.at < start_ms || a.at > end_ms);
+                        target_script.actions.extend(generated_actions.clone());
+                        target_script.sanitize();
+                    }
+
+                    self.run_doctor();
+                    self.set_status(format!(
+                        "⚡ Synthesized {} actions for {} ({}ms - {}ms)",
+                        generated_actions.len(),
+                        target_axis.display_name(),
+                        start_ms,
+                        end_ms
+                    ));
+                    self.show_spectral_infill_dialog = false;
+                } else {
+                    self.set_status("No actions synthesized; try lowering the sensitivity threshold slider.".to_string());
+                }
+            }
+        }
+
+        if do_auto_bundle {
+            if let Some(ref wf) = self.audio_waveform {
+                let duration_ms = (wf.duration_secs * 1000.0).round() as i64;
+                let empty_spec = crate::audio::SpectralAnalysis::default();
+                let spec_ref = wf.spectral.as_ref().unwrap_or(&empty_spec);
+
+                let bundle = generate_multiband_companion_bundle(
+                    spec_ref,
+                    &wf.peaks,
+                    wf.bins_per_sec,
+                    duration_ms,
+                );
+
+                self.undo_history.push_snapshot(&self.script);
+                if let Some(stroke) = bundle.channels.get(&AxisChannel::Stroke) {
+                    self.script = stroke.clone();
+                }
+                self.multi_axis = bundle;
+                self.run_doctor();
+                self.set_status(format!(
+                    "⚡ Auto-generated full multi-band companion bundle ({} channels) from audio spectrum!",
+                    self.multi_axis.channels.len()
+                ));
+                self.show_spectral_infill_dialog = false;
+            }
+        }
     }
 
     fn render_automation_view(&mut self, ui: &mut Ui) {
