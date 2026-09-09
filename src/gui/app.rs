@@ -1539,6 +1539,9 @@ impl FunGenApp {
                 let advance_ms = (dt_secs * 1000.0 * self.playback_speed).round() as i64;
                 self.timeline_state.cursor_time_ms += advance_ms;
 
+                // Sync audio player's internal timestamp
+                self.audio_player.update_current_time(self.timeline_state.cursor_time_ms);
+
                 // A/B Section Looping or full script loop
                 let mut looped = false;
                 if self.timeline_state.loop_enabled {
@@ -1546,6 +1549,9 @@ impl FunGenApp {
                         if out_ms > in_ms && self.timeline_state.cursor_time_ms >= out_ms {
                             self.timeline_state.cursor_time_ms = in_ms;
                             self.audio_player.seek_to(in_ms, self.playback_speed);
+                            if let Some(ref streamer) = self.playback_streamer {
+                                streamer.seek_to(in_ms);
+                            }
                             looped = true;
                         }
                     }
@@ -1557,6 +1563,9 @@ impl FunGenApp {
                         self.timeline_state.cursor_time_ms = 0; // Loop playback
                         if let Some(ref path) = self.video_path {
                             self.audio_player.play_at(path, 0, self.playback_speed);
+                        }
+                        if let Some(ref streamer) = self.playback_streamer {
+                            streamer.seek_to(0);
                         }
                     }
                 }
@@ -1941,13 +1950,22 @@ impl FunGenApp {
             // Audio Mute & Volume Controls
             ui.separator();
             let mute_icon = if self.audio_player.is_muted { "🔇" } else { "🔊" };
-            if ui.button(mute_icon).on_hover_text("Toggle Audio Mute").clicked() {
+            let audio_avail = crate::audio::AudioPlayer::is_backend_available();
+            let audio_tooltip = if audio_avail {
+                if self.audio_player.is_muted { "Unmute Audio (ffplay engine)" } else { "Mute Audio (ffplay engine)" }
+            } else {
+                "Audio backend unavailable (ffplay not found). Install ffmpeg to enable synchronized audio."
+            };
+            if ui.button(mute_icon).on_hover_text(audio_tooltip).clicked() {
                 let new_muted = !self.audio_player.is_muted;
-                self.audio_player.set_muted(new_muted, self.playback_speed);
+                self.audio_player.set_muted_at(new_muted, self.timeline_state.cursor_time_ms, self.playback_speed);
             }
             let mut vol = self.audio_player.volume;
-            if ui.add_sized(egui::vec2(55.0, 16.0), Slider::new(&mut vol, 0.0..=1.0).show_value(false)).changed() {
-                self.audio_player.set_volume(vol, self.playback_speed);
+            if ui.add_sized(egui::vec2(55.0, 16.0), Slider::new(&mut vol, 0.0..=1.0).show_value(false))
+                .on_hover_text(format!("Audio Volume: {:.0}%", vol * 100.0))
+                .changed()
+            {
+                self.audio_player.set_volume_at(vol, self.timeline_state.cursor_time_ms, self.playback_speed);
             }
 
             ui.separator();
@@ -2277,6 +2295,8 @@ impl FunGenApp {
         let (ar, ag, ab) = self.active_axis.color_rgb();
         let active_color = Color32::from_rgb(ar, ag, ab);
 
+        let pre_cursor = self.timeline_state.cursor_time_ms;
+
         show_timeline(
             ui,
             &mut self.script,
@@ -2287,6 +2307,10 @@ impl FunGenApp {
             active_color,
             Some(&mut self.undo_history),
         );
+
+        if self.timeline_state.cursor_time_ms != pre_cursor {
+            self.seek_to(self.timeline_state.cursor_time_ms);
+        }
     }
 
     // =========================================================================
@@ -2526,13 +2550,22 @@ impl FunGenApp {
                 // Audio Mute & Volume Controls
                 ui.separator();
                 let mute_icon = if self.audio_player.is_muted { "🔇" } else { "🔊" };
-                if ui.button(mute_icon).on_hover_text("Toggle Audio Mute").clicked() {
+                let audio_avail = crate::audio::AudioPlayer::is_backend_available();
+                let audio_tooltip = if audio_avail {
+                    if self.audio_player.is_muted { "Unmute Audio (ffplay engine)" } else { "Mute Audio (ffplay engine)" }
+                } else {
+                    "Audio backend unavailable (ffplay not found). Install ffmpeg to enable synchronized audio."
+                };
+                if ui.button(mute_icon).on_hover_text(audio_tooltip).clicked() {
                     let new_muted = !self.audio_player.is_muted;
-                    self.audio_player.set_muted(new_muted, self.playback_speed);
+                    self.audio_player.set_muted_at(new_muted, self.timeline_state.cursor_time_ms, self.playback_speed);
                 }
                 let mut vol = self.audio_player.volume;
-                if ui.add_sized(egui::vec2(60.0, 16.0), Slider::new(&mut vol, 0.0..=1.0).show_value(false)).changed() {
-                    self.audio_player.set_volume(vol, self.playback_speed);
+                if ui.add_sized(egui::vec2(60.0, 16.0), Slider::new(&mut vol, 0.0..=1.0).show_value(false))
+                    .on_hover_text(format!("Audio Volume: {:.0}%", vol * 100.0))
+                    .changed()
+                {
+                    self.audio_player.set_volume_at(vol, self.timeline_state.cursor_time_ms, self.playback_speed);
                 }
 
                 // Tracking HUD & 3D Rig Toggles
@@ -3811,6 +3844,10 @@ impl FunGenApp {
                 30.0
             };
             self.video_path = Some(path.clone());
+            self.audio_player.set_media_path(&path);
+            if self.is_playing {
+                self.audio_player.play_at(&path, self.timeline_state.cursor_time_ms, self.playback_speed);
+            }
             if self.script.actions.is_empty() {
                 self.fit_timeline();
             }

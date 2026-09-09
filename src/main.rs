@@ -1772,6 +1772,10 @@ fn run_play(
     println!("--------------------------------------------------");
     println!("Starting real-time playback... Press Ctrl+C to stop.");
 
+    // Start synchronized audio playback
+    let mut audio_player = crate::audio::AudioPlayer::default();
+    audio_player.play_at(video, 0, 1.0);
+
     let start_instant = Instant::now();
 
     for (i, action) in funscript.actions.iter().enumerate() {
@@ -1816,6 +1820,7 @@ fn run_play(
         }
     }
 
+    audio_player.stop();
     println!("\nPlayback completed successfully.");
     Ok(())
 }

@@ -373,6 +373,22 @@ impl Default for AudioPlayer {
     }
 }
 
+/// Helper to construct chained ffmpeg atempo audio filters within supported [0.5, 2.0] bounds
+pub fn format_atempo_filter(speed: f64) -> String {
+    let mut s = speed.clamp(0.25, 4.0);
+    let mut filters = Vec::new();
+    while s < 0.5 {
+        filters.push("atempo=0.5".to_string());
+        s /= 0.5;
+    }
+    while s > 2.0 {
+        filters.push("atempo=2.0".to_string());
+        s /= 2.0;
+    }
+    filters.push(format!("atempo={:.3}", s));
+    filters.join(",")
+}
+
 impl AudioPlayer {
     #[allow(dead_code)]
     pub fn new() -> Self {
@@ -389,6 +405,16 @@ impl AudioPlayer {
             .status()
             .map(|s| s.success())
             .unwrap_or(false)
+    }
+
+    /// Set target media file path for playback
+    pub fn set_media_path<P: AsRef<Path>>(&mut self, path: P) {
+        self.current_path = Some(path.as_ref().to_path_buf());
+    }
+
+    /// Update internal tracking of current timestamp
+    pub fn update_current_time(&mut self, time_ms: i64) {
+        self.current_time_ms = time_ms.max(0);
     }
 
     /// Start or resume audio playback at the specified timestamp in milliseconds
@@ -408,13 +434,15 @@ impl AudioPlayer {
         let vol_int = (self.volume * 100.0).round().clamp(0.0, 100.0) as i32;
 
         let mut cmd = Command::new("ffplay");
-        cmd.args(["-nodisp", "-autoexit", "-vn", "-sn", "-dn"]);
+        // Note: ffplay supports -nodisp, -autoexit, -vn, -sn.
+        // It does NOT support -dn (which is ffmpeg-only and causes ffplay to abort).
+        cmd.args(["-nodisp", "-autoexit", "-vn", "-sn"]);
         cmd.arg("-ss").arg(format!("{:.3}", start_sec));
         cmd.arg("-volume").arg(format!("{}", vol_int));
 
         if (playback_speed - 1.0).abs() > 0.02 {
-            let speed_clamped = playback_speed.clamp(0.25, 4.0);
-            cmd.arg("-af").arg(format!("atempo={:.2}", speed_clamped));
+            let filter = format_atempo_filter(playback_speed);
+            cmd.arg("-af").arg(filter);
         }
 
         cmd.arg("-i").arg(path);
@@ -462,6 +490,12 @@ impl AudioPlayer {
         }
     }
 
+    /// Set playback volume at a specific timestamp (0.0 to 1.0)
+    pub fn set_volume_at(&mut self, vol: f32, current_time_ms: i64, playback_speed: f64) {
+        self.current_time_ms = current_time_ms.max(0);
+        self.set_volume(vol, playback_speed);
+    }
+
     /// Toggle mute
     pub fn set_muted(&mut self, muted: bool, playback_speed: f64) {
         if self.is_muted != muted {
@@ -474,6 +508,12 @@ impl AudioPlayer {
                 }
             }
         }
+    }
+
+    /// Toggle mute at a specific timestamp
+    pub fn set_muted_at(&mut self, muted: bool, current_time_ms: i64, playback_speed: f64) {
+        self.current_time_ms = current_time_ms.max(0);
+        self.set_muted(muted, playback_speed);
     }
 
     /// Terminate background playback process
@@ -555,5 +595,24 @@ mod tests {
         player.pause();
         assert!(!player.is_playing);
         assert!(AudioPlayer::is_backend_available());
+
+        // Test time tracking and volume_at
+        player.update_current_time(5000);
+        player.set_volume_at(0.6, 7500, 1.0);
+        assert!((player.volume - 0.6).abs() < 0.01);
+
+        player.set_muted_at(true, 8000, 1.0);
+        assert!(player.is_muted);
+    }
+
+    #[test]
+    fn test_format_atempo_filter_chaining() {
+        assert_eq!(format_atempo_filter(0.5), "atempo=0.500");
+        assert_eq!(format_atempo_filter(1.5), "atempo=1.500");
+        assert_eq!(format_atempo_filter(2.0), "atempo=2.000");
+        // 0.25x requires chaining two 0.5 filters
+        assert_eq!(format_atempo_filter(0.25), "atempo=0.5,atempo=0.500");
+        // 3.0x requires chaining 2.0 and 1.5
+        assert_eq!(format_atempo_filter(3.0), "atempo=2.0,atempo=1.500");
     }
 }
