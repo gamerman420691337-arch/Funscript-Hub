@@ -117,6 +117,7 @@ pub struct FunGenApp {
 
     // Playback simulation & Synchronized Audio
     pub is_playing: bool,
+    pub is_fullscreen: bool,
     pub playback_speed: f64,
     pub last_frame_time: Option<Instant>,
     pub audio_player: crate::audio::AudioPlayer,
@@ -258,6 +259,7 @@ impl Default for FunGenApp {
             video_pending_req_ts: None,
 
             is_playing: false,
+            is_fullscreen: false,
             playback_speed: 1.0,
             last_frame_time: None,
             audio_player: crate::audio::AudioPlayer::default(),
@@ -647,6 +649,16 @@ impl FunGenApp {
     pub fn toggle_playback(&mut self) {
         let next = !self.is_playing;
         self.set_playing(next);
+    }
+
+    pub fn toggle_fullscreen(&mut self, ctx: &EguiContext) {
+        self.is_fullscreen = !self.is_fullscreen;
+        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(self.is_fullscreen));
+        self.set_status(if self.is_fullscreen {
+            "Fullscreen enabled (F11 or Esc to exit)".to_string()
+        } else {
+            "Fullscreen disabled".to_string()
+        });
     }
 
     pub fn set_playing(&mut self, playing: bool) {
@@ -1123,10 +1135,19 @@ impl FunGenApp {
             self.set_status(format!("Selected all {} keyframes", self.timeline_state.selected_indices.len()));
         }
 
-        // Clear Selection (Escape)
+        // Clear Selection / Exit Fullscreen (Escape)
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            self.timeline_state.clear_selection();
-            self.set_status("Cleared selection".to_string());
+            if self.is_fullscreen {
+                self.toggle_fullscreen(ctx);
+            } else {
+                self.timeline_state.clear_selection();
+                self.set_status("Cleared selection".to_string());
+            }
+        }
+
+        // Toggle Fullscreen (F11)
+        if ctx.input(|i| i.key_pressed(egui::Key::F11)) {
+            self.toggle_fullscreen(ctx);
         }
 
         // Toggle Keyboard & Mouse Shortcuts Cheat Sheet (? or Ctrl+H)
@@ -2320,9 +2341,22 @@ impl FunGenApp {
         let avail_rect = ui.available_rect_before_wrap();
         let cur_pos = self.script.interpolate_position(self.timeline_state.cursor_time_ms);
 
+        let hud_h = 76.0;
+        let hud_rect = egui::Rect::from_min_max(
+            egui::pos2(avail_rect.left(), avail_rect.bottom() - hud_h),
+            avail_rect.max,
+        );
+
+        let slider_w = 46.0;
+        let slider_h = (avail_rect.height() * 0.45).clamp(160.0, 320.0);
+        let slider_rect = egui::Rect::from_min_size(
+            egui::pos2(avail_rect.right() - slider_w - 12.0, avail_rect.top() + 40.0),
+            egui::vec2(slider_w, slider_h),
+        );
+
         // 1. Full-Window Video Canvas (Mono or VR 180 SBS Stereo)
         if let Some(ref tex) = self.video_texture {
-            let img_h = (avail_rect.height() - 70.0).max(200.0);
+            let img_h = (avail_rect.height() - hud_h - 12.0).max(180.0);
 
             if self.vr_sbs_mode {
                 // VR 180 SBS Stereoscopic Mode: Dual Viewports Side-by-Side
@@ -2372,6 +2406,19 @@ impl FunGenApp {
                     egui::FontId::monospace(12.0),
                     Color32::from_rgba_unmultiplied(200, 220, 255, 180),
                 );
+
+                let sbs_rect = egui::Rect::from_min_max(left_rect.min, right_rect.max);
+                let canvas_resp = ui.interact(sbs_rect, ui.id().with("cinema_sbs_canvas_click"), egui::Sense::click());
+                if let Some(pos) = ui.ctx().pointer_latest_pos() {
+                    let hud_top = avail_rect.bottom() - hud_h;
+                    if !slider_rect.contains(pos) && pos.y < hud_top {
+                        if canvas_resp.double_clicked() {
+                            self.toggle_fullscreen(ui.ctx());
+                        } else if canvas_resp.clicked() && (!self.recorder.is_armed || self.recorder.require_mouse_drag) {
+                            self.toggle_playback();
+                        }
+                    }
+                }
             } else {
                 // Standard Cinema Monoscopic Canvas
                 let img_w = (img_h * (16.0 / 9.0)).min(avail_rect.width());
@@ -2391,11 +2438,22 @@ impl FunGenApp {
                     self.render_tracking_overlay(ui.painter(), video_rect, cur_pos);
                 }
 
+                let canvas_resp = ui.interact(video_rect, ui.id().with("cinema_canvas_click"), egui::Sense::click());
+                if let Some(pos) = ui.ctx().pointer_latest_pos() {
+                    let hud_top = avail_rect.bottom() - hud_h;
+                    if !slider_rect.contains(pos) && pos.y < hud_top {
+                        if canvas_resp.double_clicked() {
+                            self.toggle_fullscreen(ui.ctx());
+                        } else if canvas_resp.clicked() && (!self.recorder.is_armed || self.recorder.require_mouse_drag) {
+                            self.toggle_playback();
+                        }
+                    }
+                }
+
                 // Mouse pointer tracker over Cinema video canvas
                 if let Some(mouse_pos) = ui.ctx().pointer_latest_pos() {
-                    // Check if mouse is inside video_rect and above the bottom HUD
-                    let hud_top = avail_rect.bottom() - 65.0;
-                    if video_rect.contains(mouse_pos) && mouse_pos.y < hud_top {
+                    let hud_top = avail_rect.bottom() - hud_h;
+                    if video_rect.contains(mouse_pos) && mouse_pos.y < hud_top && !slider_rect.contains(mouse_pos) {
                         let is_drag = ui.ctx().input(|i| i.pointer.primary_down());
                         if !self.recorder.require_mouse_drag || is_drag {
                             let norm_y = 1.0 - ((mouse_pos.y - video_rect.top()) / video_rect.height()).clamp(0.0, 1.0);
@@ -2413,12 +2471,6 @@ impl FunGenApp {
             }
 
             // Floating Right-Side Tactile Movement Slider & Stroke Knob
-            let slider_w = 46.0;
-            let slider_h = (avail_rect.height() * 0.45).clamp(160.0, 320.0);
-            let slider_rect = egui::Rect::from_min_size(
-                egui::pos2(avail_rect.right() - slider_w - 12.0, avail_rect.top() + 40.0),
-                egui::vec2(slider_w, slider_h),
-            );
             ui.allocate_new_ui(egui::UiBuilder::new().max_rect(slider_rect), |ui| {
                 ui.painter().rect_filled(slider_rect, 6.0, Color32::from_rgba_unmultiplied(18, 20, 26, 215));
                 ui.painter().rect_stroke(slider_rect, 6.0, egui::Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(80, 95, 120, 180)), egui::StrokeKind::Middle);
@@ -2491,132 +2543,258 @@ impl FunGenApp {
         }
 
         // 2. Floating Bottom HUD (Auto-Hiding Controls & Live Stroke Position)
-        let hud_rect = egui::Rect::from_min_max(
-            egui::pos2(avail_rect.left(), avail_rect.bottom() - 65.0),
-            avail_rect.max,
-        );
         ui.allocate_new_ui(egui::UiBuilder::new().max_rect(hud_rect), |ui| {
-            ui.painter().rect_filled(ui.available_rect_before_wrap(), 4.0, Color32::from_rgba_unmultiplied(18, 20, 26, 230));
-            ui.add_space(4.0);
+            ui.painter().rect_filled(ui.available_rect_before_wrap(), 6.0, Color32::from_rgba_unmultiplied(16, 18, 24, 235));
+            ui.painter().rect_stroke(ui.available_rect_before_wrap(), 6.0, egui::Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(60, 70, 90, 160)), egui::StrokeKind::Inside);
 
-            ui.horizontal(|ui| {
-                let play_label = if self.is_playing { "⏸ Pause" } else { "▶ Play" };
-                if ui.button(play_label).clicked() {
-                    self.toggle_playback();
-                }
+            let total_dur = self.get_content_duration_ms().round() as i64;
+            let duration_ms = if total_dur > 0 { total_dur } else { 1 };
 
-                let rec_text = if self.recorder.is_armed {
-                    if self.is_playing { "⏹ REC..." } else { "🔴 ARMED" }
-                } else {
-                    "🔴 REC (R)"
-                };
-                let rec_btn = if self.recorder.is_armed {
-                    egui::Button::new(RichText::new(rec_text).color(Color32::from_rgb(255, 75, 75)).strong())
-                } else {
-                    egui::Button::new(rec_text)
-                };
-                if ui.add(rec_btn).on_hover_text("Arm live gestural motion recording (R). Move mouse over video or slider to record.").clicked() {
-                    self.toggle_live_recording();
-                }
+            // Row 1: Full-Width Interactive Scrubber / Progress Bar
+            let bar_margin_x = 16.0;
+            let bar_y = hud_rect.top() + 10.0;
+            let bar_rect = egui::Rect::from_min_max(
+                egui::pos2(hud_rect.left() + bar_margin_x, bar_y),
+                egui::pos2(hud_rect.right() - bar_margin_x, bar_y + 8.0),
+            );
 
-                if ui.button("⏮").clicked() {
-                    self.seek_to(0);
-                }
+            let hit_rect = bar_rect.expand2(egui::vec2(0.0, 6.0));
+            let bar_resp = ui.interact(hit_rect, ui.id().with("cinema_scrubber_track"), egui::Sense::click_and_drag());
+            let is_bar_hovered = bar_resp.hovered() || bar_resp.dragged();
+            if is_bar_hovered {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
 
-                let cur_time_str = format_ms(self.timeline_state.cursor_time_ms);
-                let dur_ms = self.script.actions.last().map(|a| a.at).unwrap_or(0);
-                let dur_str = format_ms(dur_ms);
-                ui.monospace(format!("{cur_time_str} / {dur_str}"));
-
-                // Playback speed selector
-                ui.separator();
-                let old_speed = self.playback_speed;
-                ui.selectable_value(&mut self.playback_speed, 0.25, "0.25x");
-                ui.selectable_value(&mut self.playback_speed, 0.5, "0.5x");
-                ui.selectable_value(&mut self.playback_speed, 1.0, "1.0x");
-                ui.selectable_value(&mut self.playback_speed, 1.5, "1.5x");
-                ui.selectable_value(&mut self.playback_speed, 2.0, "2.0x");
-                if (self.playback_speed - old_speed).abs() > 0.01 && self.is_playing {
-                    if let Some(ref path) = self.video_path {
-                        self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
-                    }
-                }
-
-                // Quick recording toggles
-                ui.separator();
-                ui.checkbox(&mut self.recorder.invert_y, "Invert Y");
-                ui.checkbox(&mut self.recorder.require_mouse_drag, "Drag to REC");
-
-                // Audio Mute & Volume Controls
-                ui.separator();
-                let mute_icon = if self.audio_player.is_muted { "🔇" } else { "🔊" };
-                let audio_avail = crate::audio::AudioPlayer::is_backend_available();
-                let audio_tooltip = if audio_avail {
-                    if self.audio_player.is_muted { "Unmute Audio (ffplay engine)" } else { "Mute Audio (ffplay engine)" }
-                } else {
-                    "Audio backend unavailable (ffplay not found). Install ffmpeg to enable synchronized audio."
-                };
-                if ui.button(mute_icon).on_hover_text(audio_tooltip).clicked() {
-                    let new_muted = !self.audio_player.is_muted;
-                    self.audio_player.set_muted_at(new_muted, self.timeline_state.cursor_time_ms, self.playback_speed);
-                }
-                let mut vol = self.audio_player.volume;
-                if ui.add_sized(egui::vec2(60.0, 16.0), Slider::new(&mut vol, 0.0..=1.0).show_value(false))
-                    .on_hover_text(format!("Audio Volume: {:.0}%", vol * 100.0))
-                    .changed()
-                {
-                    self.audio_player.set_volume_at(vol, self.timeline_state.cursor_time_ms, self.playback_speed);
-                }
-
-                // Tracking HUD & 3D Rig Toggles
-                ui.separator();
-                ui.checkbox(&mut self.show_tracking_overlay, "🎯 Tracking HUD");
-                ui.checkbox(&mut self.show_rig_simulator, "🤖 3D Rig");
-                if ui.button(format!("{} Viz", self.timeline_state.audio_viz_mode.icon()))
-                    .on_hover_text("Cycle Audio Visualization: Waveform, Multi-Band, or Spectrogram (Alt+V)")
-                    .clicked()
-                {
-                    self.timeline_state.cycle_audio_viz_mode();
-                }
-
-                // Live Haptic Gauge Bar
-                ui.separator();
-                ui.label(RichText::new("Haptic Stroke:").size(11.0));
-                let (gauge_rect, _) = ui.allocate_exact_size(egui::vec2(120.0, 16.0), egui::Sense::hover());
-                ui.painter().rect_filled(gauge_rect, 2.0, Color32::from_rgb(30, 35, 45));
-                let fill_w = (cur_pos / 100.0) * gauge_rect.width();
-                let fill_rect = egui::Rect::from_min_max(gauge_rect.min, egui::pos2(gauge_rect.left() + fill_w, gauge_rect.bottom()));
-                ui.painter().rect_filled(fill_rect, 2.0, Color32::from_rgb(0, 200, 255));
-                ui.strong(format!("{:.0}%", cur_pos));
-
-                // VR SBS Controls
-                if self.vr_sbs_mode {
-                    ui.separator();
-                    ui.label("IPD:");
-                    ui.add(Slider::new(&mut self.vr_ipd_offset, -0.05..=0.05).step_by(0.005));
-                }
-
-                // Telemetry & Studio button
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if ui.button("Exit to Studio (F1)").clicked() {
-                        self.active_tab = HubTab::Studio;
-                    }
-                    ui.monospace(format!("T-Code: L0{:03}", (cur_pos * 10.0).round() as i32));
-                });
-            });
-
-            // Scrubber slider
-            let duration_ms = self.get_content_duration_ms().round() as i64;
-            if duration_ms > 0 {
-                let mut scrub_time = self.timeline_state.cursor_time_ms;
-                if ui.add(
-                    Slider::new(&mut scrub_time, 0..=duration_ms)
-                        .show_value(false)
-                        .trailing_fill(true),
-                ).changed() {
-                    self.seek_to(scrub_time);
+            if bar_resp.clicked() || bar_resp.dragged() {
+                if let Some(mouse_pos) = ui.ctx().pointer_latest_pos() {
+                    let norm = ((mouse_pos.x - bar_rect.left()) / bar_rect.width()).clamp(0.0, 1.0);
+                    let target_ms = (norm * duration_ms as f32).round() as i64;
+                    self.seek_to(target_ms);
                 }
             }
+
+            // Draw track
+            let track_h = if is_bar_hovered { 9.0 } else { 6.0 };
+            let draw_bar_rect = egui::Rect::from_center_size(bar_rect.center(), egui::vec2(bar_rect.width(), track_h));
+            ui.painter().rect_filled(draw_bar_rect, 3.0, Color32::from_rgb(36, 40, 52));
+
+            // Draw A/B loop highlight
+            if let (Some(in_ms), Some(out_ms)) = (self.timeline_state.loop_in_ms, self.timeline_state.loop_out_ms) {
+                if out_ms > in_ms && duration_ms > 0 {
+                    let in_x = draw_bar_rect.left() + (in_ms as f32 / duration_ms as f32).clamp(0.0, 1.0) * draw_bar_rect.width();
+                    let out_x = draw_bar_rect.left() + (out_ms as f32 / duration_ms as f32).clamp(0.0, 1.0) * draw_bar_rect.width();
+                    let loop_r = egui::Rect::from_min_max(
+                        egui::pos2(in_x, draw_bar_rect.top() - 1.0),
+                        egui::pos2(out_x, draw_bar_rect.bottom() + 1.0),
+                    );
+                    ui.painter().rect_filled(loop_r, 2.0, Color32::from_rgba_unmultiplied(0, 200, 255, 75));
+                    ui.painter().rect_stroke(loop_r, 2.0, egui::Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(0, 200, 255, 180)), egui::StrokeKind::Inside);
+                }
+            }
+
+            // Draw bookmarks
+            for bm in &self.timeline_state.bookmarks {
+                if duration_ms > 0 {
+                    let bm_x = draw_bar_rect.left() + (bm.time_ms as f32 / duration_ms as f32).clamp(0.0, 1.0) * draw_bar_rect.width();
+                    ui.painter().line_segment(
+                        [egui::pos2(bm_x, draw_bar_rect.top() - 2.0), egui::pos2(bm_x, draw_bar_rect.bottom() + 2.0)],
+                        egui::Stroke::new(2.0_f32, Color32::from_rgb(255, 205, 50)),
+                    );
+                }
+            }
+
+            // Draw progress fill
+            let cur_norm = (self.timeline_state.cursor_time_ms as f32 / duration_ms as f32).clamp(0.0, 1.0);
+            let fill_w = cur_norm * draw_bar_rect.width();
+            let fill_rect = egui::Rect::from_min_max(
+                draw_bar_rect.min,
+                egui::pos2(draw_bar_rect.left() + fill_w, draw_bar_rect.bottom()),
+            );
+            let fill_color = if self.is_playing && self.recorder.is_recording_active {
+                Color32::from_rgb(255, 60, 60)
+            } else {
+                Color32::from_rgb(0, 215, 255)
+            };
+            ui.painter().rect_filled(fill_rect, 3.0, fill_color);
+
+            // Draw playhead knob
+            let knob_center = egui::pos2(draw_bar_rect.left() + fill_w, draw_bar_rect.center().y);
+            let knob_radius = if is_bar_hovered { 6.5 } else { 5.0 };
+            ui.painter().circle_filled(knob_center, knob_radius, Color32::WHITE);
+            ui.painter().circle_stroke(knob_center, knob_radius, egui::Stroke::new(1.5_f32, fill_color));
+
+            // Draw floating timestamp preview on hover
+            if is_bar_hovered {
+                if let Some(mouse_pos) = ui.ctx().pointer_latest_pos() {
+                    let norm = ((mouse_pos.x - bar_rect.left()) / bar_rect.width()).clamp(0.0, 1.0);
+                    let hover_ms = (norm * duration_ms as f32).round() as i64;
+                    let text = format_ms(hover_ms);
+                    let text_galley = ui.painter().layout_no_wrap(
+                        text,
+                        egui::FontId::monospace(11.0),
+                        Color32::WHITE,
+                    );
+                    let pill_w = text_galley.size().x + 14.0;
+                    let pill_rect = egui::Rect::from_center_size(
+                        egui::pos2(mouse_pos.x.clamp(bar_rect.left() + pill_w / 2.0, bar_rect.right() - pill_w / 2.0), bar_rect.top() - 14.0),
+                        egui::vec2(pill_w, 20.0),
+                    );
+                    ui.painter().rect_filled(pill_rect, 4.0, Color32::from_rgba_unmultiplied(22, 25, 34, 245));
+                    ui.painter().rect_stroke(pill_rect, 4.0, egui::Stroke::new(1.0_f32, Color32::from_rgb(0, 200, 255)), egui::StrokeKind::Inside);
+                    ui.painter().galley(pill_rect.min + egui::vec2(7.0, 3.0), text_galley, Color32::WHITE);
+                }
+            }
+
+            // Row 2: Controls & Options Row
+            let controls_rect = egui::Rect::from_min_max(
+                egui::pos2(hud_rect.left() + 8.0, hud_rect.top() + 25.0),
+                egui::pos2(hud_rect.right() - 8.0, hud_rect.bottom() - 4.0),
+            );
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(controls_rect), |ui| {
+                egui::ScrollArea::horizontal().auto_shrink([false, false]).show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        // 1. Transport Buttons
+                        let play_label = if self.is_playing { "⏸ Pause" } else { "▶ Play" };
+                        if ui.button(RichText::new(play_label).strong()).clicked() {
+                            self.toggle_playback();
+                        }
+
+                        if ui.button("⏮").on_hover_text("Jump to Start (00:00)").clicked() {
+                            self.seek_to(0);
+                        }
+
+                        let frame_step_ms = (1000.0 / self.target_fps.max(1.0)).round() as i64;
+                        if ui.button("⏪ -5s").on_hover_text("Jump back 5 seconds").clicked() {
+                            self.seek_to((self.timeline_state.cursor_time_ms - 5000).max(0));
+                        }
+                        if ui.button("+5s ⏩").on_hover_text("Jump forward 5 seconds").clicked() {
+                            self.seek_to((self.timeline_state.cursor_time_ms + 5000).min(duration_ms));
+                        }
+                        if ui.button("◀ 1F").on_hover_text("Step back 1 frame (Left Arrow)").clicked() {
+                            self.seek_to((self.timeline_state.cursor_time_ms - frame_step_ms.max(1)).max(0));
+                        }
+                        if ui.button("1F ▶").on_hover_text("Step forward 1 frame (Right Arrow)").clicked() {
+                            self.seek_to((self.timeline_state.cursor_time_ms + frame_step_ms.max(1)).min(duration_ms));
+                        }
+
+                        // Time readout
+                        let cur_time_str = format_ms(self.timeline_state.cursor_time_ms);
+                        let dur_str = format_ms(duration_ms);
+                        ui.monospace(RichText::new(format!("{cur_time_str} / {dur_str}")).strong());
+
+                        // 2. Volume & Mute
+                        ui.separator();
+                        let mute_icon = if self.audio_player.is_muted { "🔇" } else { "🔊" };
+                        let audio_avail = crate::audio::AudioPlayer::is_backend_available();
+                        let audio_tooltip = if audio_avail {
+                            if self.audio_player.is_muted { "Unmute Audio (ffplay engine)" } else { "Mute Audio (ffplay engine)" }
+                        } else {
+                            "Audio backend unavailable (ffplay not found)."
+                        };
+                        if ui.button(mute_icon).on_hover_text(audio_tooltip).clicked() {
+                            let new_muted = !self.audio_player.is_muted;
+                            self.audio_player.set_muted_at(new_muted, self.timeline_state.cursor_time_ms, self.playback_speed);
+                        }
+                        let mut vol = self.audio_player.volume;
+                        if ui.add_sized(egui::vec2(55.0, 16.0), Slider::new(&mut vol, 0.0..=1.0).show_value(false))
+                            .on_hover_text(format!("Audio Volume: {:.0}%", vol * 100.0))
+                            .changed()
+                        {
+                            self.audio_player.set_volume_at(vol, self.timeline_state.cursor_time_ms, self.playback_speed);
+                        }
+
+                        // 3. Playback speed
+                        ui.separator();
+                        let old_speed = self.playback_speed;
+                        ui.selectable_value(&mut self.playback_speed, 0.25, "0.25x");
+                        ui.selectable_value(&mut self.playback_speed, 0.5, "0.5x");
+                        ui.selectable_value(&mut self.playback_speed, 1.0, "1.0x");
+                        ui.selectable_value(&mut self.playback_speed, 1.5, "1.5x");
+                        ui.selectable_value(&mut self.playback_speed, 2.0, "2.0x");
+                        if (self.playback_speed - old_speed).abs() > 0.01 && self.is_playing {
+                            if let Some(ref path) = self.video_path {
+                                self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
+                            }
+                        }
+
+                        // 4. A/B Looper Controls
+                        ui.separator();
+                        if ui.button("[ In").on_hover_text("Set A/B Loop In Marker at playhead ([)").clicked() {
+                            self.timeline_state.set_loop_in(self.timeline_state.cursor_time_ms);
+                        }
+                        if ui.button("] Out").on_hover_text("Set A/B Loop Out Marker at playhead (])").clicked() {
+                            self.timeline_state.set_loop_out(self.timeline_state.cursor_time_ms);
+                        }
+                        ui.checkbox(&mut self.timeline_state.loop_enabled, "🔁 Loop");
+                        if self.timeline_state.loop_in_ms.is_some() || self.timeline_state.loop_out_ms.is_some() {
+                            if ui.button("✖").on_hover_text("Clear A/B Section Loop (\\)").clicked() {
+                                self.timeline_state.clear_loop();
+                            }
+                        }
+
+                        // 5. Video File & Fullscreen
+                        ui.separator();
+                        if ui.button("📂 Open...").on_hover_text("Open another video file").clicked() {
+                            self.select_video_dialog();
+                        }
+                        let fs_label = if self.is_fullscreen { "⛶ Window" } else { "⛶ Fullscreen" };
+                        if ui.button(fs_label).on_hover_text("Toggle Fullscreen Mode (F11 or Double-click video canvas)").clicked() {
+                            self.toggle_fullscreen(ui.ctx());
+                        }
+
+                        // 6. Live Gestural Recording Controls
+                        ui.separator();
+                        let rec_text = if self.recorder.is_armed {
+                            if self.is_playing { "⏹ REC..." } else { "🔴 ARMED" }
+                        } else {
+                            "🔴 REC (R)"
+                        };
+                        let rec_btn = if self.recorder.is_armed {
+                            egui::Button::new(RichText::new(rec_text).color(Color32::from_rgb(255, 75, 75)).strong())
+                        } else {
+                            egui::Button::new(rec_text)
+                        };
+                        if ui.add(rec_btn).on_hover_text("Arm live gestural motion recording (R). Move mouse over video or slider to record.").clicked() {
+                            self.toggle_live_recording();
+                        }
+                        ui.checkbox(&mut self.recorder.invert_y, "Invert Y");
+                        ui.checkbox(&mut self.recorder.require_mouse_drag, "Drag to REC");
+
+                        // 7. View & Overlay Toggles
+                        ui.separator();
+                        ui.checkbox(&mut self.show_tracking_overlay, "🎯 HUD");
+                        ui.checkbox(&mut self.show_rig_simulator, "🤖 Rig");
+                        ui.checkbox(&mut self.vr_sbs_mode, "👓 VR SBS");
+                        if self.vr_sbs_mode {
+                            ui.label("IPD:");
+                            ui.add(Slider::new(&mut self.vr_ipd_offset, -0.05..=0.05).step_by(0.005));
+                        }
+                        if ui.button(format!("{} Viz", self.timeline_state.audio_viz_mode.icon()))
+                            .on_hover_text("Cycle Audio Visualization: Waveform, Multi-Band, or Spectrogram (Alt+V)")
+                            .clicked()
+                        {
+                            self.timeline_state.cycle_audio_viz_mode();
+                        }
+
+                        // 8. Haptic Gauge Bar
+                        ui.separator();
+                        ui.label(RichText::new("Haptic Stroke:").size(11.0));
+                        let (gauge_rect, _) = ui.allocate_exact_size(egui::vec2(100.0, 16.0), egui::Sense::hover());
+                        ui.painter().rect_filled(gauge_rect, 2.0, Color32::from_rgb(30, 35, 45));
+                        let stroke_fill_w = (cur_pos / 100.0) * gauge_rect.width();
+                        let stroke_fill_rect = egui::Rect::from_min_max(gauge_rect.min, egui::pos2(gauge_rect.left() + stroke_fill_w, gauge_rect.bottom()));
+                        ui.painter().rect_filled(stroke_fill_rect, 2.0, Color32::from_rgb(0, 200, 255));
+                        ui.strong(format!("{:.0}%", cur_pos));
+
+                        // 9. Telemetry & Studio Exit
+                        ui.separator();
+                        ui.monospace(format!("T-Code: L0{:03}", (cur_pos * 10.0).round() as i32));
+                        if ui.button(RichText::new("Exit to Studio (F1)").strong()).clicked() {
+                            self.active_tab = HubTab::Studio;
+                        }
+                    });
+                });
+            });
         });
     }
 
