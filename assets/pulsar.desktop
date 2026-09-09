@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Pulsar
+GenericName=Neural Kinematic Workstation & Funscript Generator
+Comment=Generate, edit, and sync haptic funscripts with SOTA computer vision and optical flow
+Exec=pulsar gui %F
+Icon=pulsar
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;Utility;
+MimeType=video/mp4;video/x-matroska;video/webm;application/x-funscript;
+StartupWMClass=pulsar
+StartupNotify=true
+Keywords=funscript;haptic;kinematics;tracking;optical-flow;video;

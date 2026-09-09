@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-funscript">
+    <comment>Funscript haptic track</comment>
+    <sub-class-of type="application/json"/>
+    <glob pattern="*.funscript"/>
+    <icon name="pulsar"/>
+  </mime-type>
+</mime-info>
