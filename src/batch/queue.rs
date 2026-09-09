@@ -30,6 +30,7 @@ pub struct BatchJobConfig {
     pub vr_mode: bool,
     pub pov_mode: bool,
     pub overwrite: bool,
+    pub profile: crate::neural::pipeline::AdaptiveProfile,
 }
 
 impl Default for BatchJobConfig {
@@ -42,6 +43,7 @@ impl Default for BatchJobConfig {
             vr_mode: false,
             pov_mode: false,
             overwrite: false,
+            profile: crate::neural::pipeline::AdaptiveProfile::GenericDefault,
         }
     }
 }
@@ -260,7 +262,9 @@ impl BatchWorker {
                     };
 
                     let mut tracker = if config.model_path.is_some() {
-                        Some(crate::neural::tracker::AnatomicalTracker::new())
+                        let mut trk = crate::neural::tracker::AnatomicalTracker::new();
+                        trk.router.config.refresh_cadence_k = config.profile.refresh_cadence();
+                        Some(trk)
                     } else {
                         None
                     };

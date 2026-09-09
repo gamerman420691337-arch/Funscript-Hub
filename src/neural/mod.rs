@@ -1,16 +1,36 @@
 //! Neural inference engine powered by ONNX Runtime (`ort`).
 
+pub mod hypothesis;
 pub mod model_manager;
+pub mod pipeline;
+pub mod point_tracker;
 pub mod pose;
+pub mod router;
 pub mod tracker;
 pub mod yolo;
+pub mod yolo26;
 
 #[allow(unused_imports)]
+pub use hypothesis::{HypothesisEngine, ObservabilityState, ReconciledFrame, TrajectoryHypothesis};
+#[allow(unused_imports)]
 pub use model_manager::{
-    auto_detect_model, default_model_cache_dir, install_or_download_default_model, ModelInfo,
-    DEFAULT_MODEL_NAME,
+    auto_detect_model, default_model_cache_dir, install_or_download_default_model, model_registry,
+    ModelInfo, ModelRegistryEntry, DEFAULT_MODEL_NAME,
 };
+#[allow(unused_imports)]
+pub use pipeline::{AdaptiveFrameOutput, AdaptiveMotionPipeline, AdaptiveProfile};
+#[allow(unused_imports)]
+pub use point_tracker::{PointTrajectory, SurfaceKinematics, TapPointTracker, TapTrackerConfig};
 pub use pose::Pose3D;
+#[allow(unused_imports)]
+pub use router::{
+    CalibratedUncertainty, ConfidenceMetrics, ExecutionBranch, FailureRouter, RouterConfig,
+    RouterStats,
+};
+#[allow(unused_imports)]
+pub use yolo26::{
+    assemble_instance_mask, decode_nms_free_detections, DirectDetection, DirectTensorLayout,
+};
 
 use anyhow::{Context, Result};
 use ndarray::Array4;
@@ -83,6 +103,58 @@ impl NeuralDetector {
 
         Ok(detections)
     }
+
+    /// Run NMS-Free direct head detection (YOLO26 / RF-DETR)
+    #[allow(dead_code)]
+    pub fn detect_direct(
+        &mut self,
+        rgb_data: &[u8],
+        width: usize,
+        height: usize,
+        num_classes: usize,
+        num_masks: usize,
+        layout: DirectTensorLayout,
+    ) -> Result<Vec<DirectDetection>> {
+        let input_array: Array4<f32> = preprocess_image_rgb(rgb_data, width, height, 640);
+        let input_tensor = Tensor::from_array(input_array)
+            .map_err(|e| anyhow::anyhow!("Failed to create ONNX input tensor: {e}"))?;
+
+        let inputs = ort::inputs![input_tensor];
+        let outputs = self
+            .session
+            .run(inputs)
+            .map_err(|e| anyhow::anyhow!("Inference execution failed: {e}"))?;
+
+        let (_, output_tensor) = outputs
+            .into_iter()
+            .next()
+            .context("No output tensors returned from ONNX session")?;
+
+        let (shape, slice) = output_tensor
+            .try_extract_tensor::<f32>()
+            .map_err(|e| anyhow::anyhow!("Failed to extract output tensor: {e}"))?;
+
+        // Determine query count from tensor shape
+        let num_queries = match layout {
+            DirectTensorLayout::QueryMajor => {
+                if shape.len() >= 2 { shape[shape.len() - 2] as usize } else { 300 }
+            }
+            DirectTensorLayout::ChannelMajor => {
+                if shape.len() >= 1 { shape[shape.len() - 1] as usize } else { 300 }
+            }
+        };
+
+        let detections = decode_nms_free_detections(
+            slice,
+            num_queries,
+            num_classes,
+            num_masks,
+            layout,
+            self.conf_threshold,
+        );
+
+        Ok(detections)
+    }
 }
 
 #[cfg(test)]
@@ -101,7 +173,6 @@ mod tests {
         let mut detector = NeuralDetector::new(model_path, 0.25).expect("Failed to create NeuralDetector");
         let dummy_rgb = vec![128u8; 640 * 640 * 3];
         let detections = detector.detect(&dummy_rgb, 640, 640).expect("Inference failed");
-        // Detections should execute successfully (may be empty or contain low-conf detections for a flat gray frame)
         println!("Live model inference succeeded, returned {} detections", detections.len());
     }
 
@@ -123,8 +194,6 @@ mod tests {
         }
 
         let rgb = crate::video::extract_frame_at(video_path, 1000, 640, 640).expect("Failed to extract frame");
-        println!("Sample rgb byte values: {:?}", &rgb[0..15]);
-
         let input_array: Array4<f32> = preprocess_image_rgb(&rgb, 640, 640, 640);
         let input_tensor = Tensor::from_array(input_array).unwrap();
         let inputs = ort::inputs![input_tensor];
@@ -132,13 +201,6 @@ mod tests {
         for (name, out) in outputs {
             let (shape, slice) = out.try_extract_tensor::<f32>().unwrap();
             println!("Output {}: shape={:?}, total_elements={}", name, shape, slice.len());
-            for c in 0..14 {
-                let channel_slice = &slice[c * 8400..(c + 1) * 8400];
-                let min_val = channel_slice.iter().fold(f32::INFINITY, |a, &b| a.min(b));
-                let max_val = channel_slice.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-                println!("Channel {}: min={:.4}, max={:.4}", c, min_val, max_val);
-            }
         }
     }
 }
-

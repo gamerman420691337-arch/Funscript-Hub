@@ -1,5 +1,7 @@
 # Open-FunGen (`open-fungen`)
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Donate-orange?style=for-the-badge&logo=buy-me-a-coffee)](https://buymeacoffee.com/thesmartestgooner)
+
 A high-performance, open-source cleanroom video funscript generator and editor engine written in **Rust**.
 
 Designed as a modern, high-speed, zero-python-dependency alternative to legacy optical-flow tools, `open-fungen` provides hardware-accelerated video decoding, multi-threaded dense optical flow motion tracking, neural YOLOv12 anatomical detection via ONNX Runtime, signal filtering, interactive desktop timeline GUI editor (`egui`/`eframe`), and automated Script Doctor auditing.

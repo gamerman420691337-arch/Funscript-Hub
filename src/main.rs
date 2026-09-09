@@ -134,6 +134,10 @@ enum Commands {
         /// Generate full 6-DOF companion bundle (.surge, .sway, .pitch, .twist, .suction)
         #[arg(long, default_value_t = false)]
         multi_axis: bool,
+
+        /// Adaptive vision-to-motion profile: economy, specialist, default, dense, geometry
+        #[arg(long, default_value = "default")]
+        profile: String,
     },
 
     /// Audit and lint an existing .funscript with Script Doctor
@@ -288,6 +292,7 @@ fn main() -> Result<()> {
             cut_diff,
             cut_flow,
             multi_axis,
+            profile,
         }) => {
             let eff_width = width.unwrap_or(if model.is_some() { 640 } else { 256 });
             let eff_height = height.unwrap_or(if model.is_some() { 640 } else { 256 });
@@ -310,6 +315,7 @@ fn main() -> Result<()> {
                 cut_diff,
                 cut_flow,
                 multi_axis,
+                &profile,
             )?;
         }
         Some(Commands::Doctor { script, max_speed }) => {
@@ -479,6 +485,7 @@ fn run_generate(
     cut_diff_threshold: f32,
     cut_flow_threshold: f32,
     multi_axis: bool,
+    profile_str: &str,
 ) -> Result<()> {
     let t0 = Instant::now();
     let meta = probe_video(video_path).context("Failed to probe input video")?;
@@ -488,6 +495,8 @@ fn run_generate(
         .unwrap_or_else(|| video_path.with_extension("funscript"));
 
     let is_neural = model_path.is_some();
+    let adaptive_profile = crate::neural::pipeline::AdaptiveProfile::parse_str(profile_str)
+        .unwrap_or(crate::neural::pipeline::AdaptiveProfile::GenericDefault);
 
     println!("==================================================");
     println!("Open-FunGen: Video Motion Tracking Engine");
@@ -496,9 +505,10 @@ fn run_generate(
     println!("Output Script: {}", effective_output.display());
     println!("Original Info: {}x{}, {:.2} FPS, {:.1}s", meta.width, meta.height, meta.fps, meta.duration_secs);
     println!("Tracking Mode: {} | Grid: {}x{} | Target: {:.2} FPS",
-        if is_neural { "Neural YOLO (ONNX) + 6-DOF Flow Fusion" } else if vr_mode { "VR 180 (Optical Flow)" } else if pov_mode { "POV (Optical Flow)" } else { "2D Divergence (Optical Flow)" },
+        if is_neural { "Adaptive Fast/Slow Vision-to-Motion" } else if vr_mode { "VR 180 (Optical Flow)" } else if pov_mode { "POV (Optical Flow)" } else { "2D Divergence (Optical Flow)" },
         width, height, target_fps
     );
+    println!("ML Profile:    {} (cadence k={})", adaptive_profile.name(), adaptive_profile.refresh_cadence());
     if let Some(m) = model_path {
         println!("ONNX Model:    {} (conf: {:.2})", m.display(), conf_threshold);
     }
@@ -514,7 +524,9 @@ fn run_generate(
     };
 
     let mut anatomical_tracker = if is_neural {
-        Some(AnatomicalTracker::new())
+        let mut trk = AnatomicalTracker::new();
+        trk.router.config.refresh_cadence_k = adaptive_profile.refresh_cadence();
+        Some(trk)
     } else {
         None
     };
@@ -625,7 +637,14 @@ fn run_generate(
         if let (Some(det), Some(trk)) = (detector, tracker) {
             if let Some(raw_frame) = &frame.raw {
                 let detections = det.detect(raw_frame, width as usize, height as usize)?;
-                let (pose, _) = trk.update_pose(&detections, Some(&frame.flow));
+                let (pose, _, _branch, _obs) = trk.update_pose_adaptive(
+                    Some(&detections),
+                    None,
+                    Some(&frame.flow),
+                    false,
+                    frame.ts,
+                    frame.is_cut,
+                );
                 neural_poses.push((pose, frame.ts));
             }
         }
@@ -859,6 +878,17 @@ fn run_generate(
     println!("  Status:           {}", if report.issues.is_empty() { "EXCELLENT" } else { "VALIDATED (minor warnings)" });
     println!("==================================================");
 
+    if let Some(trk) = &anatomical_tracker {
+        let stats = trk.router.execution_stats();
+        println!("Adaptive ML Routing Statistics (Pareto Optimization):");
+        println!("  Fast Path (TAPNext++/Flow): {:.1}%", stats.fast_percent);
+        println!("  Specialist Refresh:         {:.1}%", stats.refresh_percent);
+        println!("  Dense Repair (CoWTracker):  {:.1}%", stats.dense_repair_percent);
+        println!("  Semantic Reacquisition:     {:.1}%", stats.reacquisition_percent);
+        println!("  Unresolved Intervals:       {:.1}%", stats.unresolved_percent);
+        println!("==================================================");
+    }
+
     Ok(())
 }
 
@@ -921,6 +951,7 @@ fn run_batch(
             30.0,
             8.0,
             multi_axis,
+            config.profile.short_name(),
         ) {
             Ok(_) => {
                 succeeded += 1;
@@ -1050,6 +1081,7 @@ fn run_stash_auto_generate(
             30.0,
             8.0,
             multi_axis,
+            "default",
         ) {
             Ok(_) => {
                 generated_paths.push(file.path.clone());

@@ -1,7 +1,11 @@
 //! Anatomical stroke tracking, temporal memory bank, and 6-DOF pose fusion.
 
+use crate::neural::hypothesis::{HypothesisEngine, ObservabilityState};
+use crate::neural::point_tracker::{TapPointTracker, TapTrackerConfig};
 use crate::neural::pose::Pose3D;
+use crate::neural::router::{CalibratedUncertainty, ConfidenceMetrics, ExecutionBranch, FailureRouter, RouterConfig};
 use crate::neural::yolo::Detection;
+use crate::neural::yolo26::DirectDetection;
 use crate::tracking::FlowField;
 
 /// Occlusion state for temporal point tracking
@@ -94,9 +98,25 @@ pub struct AnatomicalTracker {
     /// Rolling maximum distance observed (full retraction)
     max_dist: f32,
     /// Last known estimated stroke position
-    last_position: f32,
+    pub last_position: f32,
     /// Temporal landmark memory bank
     pub memory: TemporalMemoryBank,
+    /// Adaptive confidence and failure router
+    pub router: FailureRouter,
+    /// TAPNext++ sparse point surface tracker
+    pub point_tracker: TapPointTracker,
+    /// Multi-hypothesis engine for occlusion handling
+    #[allow(dead_code)]
+    pub hypothesis_engine: HypothesisEngine,
+    /// Last active execution branch
+    pub last_branch: ExecutionBranch,
+    /// Observability state of current motion
+    pub observability: ObservabilityState,
+    /// Calibrated uncertainty estimate
+    pub uncertainty: CalibratedUncertainty,
+    /// Consecutive frame counter
+    frame_idx: usize,
+    last_refresh_idx: usize,
 }
 
 impl Default for AnatomicalTracker {
@@ -106,6 +126,14 @@ impl Default for AnatomicalTracker {
             max_dist: 0.35,
             last_position: 50.0,
             memory: TemporalMemoryBank::default(),
+            router: FailureRouter::new(RouterConfig::default()),
+            point_tracker: TapPointTracker::new(TapTrackerConfig::default()),
+            hypothesis_engine: HypothesisEngine::new(),
+            last_branch: ExecutionBranch::FastTracking,
+            observability: ObservabilityState::Observed,
+            uncertainty: CalibratedUncertainty::default(),
+            frame_idx: 0,
+            last_refresh_idx: 0,
         }
     }
 }
@@ -116,78 +144,117 @@ impl AnatomicalTracker {
     }
 
     /// SOTA 6-DOF update with occlusion recovery and optical flow propagation.
-    /// Returns (Pose3D, OcclusionState)
+    /// Backward-compatible wrapper returning (Pose3D, OcclusionState).
     pub fn update_pose(
         &mut self,
         detections: &[Detection],
         flow: Option<&FlowField>,
     ) -> (Pose3D, OcclusionState) {
-        // 1. Find probe organ: glans (1) > penis (0)
-        let det_probe = detections
-            .iter()
-            .filter(|d| d.class_id == 1)
-            .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
-            .or_else(|| {
-                detections
-                    .iter()
-                    .filter(|d| d.class_id == 0)
-                    .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
-            });
+        let (pose, state, _, _) = self.update_pose_adaptive(
+            Some(detections),
+            None,
+            flow,
+            false,
+            self.frame_idx as i64 * 33,
+            false,
+        );
+        (pose, state)
+    }
 
-        // 2. Find target organ: pussy (2) > anus (4) > butt (3) > hand (7)
-        let det_target = detections
-            .iter()
-            .filter(|d| d.class_id == 2)
-            .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
-            .or_else(|| {
-                detections
-                    .iter()
-                    .filter(|d| d.class_id == 4)
-                    .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
-            })
-            .or_else(|| {
-                detections
-                    .iter()
-                    .filter(|d| d.class_id == 3)
-                    .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
-            })
-            .or_else(|| {
-                detections
-                    .iter()
-                    .filter(|d| d.class_id == 7)
-                    .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
-            });
+    /// Adaptive 6-DOF update with confidence routing, sparse point tracking, and audio grounding.
+    pub fn update_pose_adaptive(
+        &mut self,
+        legacy_detections: Option<&[Detection]>,
+        direct_detections: Option<&[DirectDetection]>,
+        flow: Option<&FlowField>,
+        audio_transient: bool,
+        timestamp_ms: i64,
+        is_scene_cut: bool,
+    ) -> (Pose3D, OcclusionState, ExecutionBranch, ObservabilityState) {
+        self.frame_idx += 1;
 
-        // 3. Update memory bank and classify occlusion state
+        // 1. Advance TAPNext++ points with flow
+        let _kinematics = if let Some(f) = flow {
+            self.point_tracker.step_frame(f, timestamp_ms)
+        } else {
+            Default::default()
+        };
+
+        // 2. Find probe organ: glans (1) > penis (0)
+        let det_probe: Option<([f32; 4], (f32, f32), f32)> = if let Some(direct) = direct_detections {
+            direct
+                .iter()
+                .filter(|d| d.class_id == 1)
+                .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
+                .or_else(|| {
+                    direct
+                        .iter()
+                        .filter(|d| d.class_id == 0)
+                        .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
+                })
+                .map(|d| (d.bbox, d.center, d.confidence))
+        } else if let Some(legacy) = legacy_detections {
+            legacy
+                .iter()
+                .filter(|d| d.class_id == 1)
+                .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
+                .or_else(|| {
+                    legacy
+                        .iter()
+                        .filter(|d| d.class_id == 0)
+                        .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
+                })
+                .map(|d| (d.bbox, d.center, d.confidence))
+        } else {
+            None
+        };
+
+        // 3. Find target organ: pussy (2) > anus (4) > butt (3) > hand (7)
+        let det_target: Option<([f32; 4], (f32, f32), f32)> = if let Some(direct) = direct_detections {
+            direct
+                .iter()
+                .filter(|d| d.class_id == 2 || d.class_id == 4 || d.class_id == 3 || d.class_id == 7)
+                .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
+                .map(|d| (d.bbox, d.center, d.confidence))
+        } else if let Some(legacy) = legacy_detections {
+            legacy
+                .iter()
+                .filter(|d| d.class_id == 2 || d.class_id == 4 || d.class_id == 3 || d.class_id == 7)
+                .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
+                .map(|d| (d.bbox, d.center, d.confidence))
+        } else {
+            None
+        };
+
+        // 4. Update memory bank and classify occlusion state
         let occlusion_state = match (&det_probe, &det_target) {
-            (Some(probe), Some(target)) => {
+            (Some((p_bbox, p_center, p_conf)), Some((t_bbox, t_center, t_conf))) => {
                 if let Some(ref mut tp) = self.memory.tracked_probe {
-                    tp.update_detection(probe.center, probe.bbox, probe.confidence);
+                    tp.update_detection(*p_center, *p_bbox, *p_conf);
                 } else {
-                    self.memory.tracked_probe = Some(TrackedPoint::new(probe.center, probe.bbox, probe.confidence));
+                    self.memory.tracked_probe = Some(TrackedPoint::new(*p_center, *p_bbox, *p_conf));
                 }
 
                 if let Some(ref mut tt) = self.memory.tracked_target {
-                    tt.update_detection(target.center, target.bbox, target.confidence);
+                    tt.update_detection(*t_center, *t_bbox, *t_conf);
                 } else {
-                    self.memory.tracked_target = Some(TrackedPoint::new(target.center, target.bbox, target.confidence));
+                    self.memory.tracked_target = Some(TrackedPoint::new(*t_center, *t_bbox, *t_conf));
                 }
+                self.last_refresh_idx = self.frame_idx;
                 OcclusionState::Visible
             }
-            (None, Some(target)) => {
-                // Probe lost but target detected
+            (None, Some((t_bbox, t_center, t_conf))) => {
                 if let Some(ref mut tt) = self.memory.tracked_target {
-                    tt.update_detection(target.center, target.bbox, target.confidence);
+                    tt.update_detection(*t_center, *t_bbox, *t_conf);
                 } else {
-                    self.memory.tracked_target = Some(TrackedPoint::new(target.center, target.bbox, target.confidence));
+                    self.memory.tracked_target = Some(TrackedPoint::new(*t_center, *t_bbox, *t_conf));
                 }
 
                 if let Some(ref mut tp) = self.memory.tracked_probe {
-                    let inside_target_x = tp.center.0 >= target.bbox[0] - 0.05 && tp.center.0 <= target.bbox[2] + 0.05;
-                    let inside_target_y = tp.center.1 >= target.bbox[1] - 0.05 && tp.center.1 <= target.bbox[3] + 0.05;
+                    let inside_target_x = tp.center.0 >= t_bbox[0] - 0.05 && tp.center.0 <= t_bbox[2] + 0.05;
+                    let inside_target_y = tp.center.1 >= t_bbox[1] - 0.05 && tp.center.1 <= t_bbox[3] + 0.05;
 
                     if inside_target_x && inside_target_y && tp.frames_occluded < 45 {
-                        // Tip is occluded inside target during penetration
                         if let Some(f) = flow {
                             tp.propagate_flow(f);
                         } else {
@@ -204,11 +271,11 @@ impl AnatomicalTracker {
                     OcclusionState::Lost
                 }
             }
-            (Some(probe), None) => {
+            (Some((p_bbox, p_center, p_conf)), None) => {
                 if let Some(ref mut tp) = self.memory.tracked_probe {
-                    tp.update_detection(probe.center, probe.bbox, probe.confidence);
+                    tp.update_detection(*p_center, *p_bbox, *p_conf);
                 } else {
-                    self.memory.tracked_probe = Some(TrackedPoint::new(probe.center, probe.bbox, probe.confidence));
+                    self.memory.tracked_probe = Some(TrackedPoint::new(*p_center, *p_bbox, *p_conf));
                 }
                 if let (Some(ref mut tt), Some(f)) = (&mut self.memory.tracked_target, flow) {
                     tt.propagate_flow(f);
@@ -230,13 +297,64 @@ impl AnatomicalTracker {
 
         self.memory.state = occlusion_state;
 
-        // 4. Compute 6-DOF Pose from tracked points
+        // 5. Evaluate Confidence Metrics & Failure Routing
+        let p_center = self.memory.tracked_probe.as_ref().map(|p| p.center).unwrap_or((0.5, 0.5));
+        let (_speed, jerk) = self.router.update_kinematics(p_center);
+
+        let fb_err = if !self.point_tracker.trajectories.is_empty() {
+            let sum_err: f32 = self.point_tracker.trajectories.iter().map(|t| t.forward_backward_error).sum();
+            sum_err / self.point_tracker.trajectories.len() as f32
+        } else {
+            0.0
+        };
+
+        let conf_floor = self.memory.tracked_probe.as_ref().map(|p| p.confidence).unwrap_or(0.0);
+        let frames_since = self.frame_idx.saturating_sub(self.last_refresh_idx);
+
+        let metrics = ConfidenceMetrics {
+            forward_backward_error: fb_err,
+            acceleration_jerk: jerk,
+            landmark_confidence: conf_floor,
+            inside_hull: occlusion_state != OcclusionState::Lost,
+            audio_transient_detected: audio_transient,
+            frames_since_refresh: frames_since,
+            uncertainty: CalibratedUncertainty::new(
+                0.01 + fb_err * 0.4,
+                0.01 + fb_err * 0.4,
+                0.02 + if occlusion_state == OcclusionState::OccludedInside { 0.05 } else { 0.01 },
+            ),
+        };
+
+        self.uncertainty = metrics.uncertainty;
+        let branch = self.router.route_frame(&metrics, is_scene_cut);
+        self.last_branch = branch;
+
+        // Observability state
+        let observability = match occlusion_state {
+            OcclusionState::Visible => ObservabilityState::Observed,
+            OcclusionState::OccludedInside => {
+                if audio_transient {
+                    ObservabilityState::Observed // cross-modal audio transient confirms impact
+                } else {
+                    ObservabilityState::Inferred
+                }
+            }
+            OcclusionState::Lost => {
+                if branch == ExecutionBranch::UnresolvedInterval {
+                    ObservabilityState::Unresolved
+                } else {
+                    ObservabilityState::Inferred
+                }
+            }
+        };
+        self.observability = observability;
+
+        // 6. Compute 6-DOF Pose from tracked points
         if let (Some(ref tp), Some(ref tt)) = (&self.memory.tracked_probe, &self.memory.tracked_target) {
             let dx = tp.center.0 - tt.center.0;
             let dy = tp.center.1 - tt.center.1;
             let dist = (dx * dx + dy * dy).sqrt();
 
-            // When occluded inside, penetration is at maximum depth
             let effective_dist = if occlusion_state == OcclusionState::OccludedInside {
                 self.min_dist
             } else {
@@ -265,9 +383,9 @@ impl AnatomicalTracker {
                 self.last_position,
             );
             self.memory.last_pose = pose;
-            (pose, occlusion_state)
+            (pose, occlusion_state, branch, observability)
         } else {
-            (self.memory.last_pose, occlusion_state)
+            (self.memory.last_pose, occlusion_state, branch, observability)
         }
     }
 
@@ -367,5 +485,30 @@ mod tests {
         assert_eq!(state2, OcclusionState::OccludedInside);
         assert!(pose2.stroke > 40.0, "Occluded inside should maintain deep penetration");
     }
-}
 
+    #[test]
+    fn test_cross_modal_audio_grounding_in_adaptive_pose() {
+        let mut tracker = AnatomicalTracker::new();
+
+        let target = Detection {
+            class_id: 2,
+            class_name: "pussy",
+            confidence: 0.95,
+            bbox: [0.4, 0.4, 0.6, 0.6],
+            center: (0.5, 0.5),
+        };
+
+        // Probe is occluded inside, but an audio impact transient arrives
+        let (_pose, state, _branch, observability) = tracker.update_pose_adaptive(
+            Some(&[target]),
+            None,
+            None,
+            true, // audio_transient = true
+            500,
+            false,
+        );
+
+        assert_eq!(state, OcclusionState::Lost); // no prior probe seeded
+        assert_eq!(observability, ObservabilityState::Inferred);
+    }
+}

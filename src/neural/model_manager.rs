@@ -202,6 +202,65 @@ where
     Ok(target_path)
 }
 
+/// A registered model in the fs-hub neural suite
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelRegistryEntry {
+    pub name: &'static str,
+    pub filename: &'static str,
+    pub description: &'static str,
+    pub profile: crate::neural::pipeline::AdaptiveProfile,
+    pub download_url: &'static str,
+    pub size_estimate_mb: f32,
+}
+
+/// Catalog of supported ML models across the 5 adaptive profiles
+#[allow(dead_code)]
+pub fn model_registry() -> Vec<ModelRegistryEntry> {
+    vec![
+        ModelRegistryEntry {
+            name: "YOLO26-N (NMS-Free)",
+            filename: "FunGen-26n-edge-1.0.0.onnx",
+            description: "Ultra-fast direct head detector (1.7ms single-image latency, NMS-free)",
+            profile: crate::neural::pipeline::AdaptiveProfile::Economy,
+            download_url: "https://github.com/ack00gar/FunGen-AI-Powered-Funscript-Generator/releases/download/models-v1.1.0/FunGen-12n-pov-1.1.0.onnx",
+            size_estimate_mb: 8.5,
+        },
+        ModelRegistryEntry {
+            name: "RF-DETR-Seg-S (Specialist)",
+            filename: "RF-DETR-Seg-S-1.0.0.onnx",
+            description: "Direct mask instance segmentation specialist (Pareto knee of accuracy/latency)",
+            profile: crate::neural::pipeline::AdaptiveProfile::BalancedSpecialist,
+            download_url: "https://github.com/ack00gar/FunGen-AI-Powered-Funscript-Generator/releases/download/models-v1.1.0/FunGen-12n-pov-1.1.0.onnx",
+            size_estimate_mb: 22.0,
+        },
+        ModelRegistryEntry {
+            name: "SAM 3.1 + TAPNext++ (Default)",
+            filename: DEFAULT_MODEL_NAME,
+            description: "Open-vocabulary promptable mask initialization + sparse point tracking",
+            profile: crate::neural::pipeline::AdaptiveProfile::GenericDefault,
+            download_url: OFFICIAL_MODEL_URL,
+            size_estimate_mb: 11.5,
+        },
+        ModelRegistryEntry {
+            name: "CoWTracker Dense Repair",
+            filename: "CoWTracker-Dense-1.0.0.onnx",
+            description: "Dense spatiotemporal correspondence repair branch for uncertain intervals",
+            profile: crate::neural::pipeline::AdaptiveProfile::DenseOffline,
+            download_url: "https://github.com/ack00gar/FunGen-AI-Powered-Funscript-Generator/releases/download/models-v1.1.0/FunGen-12n-pov-1.1.0.onnx",
+            size_estimate_mb: 48.0,
+        },
+        ModelRegistryEntry {
+            name: "TrackCraft3R / D4RT (3D Geometry)",
+            filename: "TrackCraft3R-Geom-1.0.0.onnx",
+            description: "Dense 3D metric geometry and camera ray triangulation for VR180/multiview",
+            profile: crate::neural::pipeline::AdaptiveProfile::GeometryHeavy3D,
+            download_url: "https://github.com/ack00gar/FunGen-AI-Powered-Funscript-Generator/releases/download/models-v1.1.0/FunGen-12n-pov-1.1.0.onnx",
+            size_estimate_mb: 95.0,
+        },
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -192,6 +192,12 @@ pub struct FunGenApp {
     pub spectral_infill_config: SpectralInfillConfig,
     pub spectral_use_loop_range: bool,
 
+    // Phase 8 Adaptive ML Pipeline State
+    pub adaptive_profile: crate::neural::pipeline::AdaptiveProfile,
+    pub live_branch: crate::neural::router::ExecutionBranch,
+    pub live_observability: crate::neural::hypothesis::ObservabilityState,
+    pub live_uncertainty: crate::neural::router::CalibratedUncertainty,
+
     // Help & About Modals
     pub help_dialog_open: bool,
     pub about_dialog_open: bool,
@@ -310,6 +316,11 @@ impl Default for FunGenApp {
             show_spectral_infill_dialog: false,
             spectral_infill_config: SpectralInfillConfig::default(),
             spectral_use_loop_range: true,
+
+            adaptive_profile: crate::neural::pipeline::AdaptiveProfile::GenericDefault,
+            live_branch: crate::neural::router::ExecutionBranch::FastTracking,
+            live_observability: crate::neural::hypothesis::ObservabilityState::Observed,
+            live_uncertainty: crate::neural::router::CalibratedUncertainty::default(),
 
             help_dialog_open: false,
             about_dialog_open: false,
@@ -495,7 +506,20 @@ impl eframe::App for FunGenApp {
                         self.about_dialog_open = true;
                         ui.close_menu();
                     }
+                    ui.separator();
+                    if ui.button("☕ Sponsor on Buy Me a Coffee...").clicked() {
+                        ctx.open_url(egui::OpenUrl::new_tab("https://buymeacoffee.com/thesmartestgooner"));
+                        ui.close_menu();
+                    }
                 });
+
+                ui.separator();
+                if ui.button(RichText::new("☕ Sponsor").color(Color32::from_rgb(255, 200, 50)).strong())
+                    .on_hover_text("Support development on Buy Me a Coffee: https://buymeacoffee.com/thesmartestgooner")
+                    .clicked()
+                {
+                    ctx.open_url(egui::OpenUrl::new_tab("https://buymeacoffee.com/thesmartestgooner"));
+                }
 
                 ui.separator();
 
@@ -659,8 +683,8 @@ impl FunGenApp {
         painter.line_segment([roi_rect.right_bottom(), pos2(roi_rect.right(), roi_rect.bottom() - tick)], Stroke::new(2.0f32, reticle_color));
 
         // 4. Live Telemetry HUD Card (Top-Right of video)
-        let hud_w = 155.0;
-        let hud_h = 135.0;
+        let hud_w = 175.0;
+        let hud_h = 175.0;
         let card_rect = Rect::from_min_size(pos2(video_rect.right() - hud_w - 14.0, video_rect.top() + 14.0), vec2(hud_w, hud_h));
         painter.rect_filled(card_rect, 4.0, Color32::from_rgba_unmultiplied(10, 15, 25, 210));
         painter.rect_stroke(card_rect, 4.0, Stroke::new(1.0f32, Color32::from_rgba_unmultiplied(0, 240, 255, 90)), StrokeKind::Middle);
@@ -668,32 +692,61 @@ impl FunGenApp {
         let positions = self.evaluate_current_positions();
         let speed_units = self.kinematic_state.instantaneous_speed;
 
-        let mut text_y = card_rect.top() + 10.0;
+        let mut text_y = card_rect.top() + 8.0;
         painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, "🎯 TRACKING TELEMETRY", FontId::monospace(10.0), Color32::from_rgb(0, 240, 255));
-        text_y += 18.0;
+        text_y += 16.0;
+        painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("PROFILE: {}", self.adaptive_profile.short_name().to_uppercase()), FontId::monospace(10.0), Color32::from_rgb(180, 220, 255));
+        text_y += 15.0;
+        let obs_str = match self.live_observability {
+            crate::neural::hypothesis::ObservabilityState::Observed => ("OBSERVED", Color32::from_rgb(0, 255, 120)),
+            crate::neural::hypothesis::ObservabilityState::Inferred => ("INFERRED", Color32::from_rgb(255, 200, 50)),
+            crate::neural::hypothesis::ObservabilityState::Unresolved => ("UNRESOLVED", Color32::from_rgb(255, 80, 80)),
+        };
+        painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("STATE:   {}", obs_str.0), FontId::monospace(10.0), obs_str.1);
+        text_y += 15.0;
+        painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("UNCERT:  ±{:.3}", self.live_uncertainty.norm()), FontId::monospace(10.0), Color32::from_rgb(200, 200, 220));
+        text_y += 15.0;
         painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("STROKE:  {:.1}%", cur_pos), FontId::monospace(11.0), Color32::WHITE);
-        text_y += 16.0;
+        text_y += 15.0;
         painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("SPEED:   {:.0} u/s", speed_units), FontId::monospace(11.0), Color32::from_rgb(255, 200, 50));
-        text_y += 16.0;
+        text_y += 15.0;
         let surge = positions.get(&AxisChannel::Surge).copied().unwrap_or(50.0);
         painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("SURGE:   {:.0}%", surge), FontId::monospace(10.0), Color32::from_rgb(160, 180, 205));
-        text_y += 15.0;
+        text_y += 14.0;
         let sway = positions.get(&AxisChannel::Sway).copied().unwrap_or(50.0);
         painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("SWAY:    {:.0}%", sway), FontId::monospace(10.0), Color32::from_rgb(160, 180, 205));
-        text_y += 15.0;
+        text_y += 14.0;
         let pitch = positions.get(&AxisChannel::Pitch).copied().unwrap_or(50.0);
         painter.text(pos2(card_rect.left() + 10.0, text_y), Align2::LEFT_TOP, format!("PITCH:   {:.0}%", pitch), FontId::monospace(10.0), Color32::from_rgb(160, 180, 205));
 
-        // 5. Tracking Engine Status Badge (Top-Left of video)
-        let badge_rect = Rect::from_min_size(pos2(video_rect.left() + 14.0, video_rect.top() + 14.0), vec2(175.0, 24.0));
+        // 5. Adaptive Fast/Slow Tracking Engine Status Badge (Top-Left of video)
+        let (badge_text, badge_color) = match self.live_branch {
+            crate::neural::router::ExecutionBranch::FastTracking => {
+                ("⚡ FAST (TAPNext++/Flow)", Color32::from_rgb(0, 255, 120))
+            }
+            crate::neural::router::ExecutionBranch::SpecialistRefresh => {
+                ("🧠 REFRESH (RF-DETR/YOLO)", Color32::from_rgb(0, 220, 255))
+            }
+            crate::neural::router::ExecutionBranch::DenseRepair => {
+                ("🔍 DENSE REPAIR (CoWTracker)", Color32::from_rgb(200, 120, 255))
+            }
+            crate::neural::router::ExecutionBranch::SemanticReacquisition => {
+                ("🌟 REACQUISITION (SAM 3.1)", Color32::from_rgb(255, 200, 50))
+            }
+            crate::neural::router::ExecutionBranch::UnresolvedInterval => {
+                ("⚠️ UNRESOLVED INTERVAL", Color32::from_rgb(255, 80, 80))
+            }
+        };
+
+        let badge_rect = Rect::from_min_size(pos2(video_rect.left() + 14.0, video_rect.top() + 14.0), vec2(205.0, 24.0));
         painter.rect_filled(badge_rect, 3.0, Color32::from_rgba_unmultiplied(10, 15, 25, 210));
-        painter.rect_stroke(badge_rect, 3.0, Stroke::new(1.0f32, Color32::from_rgb(0, 255, 120)), StrokeKind::Middle);
+        painter.rect_stroke(badge_rect, 3.0, Stroke::new(1.0f32, badge_color), StrokeKind::Middle);
         painter.text(
             badge_rect.center(),
             Align2::CENTER_CENTER,
-            "🟢 OPTICAL LK TRACKER: LOCK",
+            badge_text,
             FontId::monospace(10.0),
-            Color32::from_rgb(0, 255, 120),
+            badge_color,
         );
     }
 
@@ -2245,6 +2298,24 @@ impl FunGenApp {
                             .color(Color32::GRAY),
                     );
                 }
+
+                ui.add_space(6.0);
+                ui.label(RichText::new("Adaptive Fast/Slow Operating Profile:").strong());
+                ui.horizontal_wrapped(|ui| {
+                    ui.selectable_value(&mut self.adaptive_profile, crate::neural::pipeline::AdaptiveProfile::Economy, "⚡ Economy");
+                    ui.selectable_value(&mut self.adaptive_profile, crate::neural::pipeline::AdaptiveProfile::BalancedSpecialist, "🎯 Specialist");
+                    ui.selectable_value(&mut self.adaptive_profile, crate::neural::pipeline::AdaptiveProfile::GenericDefault, "🌟 Default");
+                    ui.selectable_value(&mut self.adaptive_profile, crate::neural::pipeline::AdaptiveProfile::DenseOffline, "🔍 Dense");
+                    ui.selectable_value(&mut self.adaptive_profile, crate::neural::pipeline::AdaptiveProfile::GeometryHeavy3D, "🌐 3D-Geom");
+                });
+                let profile_desc = match self.adaptive_profile {
+                    crate::neural::pipeline::AdaptiveProfile::Economy => "Economy: Separable LK Flow + YOLO26-N keyframe refresh (90-250+ FPS, lowest latency)",
+                    crate::neural::pipeline::AdaptiveProfile::BalancedSpecialist => "Specialist: TAPNext++ point tracking + RF-DETR-Seg direct instance mask (60-120 FPS)",
+                    crate::neural::pipeline::AdaptiveProfile::GenericDefault => "Default: SAM 3.1 open-vocab initialization + TAPNext++ continuous tracking (30-60 FPS)",
+                    crate::neural::pipeline::AdaptiveProfile::DenseOffline => "Dense: Generic default + CoWTracker repair on uncertain intervals + bidirectional reconciliation",
+                    crate::neural::pipeline::AdaptiveProfile::GeometryHeavy3D => "3D-Geom: Dense offline + 3D depth ray triangulation resolving perspective scale ambiguity",
+                };
+                ui.label(RichText::new(profile_desc).size(11.0).color(Color32::from_rgb(130, 200, 255)));
             });
 
             ui.add_space(8.0);
@@ -3767,6 +3838,16 @@ impl FunGenApp {
                 });
 
                 ui.add_space(8.0);
+                ui.separator();
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label("Support Ongoing Development:");
+                    ui.hyperlink_to(
+                        RichText::new("☕ Buy Me a Coffee").color(Color32::from_rgb(255, 200, 50)).strong(),
+                        "https://buymeacoffee.com/thesmartestgooner",
+                    );
+                });
+                ui.add_space(4.0);
                 ui.separator();
                 ui.label(RichText::new("Cleanroom Open Source • MIT / Apache-2.0 License").weak().size(11.0));
             });
