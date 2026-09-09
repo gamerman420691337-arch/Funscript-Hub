@@ -5,7 +5,6 @@ use crate::funscript::{AxisChannel, Funscript, MultiAxisScript};
 use crate::signal;
 use crate::tracking::{self, FlowScratchContext};
 use crate::video::{self, FrameStreamReader, StreamConfig};
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver};
@@ -70,6 +69,7 @@ pub enum BatchProgressUpdate {
 pub struct BatchQueue {
     pub jobs: Vec<BatchJob>,
     pub next_job_id: usize,
+    pub last_audit: Option<crate::batch::detector::LibraryAuditReport>,
 }
 
 impl BatchQueue {
@@ -77,58 +77,51 @@ impl BatchQueue {
         Self::default()
     }
 
-    /// Clear all completed or queued jobs
+    /// Clear all completed or queued jobs and cached audit
     pub fn clear(&mut self) {
         self.jobs.clear();
         self.next_job_id = 0;
+        self.last_audit = None;
+    }
+
+    /// Audit a directory for media coverage without queueing jobs
+    pub fn audit_directory(&mut self, root_dir: &Path, recursive: bool, check_multi_axis: bool) -> &crate::batch::detector::LibraryAuditReport {
+        let report = crate::batch::detector::scan_library(root_dir, recursive, check_multi_axis);
+        self.last_audit = Some(report);
+        self.last_audit.as_ref().unwrap()
+    }
+
+    /// Enqueue jobs from the latest audit report using a filter
+    pub fn enqueue_from_audit(&mut self, filter: crate::batch::detector::EnqueueFilter, config: &BatchJobConfig) -> usize {
+        let Some(report) = &self.last_audit else {
+            return 0;
+        };
+
+        let new_jobs = report.into_batch_jobs(filter, config);
+        let mut added = 0;
+        for mut job in new_jobs {
+            if !self.jobs.iter().any(|j| j.video_path == job.video_path) {
+                job.id = self.next_job_id;
+                self.next_job_id += 1;
+                self.jobs.push(job);
+                added += 1;
+            }
+        }
+        added
     }
 
     /// Recursively scan a folder for videos and enqueue jobs for missing scripts
     pub fn scan_directory(&mut self, root_dir: &Path, recursive: bool, config: &BatchJobConfig) -> usize {
-        let mut added = 0;
-        let mut dirs_to_visit = vec![root_dir.to_path_buf()];
+        let filter = if config.overwrite {
+            crate::batch::detector::EnqueueFilter::All
+        } else if config.multi_axis {
+            crate::batch::detector::EnqueueFilter::MissingAndPartial
+        } else {
+            crate::batch::detector::EnqueueFilter::MissingOnly
+        };
 
-        let video_exts = ["mp4", "mkv", "webm", "avi", "mov", "m4v", "wmv"];
-
-        while let Some(dir) = dirs_to_visit.pop() {
-            let Ok(entries) = fs::read_dir(&dir) else {
-                continue;
-            };
-
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() && recursive {
-                    dirs_to_visit.push(path);
-                } else if path.is_file() {
-                    let ext = path
-                        .extension()
-                        .and_then(|e| e.to_str())
-                        .unwrap_or("")
-                        .to_lowercase();
-
-                    if video_exts.contains(&ext.as_str()) {
-                        let script_path = path.with_extension("funscript");
-                        let exists = script_path.exists();
-
-                        if !exists || config.overwrite {
-                            // Check if not already in queue
-                            if !self.jobs.iter().any(|j| j.video_path == path) {
-                                self.jobs.push(BatchJob {
-                                    id: self.next_job_id,
-                                    video_path: path,
-                                    output_path: script_path,
-                                    status: BatchJobStatus::Queued,
-                                });
-                                self.next_job_id += 1;
-                                added += 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        added
+        self.audit_directory(root_dir, recursive, config.multi_axis);
+        self.enqueue_from_audit(filter, config)
     }
 
     /// Return statistics: (total, queued, processing, completed, failed, skipped)
@@ -476,7 +469,7 @@ impl Default for BatchWorker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
+    use std::fs::{self, File};
 
     #[test]
     fn test_batch_queue_lifecycle() {

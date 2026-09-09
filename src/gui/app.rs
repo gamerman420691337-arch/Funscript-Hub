@@ -62,6 +62,13 @@ pub enum WorkerMessage {
     Done(Result<MultiAxisScript, String>),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuditDisplayFilter {
+    All,
+    MissingOnly,
+    PartialOnly,
+}
+
 pub struct FunGenApp {
     /// Active interface tab
     pub active_tab: HubTab,
@@ -175,11 +182,13 @@ pub struct FunGenApp {
     pub stash_connected: bool,
     pub stash_status: Option<String>,
 
-    // Batch Queue Processing
+    // Batch Queue Processing & Library Audit
     pub batch_queue: BatchQueue,
     pub batch_config: BatchJobConfig,
     pub batch_scan_path: String,
     pub batch_worker: BatchWorker,
+    pub audit_report: Option<crate::batch::detector::LibraryAuditReport>,
+    pub audit_filter: AuditDisplayFilter,
 
     // Community Plugin & Procedural Macro SDK
     pub plugin_host: PluginHost,
@@ -307,6 +316,8 @@ impl Default for FunGenApp {
             batch_config: BatchJobConfig::default(),
             batch_scan_path: String::new(),
             batch_worker: BatchWorker::new(),
+            audit_report: None,
+            audit_filter: AuditDisplayFilter::All,
 
             plugin_host: PluginHost::new(),
             plugin_dialog_open: false,
@@ -4212,28 +4223,40 @@ impl FunGenApp {
 
             ui.add_space(8.0);
 
-            // Section 2: Headless Multi-threaded Batch Processing Queue
+            // Section 2: Library Funscript Detector & High-Throughput Batch Processing
             ui.group(|ui| {
-                ui.heading("2. High-Throughput Batch Processing Queue");
+                ui.heading("2. Media Library Funscript Detector & Batch Hub");
                 ui.label(
-                    RichText::new("Scan folders recursively for videos, automatically enqueue missing scripts, and process in background thread with zero UI lag.")
+                    RichText::new("Scan folders recursively for media files, audit funscript coverage (Missing / Incomplete / Complete), and batch process in background.")
                         .size(11.0)
                         .color(Color32::GRAY),
                 );
                 ui.add_space(4.0);
 
                 ui.horizontal(|ui| {
-                    ui.label("Scan Directory:");
+                    ui.label("Media Directory:");
                     ui.text_edit_singleline(&mut self.batch_scan_path);
                     if ui.button("Browse...").clicked() {
                         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
                             self.batch_scan_path = dir.to_string_lossy().to_string();
                         }
                     }
-                    if ui.button("📂 Scan & Enqueue").clicked() {
+                    if ui.button("🔍 Audit Library").clicked() {
+                        let p = PathBuf::from(&self.batch_scan_path);
+                        if p.is_dir() {
+                            let report = crate::batch::detector::scan_library(&p, true, self.batch_config.multi_axis);
+                            let status = format!("Audit complete: {} total, {} missing, {} partial.", report.total_media, report.missing_count, report.partial_count);
+                            self.audit_report = Some(report);
+                            self.set_status(status);
+                        } else {
+                            self.set_status("Specified path is not a valid directory.".to_string());
+                        }
+                    }
+                    if ui.button("📂 Quick Scan & Enqueue").clicked() {
                         let p = PathBuf::from(&self.batch_scan_path);
                         if p.is_dir() {
                             let count = self.batch_queue.scan_directory(&p, true, &self.batch_config);
+                            self.audit_report = self.batch_queue.last_audit.clone();
                             self.set_status(format!("Enqueued {} videos for processing.", count));
                         } else {
                             self.set_status("Specified path is not a valid directory.".to_string());
@@ -4242,14 +4265,96 @@ impl FunGenApp {
                 });
 
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.batch_config.multi_axis, "Generate 6-DOF Companion Bundle (.surge, .sway, etc.)");
+                    ui.checkbox(&mut self.batch_config.multi_axis, "Audit & Generate 6-DOF Companion Bundle (.surge, .sway, etc.)");
                     ui.checkbox(&mut self.batch_config.overwrite, "Overwrite Existing Scripts");
                 });
 
-                ui.add_space(4.0);
+                let audit_opt = self.audit_report.clone();
+                if let Some(ref report) = audit_opt {
+                    ui.add_space(6.0);
+                    egui::Frame::NONE
+                        .fill(Color32::from_rgb(22, 25, 33))
+                        .stroke(egui::Stroke::new(1.0_f32, Color32::from_rgb(45, 55, 75)))
+                        .corner_radius(egui::CornerRadius::same(4))
+                        .inner_margin(egui::Margin::same(8))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(RichText::new("📊 Library Funscript Audit:").strong());
+                                ui.monospace(format!("{} Videos Found", report.total_media));
+                                ui.label("|");
+                                ui.label(RichText::new(format!("🔴 {} Missing", report.missing_count)).color(Color32::from_rgb(255, 90, 90)).strong());
+                                ui.label("|");
+                                ui.label(RichText::new(format!("🟡 {} Incomplete 6-DOF", report.partial_count)).color(Color32::from_rgb(255, 200, 50)).strong());
+                                ui.label("|");
+                                ui.label(RichText::new(format!("🟢 {} Scripted", report.complete_count)).color(Color32::GREEN).strong());
+                            });
+
+                            ui.add_space(4.0);
+                            ui.horizontal(|ui| {
+                                ui.label("Enqueue Actions:");
+                                if ui.button(format!("⚡ Enqueue Missing Only ({})", report.missing_count)).clicked() {
+                                    let added = self.batch_queue.enqueue_from_audit(crate::batch::detector::EnqueueFilter::MissingOnly, &self.batch_config);
+                                    self.set_status(format!("Added {} unscripted videos to batch queue.", added));
+                                }
+                                if ui.button(format!("⚡ Enqueue Incomplete & Missing ({})", report.missing_count + report.partial_count)).clicked() {
+                                    let added = self.batch_queue.enqueue_from_audit(crate::batch::detector::EnqueueFilter::MissingAndPartial, &self.batch_config);
+                                    self.set_status(format!("Added {} videos to batch queue.", added));
+                                }
+                                if ui.button("⚡ Enqueue All (Force Overwrite)").clicked() {
+                                    let added = self.batch_queue.enqueue_from_audit(crate::batch::detector::EnqueueFilter::All, &self.batch_config);
+                                    self.set_status(format!("Added {} videos to batch queue.", added));
+                                }
+                            });
+
+                            ui.add_space(4.0);
+                            ui.horizontal(|ui| {
+                                ui.label("Filter View:");
+                                ui.selectable_value(&mut self.audit_filter, AuditDisplayFilter::All, format!("All ({})", report.items.len()));
+                                ui.selectable_value(&mut self.audit_filter, AuditDisplayFilter::MissingOnly, format!("🔴 Missing ({})", report.missing_count));
+                                ui.selectable_value(&mut self.audit_filter, AuditDisplayFilter::PartialOnly, format!("🟡 Partial ({})", report.partial_count));
+                            });
+
+                            ui.add_space(2.0);
+                            ScrollArea::vertical().max_height(140.0).show(ui, |ui| {
+                                for item in &report.items {
+                                    let matches_filter = match self.audit_filter {
+                                        AuditDisplayFilter::All => true,
+                                        AuditDisplayFilter::MissingOnly => item.is_missing(),
+                                        AuditDisplayFilter::PartialOnly => item.is_partial(),
+                                    };
+                                    if !matches_filter {
+                                        continue;
+                                    }
+
+                                    ui.horizontal(|ui| {
+                                        let badge = match &item.coverage {
+                                            crate::batch::detector::ScriptCoverage::Missing => {
+                                                RichText::new("MISSING").color(Color32::from_rgb(255, 90, 90)).strong()
+                                            }
+                                            crate::batch::detector::ScriptCoverage::Partial { existing, missing } => {
+                                                RichText::new(format!("PARTIAL ({}/{} axes)", existing.len(), existing.len() + missing.len()))
+                                                    .color(Color32::from_rgb(255, 200, 50))
+                                                    .strong()
+                                            }
+                                            crate::batch::detector::ScriptCoverage::Complete { channels } => {
+                                                RichText::new(format!("COVERED ({} axes)", channels.len()))
+                                                    .color(Color32::GREEN)
+                                            }
+                                        };
+
+                                        ui.label(badge);
+                                        let fname = item.video_path.file_name().unwrap_or_default().to_string_lossy();
+                                        ui.label(fname);
+                                    });
+                                }
+                            });
+                        });
+                }
+
+                ui.add_space(6.0);
                 let (total, queued, processing, completed, failed, _skipped) = self.batch_queue.stats();
                 ui.horizontal(|ui| {
-                    ui.monospace(format!("Jobs: {} Total | {} Queued | {} Running | {} Done | {} Failed", total, queued, processing, completed, failed));
+                    ui.monospace(format!("Batch Queue: {} Total | {} Queued | {} Running | {} Done | {} Failed", total, queued, processing, completed, failed));
                     if self.batch_worker.is_active() {
                         if ui.button("⏸ Stop Worker").clicked() {
                             self.batch_worker.stop();
@@ -4272,7 +4377,7 @@ impl FunGenApp {
                     egui::Frame::NONE
                         .fill(Color32::from_rgb(18, 20, 26))
                         .show(ui, |ui| {
-                            ScrollArea::vertical().max_height(160.0).show(ui, |ui| {
+                            ScrollArea::vertical().max_height(140.0).show(ui, |ui| {
                                 for job in &self.batch_queue.jobs {
                                     ui.horizontal(|ui| {
                                         let status_text = match &job.status {

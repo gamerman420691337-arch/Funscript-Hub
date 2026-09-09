@@ -156,6 +156,45 @@ enum Commands {
         video: PathBuf,
     },
 
+    /// Scan and audit media library for missing or incomplete .funscripts
+    #[command(alias = "audit")]
+    Scan {
+        /// Directory containing video files
+        folder: PathBuf,
+
+        /// Recursively scan subdirectories for videos
+        #[arg(short, long, default_value_t = true)]
+        recursive: bool,
+
+        /// Audit companion 6-DOF multi-axis scripts (.surge, .sway, .pitch, etc.)
+        #[arg(long, default_value_t = false)]
+        multi_axis: bool,
+
+        /// Display only media files missing funscripts
+        #[arg(long, default_value_t = false)]
+        missing_only: bool,
+
+        /// Output machine-readable JSON audit report
+        #[arg(long, default_value_t = false)]
+        json: bool,
+
+        /// Output CSV audit report
+        #[arg(long, default_value_t = false)]
+        csv: bool,
+
+        /// Immediately launch batch generation for all noted media missing funscripts
+        #[arg(long, default_value_t = false)]
+        generate: bool,
+
+        /// Path to ONNX neural tracking model
+        #[arg(long)]
+        model: Option<PathBuf>,
+
+        /// Overwrite existing .funscript files (when --generate is used)
+        #[arg(long, default_value_t = false)]
+        overwrite: bool,
+    },
+
     /// Batch process an entire folder of videos in headless queue mode
     Batch {
         /// Directory containing video files
@@ -176,7 +215,12 @@ enum Commands {
         /// Overwrite existing .funscript files
         #[arg(long, default_value_t = false)]
         overwrite: bool,
+
+        /// Dry run: scan and note media files requiring funscripts without generating
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
     },
+
 
     /// Synthesize haptic funscripts directly from audio frequency bands (Sub-Bass, Mid, High)
     AudioSynth {
@@ -324,14 +368,38 @@ fn main() -> Result<()> {
         Some(Commands::Info { video }) => {
             run_info(&video)?;
         }
+        Some(Commands::Scan {
+            folder,
+            recursive,
+            multi_axis,
+            missing_only,
+            json,
+            csv,
+            generate,
+            model,
+            overwrite,
+        }) => {
+            run_scan(
+                &folder,
+                recursive,
+                multi_axis,
+                missing_only,
+                json,
+                csv,
+                generate,
+                model.as_deref(),
+                overwrite,
+            )?;
+        }
         Some(Commands::Batch {
             folder,
             recursive,
             model,
             multi_axis,
             overwrite,
+            dry_run,
         }) => {
-            run_batch(&folder, recursive, model.as_deref(), multi_axis, overwrite)?;
+            run_batch(&folder, recursive, model.as_deref(), multi_axis, overwrite, dry_run)?;
         }
         Some(Commands::AudioSynth {
             video,
@@ -938,22 +1006,64 @@ fn run_generate(
     Ok(())
 }
 
+fn run_scan(
+    folder: &Path,
+    recursive: bool,
+    multi_axis: bool,
+    missing_only: bool,
+    json: bool,
+    csv: bool,
+    generate: bool,
+    model: Option<&Path>,
+    overwrite: bool,
+) -> Result<()> {
+    let report = batch::detector::scan_library(folder, recursive, multi_axis);
+
+    if json {
+        println!("{}", report.to_json()?);
+        return Ok(());
+    }
+
+    if csv {
+        print!("{}", report.to_csv());
+        return Ok(());
+    }
+
+    report.print_summary(missing_only);
+
+    if generate {
+        if report.missing_count == 0 && !overwrite {
+            println!("\nNo unscripted media files to generate. Use --overwrite to reprocess all files.");
+            return Ok(());
+        }
+
+        println!("\n🚀 Launching batch generation for {} noted media files...", report.missing_count);
+        run_batch(folder, recursive, model, multi_axis, overwrite, false)?;
+    }
+
+    Ok(())
+}
+
 fn run_batch(
     folder: &Path,
     recursive: bool,
     model: Option<&Path>,
     multi_axis: bool,
     overwrite: bool,
+    dry_run: bool,
 ) -> Result<()> {
     use batch::queue::{BatchJobConfig, BatchQueue};
 
     println!("==================================================");
-    println!("Pulsar: Headless Batch Processing Queue");
+    println!("⚡ Pulsar: Headless Batch Processing Queue");
     println!("==================================================");
     println!("Target Directory: {}", folder.display());
     println!("Recursive Scan:   {}", recursive);
     println!("Multi-Axis:       {}", multi_axis);
     println!("Overwrite:        {}", overwrite);
+    if dry_run {
+        println!("Mode:             DRY RUN (Preview Only)");
+    }
 
     let config = BatchJobConfig {
         model_path: model.map(|p| p.to_path_buf()),
@@ -964,10 +1074,33 @@ fn run_batch(
 
     let mut queue = BatchQueue::new();
     let count = queue.scan_directory(folder, recursive, &config);
-    println!("Discovered {} videos requiring funscripts.", count);
+
+    if let Some(audit) = &queue.last_audit {
+        println!("\nMedia Discovery Breakdown:");
+        println!("  Total Media:     {}", audit.total_media);
+        println!("  Missing Scripts: {} (Unscripted)", audit.missing_count);
+        println!("  Partial Scripts: {} (Missing companions)", audit.partial_count);
+        println!("  Fully Scripted:  {}", audit.complete_count);
+        println!("  Enqueued Jobs:   {}", count);
+    } else {
+        println!("Discovered {} videos requiring funscripts.", count);
+    }
 
     if count == 0 {
-        println!("No videos to process. Exiting.");
+        println!("\nNo videos to process. Exiting.");
+        return Ok(());
+    }
+
+    if dry_run {
+        println!("\n==================================================");
+        println!("Noted Media Enqueued for Batch Processing:");
+        println!("==================================================");
+        for (idx, job) in queue.jobs.iter().enumerate() {
+            println!("  [{:>2}] {} -> {}", idx + 1, job.video_path.display(), job.output_path.display());
+        }
+        println!("==================================================");
+        println!("DRY RUN complete: {} videos noted. No files were written.", count);
+        println!("Run without --dry-run to process these files.");
         return Ok(());
     }
 
