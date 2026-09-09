@@ -587,9 +587,9 @@ impl eframe::App for FunGenApp {
         self.render_rig_simulator_window(ctx);
         self.render_spectral_infill_dialog(ctx);
 
-        // Request repaint if playing, generating, or running batch worker
-        if self.is_playing {
-            ctx.request_repaint(); // Immediate for smooth 60 FPS playback
+        // Request repaint if playing, armed for live recording, generating, or running batch worker
+        if self.is_playing || self.recorder.is_armed {
+            ctx.request_repaint(); // Immediate for smooth 60 FPS playback and live gestural tracking
         } else if self.is_generating || self.batch_worker.is_active() {
             // Cap progress spinner to 30 FPS to avoid pegging CPU at uncapped FPS
             ctx.request_repaint_after(std::time::Duration::from_millis(33));
@@ -622,7 +622,7 @@ impl FunGenApp {
 
     /// Evaluates the true instantaneous physical movement percentage for any given axis channel [0.0, 100.0]
     pub fn get_physical_position(&self, axis: AxisChannel) -> f32 {
-        if self.is_playing && self.recorder.is_recording_active && axis == AxisChannel::Stroke {
+        if self.is_playing && self.recorder.is_recording_active && (axis == self.active_axis || axis == AxisChannel::Stroke) {
             self.recorder.live_pos
         } else {
             let pos_map = self.evaluate_current_positions();
@@ -692,9 +692,33 @@ impl FunGenApp {
                     end_ms,
                     &actions,
                 );
+                // Synchronize multi-axis collection and timeline content duration
+                self.multi_axis.channels.insert(self.active_axis, self.script.clone());
+                self.timeline_state.content_duration_ms = Some(self.get_content_duration_ms());
                 self.run_doctor();
                 self.set_status(format!("✓ Recorded {} keyframes ({:.2}s take)", n, (end_ms - start_ms).max(0) as f64 / 1000.0));
             }
+        }
+    }
+
+    /// Toggle gestural puppeteering live recording (arms/disarms, starts playback, commits keyframes to script)
+    pub fn toggle_live_recording(&mut self) {
+        if self.recorder.is_armed {
+            self.recorder.disarm();
+            self.finalize_recording_take();
+            if self.is_playing {
+                self.set_playing(false);
+            }
+            self.set_status("⏹ Live Recording Finished & Saved to Script".to_string());
+        } else {
+            self.recorder.arm();
+            if !self.is_playing {
+                self.set_playing(true);
+            } else if !self.recorder.is_recording_active {
+                self.undo_history.push_snapshot(&self.script);
+                self.recorder.start_take(self.timeline_state.cursor_time_ms);
+            }
+            self.set_status("🔴 Live Recording Active — Move mouse over video or slider to record funscript".to_string());
         }
     }
 
@@ -1138,12 +1162,7 @@ impl FunGenApp {
         if !ctx.wants_keyboard_input() {
             // R: Toggle Live Motion Recording Arm / Disarm
             if ctx.input(|i| i.key_pressed(egui::Key::R) && !i.modifiers.ctrl && !i.modifiers.command && !i.modifiers.alt) {
-                if self.recorder.toggle_armed() {
-                    self.set_status("🔴 Live Recording Armed — Press Space to play & move mouse over video/slider to record".to_string());
-                } else {
-                    self.finalize_recording_take();
-                    self.set_status("⏹ Live Recording Disarmed".to_string());
-                }
+                self.toggle_live_recording();
             }
 
             // Delete / Backspace: delete selected keyframe(s)
@@ -1795,7 +1814,7 @@ impl FunGenApp {
 
                     // Live physical position for selected movement axis
                     let cur_physical = self.get_physical_position(self.movement_axis);
-                    let is_rec = self.is_playing && self.recorder.is_recording_active && self.movement_axis == AxisChannel::Stroke;
+                    let is_rec = self.is_playing && self.recorder.is_recording_active && (self.movement_axis == self.active_axis || self.movement_axis == AxisChannel::Stroke);
 
                     let mut slider_val = if is_rec {
                         self.recorder.live_pos
@@ -1812,7 +1831,7 @@ impl FunGenApp {
                     );
 
                     if slider_res.changed() {
-                        if self.movement_axis == AxisChannel::Stroke {
+                        if self.movement_axis == self.active_axis || self.movement_axis == AxisChannel::Stroke {
                             self.recorder.live_pos = slider_val;
                             if self.is_playing && self.recorder.is_armed {
                                 self.recorder.sample(self.timeline_state.cursor_time_ms, slider_val);
@@ -1824,7 +1843,7 @@ impl FunGenApp {
                         let scroll = ui.input(|i| i.raw_scroll_delta.y);
                         if scroll.abs() > 0.1 {
                             let next = (slider_val + scroll * 0.5).clamp(0.0, 100.0);
-                            if self.movement_axis == AxisChannel::Stroke {
+                            if self.movement_axis == self.active_axis || self.movement_axis == AxisChannel::Stroke {
                                 self.recorder.live_pos = next;
                                 if self.is_playing && self.recorder.is_armed {
                                     self.recorder.sample(self.timeline_state.cursor_time_ms, next);
@@ -1873,12 +1892,7 @@ impl FunGenApp {
                 egui::Button::new(rec_text)
             };
             if ui.add(rec_btn).on_hover_text("Arm live gestural motion recording (R). Move mouse over video canvas or puppet slider during playback to generate funscript keyframes.").clicked() {
-                if self.recorder.toggle_armed() {
-                    self.set_status("🔴 Live Recording Armed — Start playback (Space) to record".to_string());
-                } else {
-                    self.finalize_recording_take();
-                    self.set_status("⏹ Live Recording Disarmed".to_string());
-                }
+                self.toggle_live_recording();
             }
 
             let frame_step_ms = (1000.0 / self.target_fps.max(1.0)).round() as i64;
@@ -2405,7 +2419,7 @@ impl FunGenApp {
                     );
 
                     let cur_physical = self.get_physical_position(self.movement_axis);
-                    let is_rec = self.is_playing && self.recorder.is_recording_active && self.movement_axis == AxisChannel::Stroke;
+                    let is_rec = self.is_playing && self.recorder.is_recording_active && (self.movement_axis == self.active_axis || self.movement_axis == AxisChannel::Stroke);
                     let mut s_pos = if is_rec {
                         self.recorder.live_pos
                     } else {
@@ -2419,7 +2433,7 @@ impl FunGenApp {
                             .show_value(false),
                     );
                     if s_res.changed() {
-                        if self.movement_axis == AxisChannel::Stroke {
+                        if self.movement_axis == self.active_axis || self.movement_axis == AxisChannel::Stroke {
                             self.recorder.live_pos = s_pos;
                             if self.is_playing && self.recorder.is_armed {
                                 self.recorder.sample(self.timeline_state.cursor_time_ms, s_pos);
@@ -2430,7 +2444,7 @@ impl FunGenApp {
                         let scroll = ui.input(|i| i.raw_scroll_delta.y);
                         if scroll.abs() > 0.1 {
                             let next = (s_pos + scroll * 0.5).clamp(0.0, 100.0);
-                            if self.movement_axis == AxisChannel::Stroke {
+                            if self.movement_axis == self.active_axis || self.movement_axis == AxisChannel::Stroke {
                                 self.recorder.live_pos = next;
                                 if self.is_playing && self.recorder.is_armed {
                                     self.recorder.sample(self.timeline_state.cursor_time_ms, next);
@@ -2478,12 +2492,7 @@ impl FunGenApp {
                     egui::Button::new(rec_text)
                 };
                 if ui.add(rec_btn).on_hover_text("Arm live gestural motion recording (R). Move mouse over video or slider to record.").clicked() {
-                    if self.recorder.toggle_armed() {
-                        self.set_status("🔴 Live Recording Armed — Start playback (Space) to record".to_string());
-                    } else {
-                        self.finalize_recording_take();
-                        self.set_status("⏹ Live Recording Disarmed".to_string());
-                    }
+                    self.toggle_live_recording();
                 }
 
                 if ui.button("⏮").clicked() {

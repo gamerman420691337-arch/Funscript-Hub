@@ -64,9 +64,6 @@ impl LiveRecorderState {
     /// Toggle arm/disarm recording state
     pub fn toggle_armed(&mut self) -> bool {
         self.is_armed = !self.is_armed;
-        if !self.is_armed {
-            self.is_recording_active = false;
-        }
         self.is_armed
     }
 
@@ -78,7 +75,6 @@ impl LiveRecorderState {
     /// Disarm recording
     pub fn disarm(&mut self) {
         self.is_armed = false;
-        self.is_recording_active = false;
     }
 
     /// Begin a new recording take starting at timestamp `start_time_ms`
@@ -109,25 +105,25 @@ impl LiveRecorderState {
     ///
     /// Returns `Some((start_ms, end_ms, actions))` or `None` if no samples were taken.
     pub fn finish_take(&mut self) -> Option<(i64, i64, Vec<Action>)> {
-        if self.raw_samples.is_empty() || !self.is_recording_active {
-            self.is_recording_active = false;
+        self.is_recording_active = false;
+
+        let mut samples = std::mem::take(&mut self.raw_samples);
+        if samples.is_empty() {
             return None;
         }
 
-        self.is_recording_active = false;
-
         // Ensure chronological order
-        self.raw_samples.sort_by_key(|s| s.0);
+        samples.sort_by_key(|s| s.0);
 
-        let start_ms = self.raw_samples.first()?.0;
-        let end_ms = self.raw_samples.last()?.0;
+        let start_ms = samples.first()?.0;
+        let end_ms = samples.last()?.0;
 
-        if start_ms >= end_ms && self.raw_samples.len() <= 1 {
-            let p = self.raw_samples[0].1.round().clamp(0.0, 100.0) as i32;
+        if start_ms >= end_ms && samples.len() <= 1 {
+            let p = samples[0].1.round().clamp(0.0, 100.0) as i32;
             return Some((start_ms, end_ms, vec![Action { at: start_ms, pos: p }]));
         }
 
-        let actions = self.simplify_samples(&self.raw_samples);
+        let actions = self.simplify_samples(&samples);
         Some((start_ms, end_ms, actions))
     }
 
@@ -366,5 +362,40 @@ mod tests {
         assert_eq!(simplified.len(), 2);
         assert_eq!(simplified[0], (0.0, 0.0));
         assert_eq!(simplified[1], (10.0, 20.0));
+    }
+
+    #[test]
+    fn test_recorder_toggle_armed_disarm_preserves_take() {
+        let mut rec = LiveRecorderState::new();
+        assert!(rec.toggle_armed());
+        rec.start_take(0);
+        rec.sample(0, 10.0);
+        rec.sample(500, 90.0);
+        rec.sample(1000, 20.0);
+        // User presses 'R' or clicks record button to stop recording (disarm)
+        assert!(!rec.toggle_armed());
+        let result = rec.finish_take();
+        assert!(result.is_some(), "Take must be finalized successfully even after disarming via toggle_armed");
+        let (start, end, actions) = result.unwrap();
+        assert_eq!(start, 0);
+        assert_eq!(end, 1000);
+        assert!(!actions.is_empty());
+    }
+
+    #[test]
+    fn test_recorder_disarm_preserves_take() {
+        let mut rec = LiveRecorderState::new();
+        rec.arm();
+        rec.start_take(100);
+        rec.sample(100, 30.0);
+        rec.sample(600, 80.0);
+        rec.sample(1100, 10.0);
+        rec.disarm();
+        let result = rec.finish_take();
+        assert!(result.is_some(), "Take must be finalized successfully even after calling disarm()");
+        let (start, end, actions) = result.unwrap();
+        assert_eq!(start, 100);
+        assert_eq!(end, 1100);
+        assert!(!actions.is_empty());
     }
 }
