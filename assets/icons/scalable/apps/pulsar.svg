@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a1f35" />
+      <stop offset="70%" stop-color="#0b0e17" />
+      <stop offset="100%" stop-color="#06080e" />
+    </radialGradient>
+    <radialGradient id="pulsarCore" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="30%" stop-color="#00f5ff" />
+      <stop offset="70%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#ec4899" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="beamGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#00f5ff" stop-opacity="0" />
+      <stop offset="35%" stop-color="#00f5ff" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#ffffff" />
+      <stop offset="65%" stop-color="#00f5ff" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#00f5ff" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="ringGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f5ff" />
+      <stop offset="50%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#ec4899" />
+    </linearGradient>
+    <linearGradient id="ringGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ec4899" />
+      <stop offset="50%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#00f5ff" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect x="24" y="24" width="464" height="464" rx="104" fill="url(#bgGlow)" stroke="#232b42" stroke-width="6" />
+
+  <!-- Radiating Motion Waves (Acoustic / Optical Flow ripples) -->
+  <ellipse cx="256" cy="256" rx="180" ry="80" fill="none" stroke="#8b5cf6" stroke-width="2.5" stroke-opacity="0.3" transform="rotate(-25 256 256)" />
+  <ellipse cx="256" cy="256" rx="140" ry="60" fill="none" stroke="url(#ringGrad1)" stroke-width="4" stroke-opacity="0.6" stroke-dasharray="16 10" transform="rotate(-25 256 256)" />
+  <ellipse cx="256" cy="256" rx="200" ry="70" fill="none" stroke="url(#ringGrad2)" stroke-width="3" stroke-opacity="0.5" stroke-dasharray="24 14" transform="rotate(35 256 256)" />
+
+  <!-- Vertical Kinematic Relativistic Jet (Stroke axis) -->
+  <path d="M 256 48 L 264 220 L 256 256 L 248 220 Z" fill="url(#beamGrad)" filter="url(#glow)" />
+  <path d="M 256 464 L 264 292 L 256 256 L 248 292 Z" fill="url(#beamGrad)" filter="url(#glow)" />
+  <circle cx="256" cy="64" r="5" fill="#00f5ff" filter="url(#glow)" />
+  <circle cx="256" cy="448" r="5" fill="#00f5ff" filter="url(#glow)" />
+
+  <!-- Dynamic Lightning Vector Chevron -->
+  <path d="M 272 170 L 236 256 L 276 256 L 240 342" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" />
+
+  <!-- Central Pulsar Core & Outer Corona -->
+  <circle cx="256" cy="256" r="72" fill="url(#pulsarCore)" opacity="0.85" />
+  <circle cx="256" cy="256" r="42" fill="url(#pulsarCore)" />
+  <circle cx="256" cy="256" r="22" fill="#ffffff" filter="url(#glow)" />
+
+  <!-- Orbital Spark Nodes -->
+  <circle cx="380" cy="200" r="6" fill="#00f5ff" filter="url(#glow)" />
+  <circle cx="132" cy="312" r="5" fill="#ec4899" filter="url(#glow)" />
+  <circle cx="340" cy="330" r="4" fill="#8b5cf6" />
+  <circle cx="170" cy="180" r="4" fill="#00f5ff" />
+</svg>

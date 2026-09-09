@@ -109,8 +109,7 @@ cargo test
 ---
 
 ## License
-Dual-licensed under either of:
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT License ([LICENSE-MIT](LICENSE-MIT))
 
-at your option.
+Pulsar is currently licensed under the **GNU Affero General Public License v3.0** ([LICENSE](LICENSE)) during pre-1.0 development.
+
+> **Roadmap Note:** Pulsar will explicitly transition to the **Apache License, Version 2.0 (Apache-2.0)** upon the official 1.0 General Availability release.

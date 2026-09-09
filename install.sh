@@ -53,6 +53,11 @@ if [ -d "${SCRIPT_DIR}/assets" ]; then
         cp -r "${SCRIPT_DIR}/assets/icons/hicolor/"* "${ICONS_DIR}/" 2>/dev/null || true
     fi
 
+    if [ -f "${SCRIPT_DIR}/assets/icons/scalable/apps/pulsar.svg" ]; then
+        mkdir -p "${ICONS_DIR}/scalable/apps"
+        cp "${SCRIPT_DIR}/assets/icons/scalable/apps/pulsar.svg" "${ICONS_DIR}/scalable/apps/pulsar.svg"
+    fi
+
     if [ -f "${SCRIPT_DIR}/assets/mime/pulsar-mime.xml" ]; then
         cp "${SCRIPT_DIR}/assets/mime/pulsar-mime.xml" "${MIME_DIR}/pulsar-mime.xml"
         if command -v update-mime-database &> /dev/null; then
