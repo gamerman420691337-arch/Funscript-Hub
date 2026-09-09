@@ -63,6 +63,8 @@ pub struct TapTrackerConfig {
     pub visibility_threshold: f32,
     /// Maximum allowed forward-backward cycle error before marking point unreliable (default: 0.05)
     pub max_cycle_error: f32,
+    /// Whether to use neural tracking if the model is loaded (default: false)
+    pub use_neural: bool,
 }
 
 impl Default for TapTrackerConfig {
@@ -72,6 +74,7 @@ impl Default for TapTrackerConfig {
             window_size: 32,
             visibility_threshold: 0.50,
             max_cycle_error: 0.05,
+            use_neural: false,
         }
     }
 }
@@ -90,12 +93,26 @@ pub struct SurfaceKinematics {
 }
 
 /// TAPNext++ style sparse point tracking engine
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TapPointTracker {
     pub config: TapTrackerConfig,
     pub trajectories: Vec<PointTrajectory>,
     #[allow(dead_code)]
     next_point_id: usize,
+    pub neural_session: Option<ort::session::Session>,
+}
+
+impl Clone for TapPointTracker {
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            trajectories: self.trajectories.clone(),
+            next_point_id: self.next_point_id,
+            // Cannot clone ONNX session safely, so we drop it on clone
+            // The cloned instance will fallback or need reload
+            neural_session: None,
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -105,7 +122,22 @@ impl TapPointTracker {
             config,
             trajectories: Vec::new(),
             next_point_id: 0,
+            neural_session: None,
         }
+    }
+
+    pub fn load_model(&mut self, path: &std::path::Path) -> anyhow::Result<()> {
+        let builder = ort::session::Session::builder()
+            .map_err(|e| anyhow::anyhow!("Failed to initialize SessionBuilder: {e}"))?;
+
+        let session = builder
+            .with_intra_threads(2)
+            .map_err(|e| anyhow::anyhow!("Failed to configure thread count: {e}"))?
+            .commit_from_file(path)
+            .map_err(|e| anyhow::anyhow!("Failed to load ONNX model from {path:?}: {e}"))?;
+
+        self.neural_session = Some(session);
+        Ok(())
     }
 
     /// Reset all trajectories
@@ -179,6 +211,81 @@ impl TapPointTracker {
             return SurfaceKinematics::default();
         }
 
+        let active_count = self.trajectories.len();
+
+        if self.config.use_neural && self.neural_session.is_some() {
+            let mut coords = Vec::with_capacity(active_count * 2);
+            for traj in &self.trajectories {
+                coords.push(traj.current_pos.0);
+                coords.push(traj.current_pos.1);
+            }
+            let input_array = ndarray::Array2::from_shape_vec([active_count, 2], coords).unwrap();
+            let input_tensor = ort::value::Tensor::from_array(input_array).unwrap();
+            let inputs = ort::inputs![input_tensor];
+            let outputs = self.neural_session.as_mut().unwrap().run(inputs).unwrap();
+            
+            let mut it = outputs.into_iter();
+            let (_, points_out) = it.next().unwrap();
+            let (_, vis_out) = it.next().unwrap();
+            
+            let (_, p_slice) = points_out.try_extract_tensor::<f32>().unwrap();
+            let (_, v_slice) = vis_out.try_extract_tensor::<f32>().unwrap();
+            
+            let mut sum_vx = 0.0f32;
+            let mut sum_vy = 0.0f32;
+            let mut sum_vis = 0.0f32;
+            let mut occluded_count = 0;
+            
+            for (i, traj) in self.trajectories.iter_mut().enumerate() {
+                let next_x = p_slice[i * 2].clamp(0.0, 1.0);
+                let next_y = p_slice[i * 2 + 1].clamp(0.0, 1.0);
+                let vis = v_slice[i].clamp(0.0, 1.0);
+                
+                let old_vx = traj.velocity.0;
+                let old_vy = traj.velocity.1;
+                let new_vx = next_x - traj.current_pos.0;
+                let new_vy = next_y - traj.current_pos.1;
+                
+                traj.acceleration = (new_vx - old_vx, new_vy - old_vy);
+                traj.velocity = (new_vx, new_vy);
+                traj.current_pos = (next_x, next_y);
+                traj.visibility = vis;
+                
+                if traj.visibility < self.config.visibility_threshold {
+                    occluded_count += 1;
+                }
+                
+                traj.history.push((timestamp_ms, next_x, next_y));
+                if traj.history.len() > self.config.window_size {
+                    traj.history.remove(0);
+                }
+                
+                sum_vx += new_vx;
+                sum_vy += new_vy;
+                sum_vis += vis;
+            }
+            
+            let mean_vx = sum_vx / active_count as f32;
+            let mean_vy = sum_vy / active_count as f32;
+            let mean_vis = sum_vis / active_count as f32;
+            let occ_frac = occluded_count as f32 / active_count as f32;
+            
+            let mut shear_sum = 0.0f32;
+            for traj in &self.trajectories {
+                let dx = traj.velocity.0 - mean_vx;
+                let dy = traj.velocity.1 - mean_vy;
+                shear_sum += dx * dx + dy * dy;
+            }
+            let shear_mag = (shear_sum / active_count as f32).sqrt();
+            
+            return SurfaceKinematics {
+                bulk_translation: (mean_vx, mean_vy),
+                shear_magnitude: shear_mag,
+                mean_visibility: mean_vis,
+                occlusion_fraction: occ_frac,
+            };
+        }
+
         let fw = flow.width as f32;
         let fh = flow.height as f32;
 
@@ -186,7 +293,6 @@ impl TapPointTracker {
         let mut sum_vy = 0.0f32;
         let mut sum_vis = 0.0f32;
         let mut occluded_count = 0;
-        let active_count = self.trajectories.len();
 
         for traj in &mut self.trajectories {
             let (px, py) = traj.current_pos;
@@ -350,5 +456,24 @@ mod tests {
         assert!(kinematics.bulk_translation.1.abs() < 1e-4);
         // But shear magnitude is non-zero, proving surface deformation is captured
         assert!(kinematics.shear_magnitude > 0.04);
+    }
+
+    #[test]
+    fn test_tapnext_graceful_fallback() {
+        let mut config = TapTrackerConfig::default();
+        config.use_neural = true; // even if true, no session means fallback
+
+        let mut tracker = TapPointTracker::new(config);
+        tracker.trajectories.push(PointTrajectory::new(0, (0.5, 0.5), "test"));
+
+        let mut flow = FlowField::new(100, 100);
+        // flow v = 10.0 -> +0.1 normalized
+        for i in 0..10000 {
+            flow.v[i] = 10.0;
+        }
+
+        let kinematics = tracker.step_frame(&flow, 100);
+        assert!((tracker.trajectories[0].current_pos.1 - 0.6).abs() < 1e-3);
+        assert!((kinematics.bulk_translation.1 - 0.1).abs() < 1e-3);
     }
 }

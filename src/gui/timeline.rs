@@ -80,6 +80,21 @@ pub struct TimelineState {
     pub bookmarks: Vec<Bookmark>,
     /// Audio visualization mode on the timeline canvas
     pub audio_viz_mode: AudioVizMode,
+    /// Cached waveform mesh and transients for zero-allocation cross-frame rendering
+    pub cached_waveform: Option<CachedWaveformRender>,
+}
+
+/// Pre-computed waveform mesh cache for immediate-mode GUI cross-frame rendering reuse
+#[derive(Debug, Clone)]
+pub struct CachedWaveformRender {
+    pub view_start_ms: i64,
+    pub view_duration_ms: i64,
+    pub rect_left: i32,
+    pub rect_width: i32,
+    pub rect_height: i32,
+    pub mode: AudioVizMode,
+    pub mesh: std::sync::Arc<Mesh>,
+    pub points: Vec<Pos2>,
 }
 
 impl Default for TimelineState {
@@ -100,6 +115,7 @@ impl Default for TimelineState {
             loop_enabled: false,
             bookmarks: Vec::new(),
             audio_viz_mode: AudioVizMode::default(),
+            cached_waveform: None,
         }
     }
 }
@@ -495,7 +511,7 @@ fn inferno_color(val: f32) -> Color32 {
 fn draw_audio_waveform(
     painter: &Painter,
     rect: Rect,
-    state: &TimelineState,
+    state: &mut TimelineState,
     waveform: Option<&crate::audio::AudioWaveform>,
 ) {
     let wf = match waveform {
@@ -506,7 +522,40 @@ fn draw_audio_waveform(
     let base_y = TimelineState::pos_to_screen_y(0, rect);
     let max_height = (rect.height() * 0.38).min(110.0);
 
-    match state.audio_viz_mode {
+    let key_start = state.view_start_ms.round() as i64;
+    let key_duration = state.view_duration_ms.round() as i64;
+    let key_left = rect.left().round() as i32;
+    let key_w = rect.width().round() as i32;
+    let key_h = rect.height().round() as i32;
+    let key_mode = state.audio_viz_mode;
+
+    // Fast-path: return cached mesh if viewport, dimensions, and mode haven't changed
+    if let Some(cached) = &state.cached_waveform {
+        if cached.view_start_ms == key_start
+            && cached.view_duration_ms == key_duration
+            && cached.rect_left == key_left
+            && cached.rect_width == key_w
+            && cached.rect_height == key_h
+            && cached.mode == key_mode
+        {
+            if !cached.mesh.is_empty() {
+                painter.add(Shape::Mesh(cached.mesh.clone()));
+            }
+            let pt_color = match key_mode {
+                AudioVizMode::Waveform => Color32::from_rgb(255, 205, 70),
+                AudioVizMode::MultiBand => Color32::from_rgb(255, 60, 160),
+                _ => Color32::TRANSPARENT,
+            };
+            if pt_color != Color32::TRANSPARENT {
+                for &p in &cached.points {
+                    painter.circle_filled(p, 1.8, pt_color);
+                }
+            }
+            return;
+        }
+    }
+
+    let (mesh, points) = match state.audio_viz_mode {
         AudioVizMode::Waveform => {
             let bar_color = Color32::from_rgba_unmultiplied(0, 180, 240, 65);
             let mut mesh = Mesh::default();
@@ -527,13 +576,7 @@ fn draw_audio_waveform(
                 }
                 x += 2.0;
             }
-            if !mesh.is_empty() {
-                painter.add(Shape::Mesh(mesh.into()));
-            }
-
-            for p in transients {
-                painter.circle_filled(p, 1.8, Color32::from_rgb(255, 205, 70));
-            }
+            (mesh, transients)
         }
         AudioVizMode::MultiBand => {
             let sub_color = Color32::from_rgba_unmultiplied(225, 45, 125, 80);  // Deep Magenta
@@ -570,13 +613,7 @@ fn draw_audio_waveform(
                 }
                 x += 2.0;
             }
-            if !mesh.is_empty() {
-                painter.add(Shape::Mesh(mesh.into()));
-            }
-
-            for p in kicks {
-                painter.circle_filled(p, 2.0, Color32::from_rgb(255, 60, 160));
-            }
+            (mesh, kicks)
         }
         AudioVizMode::Spectrogram => {
             let mut mesh = Mesh::default();
@@ -599,11 +636,35 @@ fn draw_audio_waveform(
                 }
                 x += 2.5;
             }
-            if !mesh.is_empty() {
-                painter.add(Shape::Mesh(mesh.into()));
-            }
+            (mesh, Vec::new())
+        }
+    };
+
+    let arc_mesh = std::sync::Arc::new(mesh);
+    if !arc_mesh.is_empty() {
+        painter.add(Shape::Mesh(arc_mesh.clone()));
+    }
+    let pt_color = match key_mode {
+        AudioVizMode::Waveform => Color32::from_rgb(255, 205, 70),
+        AudioVizMode::MultiBand => Color32::from_rgb(255, 60, 160),
+        _ => Color32::TRANSPARENT,
+    };
+    if pt_color != Color32::TRANSPARENT {
+        for &p in &points {
+            painter.circle_filled(p, 1.8, pt_color);
         }
     }
+
+    state.cached_waveform = Some(CachedWaveformRender {
+        view_start_ms: key_start,
+        view_duration_ms: key_duration,
+        rect_left: key_left,
+        rect_width: key_w,
+        rect_height: key_h,
+        mode: key_mode,
+        mesh: arc_mesh,
+        points,
+    });
 }
 
 fn draw_action_curve(
@@ -1080,6 +1141,30 @@ mod tests {
         assert_eq!(state.audio_viz_mode, AudioVizMode::Waveform);
         assert_eq!(state.audio_viz_mode.display_name(), "Waveform (RMS)");
         assert_eq!(state.audio_viz_mode.icon(), "🎵");
+    }
+
+    #[test]
+    fn test_waveform_render_cache_lifecycle() {
+        let mut state = TimelineState::default();
+        assert!(state.cached_waveform.is_none());
+
+        // Cache entry can be constructed and cloned
+        let entry = CachedWaveformRender {
+            view_start_ms: 0,
+            view_duration_ms: 10_000,
+            rect_left: 0,
+            rect_width: 800,
+            rect_height: 200,
+            mode: AudioVizMode::Waveform,
+            mesh: std::sync::Arc::new(Mesh::default()),
+            points: vec![Pos2::new(10.0, 20.0)],
+        };
+        state.cached_waveform = Some(entry);
+        assert!(state.cached_waveform.is_some());
+        let cached = state.cached_waveform.as_ref().unwrap();
+        assert_eq!(cached.view_start_ms, 0);
+        assert_eq!(cached.rect_width, 800);
+        assert_eq!(cached.points.len(), 1);
     }
 }
 

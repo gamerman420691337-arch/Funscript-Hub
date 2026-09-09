@@ -1,6 +1,7 @@
 //! Signal processing: numerical integration, polynomial detrending, rolling normalization, and keyframe extraction.
 
 use crate::funscript::Action;
+use rayon::prelude::*;
 
 /// Direct cumulative integration over motion velocities.
 /// Resets to 0.0 upon scene cuts.
@@ -170,21 +171,24 @@ pub fn detrend_and_normalize(
     }
 
     // 5-tap Gaussian smoothing filter: [1/16, 4/16, 6/16, 4/16, 1/16]
+    // Parallelized across threads with Rayon for high-throughput batch execution
     let kernel = [1.0 / 16.0, 4.0 / 16.0, 6.0 / 16.0, 4.0 / 16.0, 1.0 / 16.0];
-    let mut smoothed = vec![0.0f32; n];
-    for i in 0..n {
-        let mut sum = 0.0f32;
-        let mut w_total = 0.0f32;
-        for (k_idx, &k_val) in kernel.iter().enumerate() {
-            let offset = (k_idx as isize) - 2;
-            let sample_idx = (i as isize) + offset;
-            if sample_idx >= 0 && sample_idx < (n as isize) {
-                sum += detrended[sample_idx as usize] * k_val;
-                w_total += k_val;
+    let smoothed: Vec<f32> = (0..n)
+        .into_par_iter()
+        .map(|i| {
+            let mut sum = 0.0f32;
+            let mut w_total = 0.0f32;
+            for (k_idx, &k_val) in kernel.iter().enumerate() {
+                let offset = (k_idx as isize) - 2;
+                let sample_idx = (i as isize) + offset;
+                if sample_idx >= 0 && sample_idx < (n as isize) {
+                    sum += detrended[sample_idx as usize] * k_val;
+                    w_total += k_val;
+                }
             }
-        }
-        smoothed[i] = if w_total > 0.0 { sum / w_total } else { detrended[i] };
-    }
+            if w_total > 0.0 { sum / w_total } else { detrended[i] }
+        })
+        .collect();
 
     // Rolling min-max normalization in linear O(N) time via monotonic sliding windows
     // Merged into single pass: compute normalized values directly from deque fronts

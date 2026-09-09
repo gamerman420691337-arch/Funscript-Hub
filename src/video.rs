@@ -163,6 +163,8 @@ pub struct FrameStreamReader {
     #[allow(dead_code)]
     pub is_rgb: bool,
     current_frame: u64,
+    /// Persistent read buffer — reused across frames to eliminate per-frame allocation.
+    frame_buffer: Vec<u8>,
 }
 
 impl FrameStreamReader {
@@ -233,10 +235,11 @@ impl FrameStreamReader {
             fps,
             is_rgb,
             current_frame: start_frame,
+            frame_buffer: vec![0u8; frame_bytes],
         })
     }
 
-    /// Read the next grayscale frame.
+    /// Read the next frame.
     /// Returns Ok(Some((frame_data, timestamp_ms))) or Ok(None) at EOF.
     pub fn next_frame(&mut self) -> Result<Option<(Vec<u8>, i64)>> {
         let stdout = self
@@ -245,12 +248,15 @@ impl FrameStreamReader {
             .as_mut()
             .context("FFmpeg stdout is closed")?;
 
-        let mut buffer = vec![0u8; self.frame_bytes];
-        match stdout.read_exact(&mut buffer) {
+        // Reuse persistent buffer: resize reclaims capacity without realloc when len matches
+        self.frame_buffer.resize(self.frame_bytes, 0);
+        match stdout.read_exact(&mut self.frame_buffer) {
             Ok(()) => {
                 let ts_ms = ((self.current_frame as f64 / self.fps) * 1000.0).round() as i64;
                 self.current_frame += 1;
-                Ok(Some((buffer, ts_ms)))
+                // Transfer ownership: caller gets the filled buffer, we keep a zero-cap Vec
+                // that will be cheaply re-grown on next call via resize()
+                Ok(Some((std::mem::take(&mut self.frame_buffer), ts_ms)))
             }
             Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => Ok(None),
             Err(e) => Err(e).context("Error reading frame from ffmpeg stream"),

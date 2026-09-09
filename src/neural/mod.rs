@@ -6,6 +6,7 @@ pub mod pipeline;
 pub mod point_tracker;
 pub mod pose;
 pub mod router;
+pub mod sam;
 pub mod tracker;
 pub mod yolo;
 pub mod yolo26;
@@ -15,7 +16,7 @@ pub use hypothesis::{HypothesisEngine, ObservabilityState, ReconciledFrame, Traj
 #[allow(unused_imports)]
 pub use model_manager::{
     auto_detect_model, default_model_cache_dir, install_or_download_default_model, model_registry,
-    ModelInfo, ModelRegistryEntry, DEFAULT_MODEL_NAME,
+    ModelInfo, ModelRegistryEntry, ModelType, DEFAULT_MODEL_NAME,
 };
 #[allow(unused_imports)]
 pub use pipeline::{AdaptiveFrameOutput, AdaptiveMotionPipeline, AdaptiveProfile};
@@ -30,6 +31,7 @@ pub use router::{
 #[allow(unused_imports)]
 pub use yolo26::{
     assemble_instance_mask, decode_nms_free_detections, DirectDetection, DirectTensorLayout,
+    Yolo26Config, Yolo26Detector,
 };
 
 use anyhow::{Context, Result};

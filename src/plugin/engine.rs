@@ -197,6 +197,21 @@ impl PluginHost {
         self.plugins.iter().map(|p| p.metadata()).collect()
     }
 
+    #[allow(dead_code)]
+    pub fn plugin_count(&self) -> usize {
+        self.plugins.len()
+    }
+
+    #[allow(dead_code)]
+    pub fn register<P: FunscriptPlugin + 'static>(&mut self, plugin: P) {
+        self.plugins.push(Box::new(plugin));
+    }
+
+    #[allow(dead_code)]
+    pub fn get_plugin(&self, id: &str) -> Option<&dyn FunscriptPlugin> {
+        self.plugins.iter().find(|p| p.metadata().id == id).map(|b| &**b)
+    }
+
     pub fn apply_by_id(&self, id: &str, actions: &[Action], params: &HashMap<String, f32>) -> Result<Vec<Action>> {
         for p in &self.plugins {
             if p.metadata().id == id {
@@ -249,5 +264,33 @@ mod tests {
         for a in &jittered {
             assert!(a.pos >= 0 && a.pos <= 100);
         }
+
+        // 4. Test Dynamic Registration & Lookup
+        struct CustomInvertPlugin;
+        impl FunscriptPlugin for CustomInvertPlugin {
+            fn metadata(&self) -> PluginMetadata {
+                PluginMetadata {
+                    id: "custom_invert".into(),
+                    name: "Custom Inverter".into(),
+                    author: "Tester".into(),
+                    version: "0.1.0".into(),
+                    description: "Inverts script coordinates".into(),
+                }
+            }
+            fn parameters(&self) -> Vec<PluginParam> { vec![] }
+            fn apply(&self, actions: &[Action], _params: &HashMap<String, f32>) -> Result<Vec<Action>> {
+                Ok(actions.iter().map(|a| Action { at: a.at, pos: 100 - a.pos }).collect())
+            }
+        }
+
+        let mut mutable_host = PluginHost::new();
+        assert_eq!(mutable_host.plugin_count(), 3);
+        mutable_host.register(CustomInvertPlugin);
+        assert_eq!(mutable_host.plugin_count(), 4);
+        assert!(mutable_host.get_plugin("custom_invert").is_some());
+        let inverted = mutable_host.apply_by_id("custom_invert", &actions, &HashMap::new()).unwrap();
+        assert_eq!(inverted[0].pos, 90);
+        assert_eq!(inverted[1].pos, 50);
+        assert_eq!(inverted[2].pos, 10);
     }
 }

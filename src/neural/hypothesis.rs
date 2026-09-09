@@ -85,22 +85,27 @@ impl HypothesisEngine {
     }
 
     /// Initialize competing hypotheses for an occlusion event (e.g. penetration vs reversal vs dwell)
-    pub fn branch_occlusion_hypotheses(&mut self, current_pos: f32, velocity: f32, timestamp_ms: i64) {
+    pub fn branch_occlusion_hypotheses(&mut self, current_pos: f32, velocity: f32, timestamp_ms: i64, previous_timestamp_ms: i64) {
         self.active_hypotheses.clear();
 
+        let dt = ((timestamp_ms - previous_timestamp_ms) as f32 / 1000.0).max(0.001);
+        let accel_noise_density = 50.0;
+        let variance_growth = accel_noise_density * dt * dt;
+
         // Hypothesis 0: Penetration Continuation (continues along approach vector)
-        let mut h_cont = TrajectoryHypothesis::new(0, "continuation", current_pos, 25.0);
-        h_cont.path.push((timestamp_ms, (current_pos + velocity * 10.0).clamp(0.0, 100.0)));
+        let mut h_cont = TrajectoryHypothesis::new(0, "continuation", current_pos, 25.0 + variance_growth);
+        h_cont.path.push((timestamp_ms, (current_pos + velocity * dt).clamp(0.0, 100.0)));
         h_cont.log_likelihood = 0.0;
 
         // Hypothesis 1: Immediate Turnaround / Reversal (impact bounce)
-        let mut h_rev = TrajectoryHypothesis::new(1, "reversal", current_pos, 35.0);
-        h_rev.path.push((timestamp_ms, (current_pos - velocity * 5.0).clamp(0.0, 100.0)));
+        let decel_time = 0.15;
+        let mut h_rev = TrajectoryHypothesis::new(1, "reversal", current_pos, 35.0 + variance_growth);
+        h_rev.path.push((timestamp_ms, (current_pos + velocity * dt * (1.0 - dt / decel_time).max(0.0)).clamp(0.0, 100.0)));
         h_rev.log_likelihood = -0.5;
 
         // Hypothesis 2: Stationary Dwell / Contact Pause
-        let mut h_dwell = TrajectoryHypothesis::new(2, "dwell", current_pos, 45.0);
-        h_dwell.path.push((timestamp_ms, current_pos));
+        let mut h_dwell = TrajectoryHypothesis::new(2, "dwell", current_pos, 45.0 + variance_growth);
+        h_dwell.path.push((timestamp_ms, (current_pos + velocity * dt * 0.1).clamp(0.0, 100.0)));
         h_dwell.log_likelihood = -1.0;
 
         self.active_hypotheses.push(h_cont);
@@ -109,17 +114,13 @@ impl HypothesisEngine {
     }
 
     /// Score active hypotheses using cross-modal evidence (e.g. audio transient arrival)
-    pub fn update_evidence(&mut self, timestamp_ms: i64, has_audio_transient: bool, visible_shaft_velocity: Option<f32>) {
+    pub fn update_evidence(&mut self, timestamp_ms: i64, observed_pos: f32, visible_shaft_velocity: Option<f32>) {
         for h in &mut self.active_hypotheses {
-            if has_audio_transient {
-                // Audio transient strongly supports reversal/impact turnaround
-                if h.label == "reversal" {
-                    h.log_likelihood += 2.5;
-                    h.audio_alignment += 1.0;
-                } else if h.label == "continuation" {
-                    h.log_likelihood -= 1.5;
-                }
-            }
+            let predicted_pos = h.path.last().map(|(_, p)| *p).unwrap_or(50.0);
+            let innovation = observed_pos - predicted_pos;
+            let observation_noise = 25.0; // 5 units std dev
+            let s = h.variance + observation_noise;
+            h.log_likelihood += -0.5 * (innovation * innovation / s + s.ln());
 
             if let Some(shaft_v) = visible_shaft_velocity {
                 // If the external shaft is moving in a given direction, evaluate path agreement
@@ -250,19 +251,27 @@ mod tests {
     }
 
     #[test]
-    fn test_hypothesis_tree_audio_transient_scoring() {
+    fn test_physics_informed_hypotheses() {
         let mut engine = HypothesisEngine::new();
-        engine.branch_occlusion_hypotheses(70.0, 2.0, 100);
+        // dt = 100ms = 0.1s
+        engine.branch_occlusion_hypotheses(50.0, 100.0, 200, 100);
+        
+        let cont = engine.active_hypotheses.iter().find(|h| h.label == "continuation").unwrap();
+        // pos should be 50.0 + 100.0 * 0.1 = 60.0
+        let last_pos = cont.path.last().unwrap().1;
+        assert!((last_pos - 60.0).abs() < 1e-3);
+    }
 
-        // Initial highest likelihood is continuation
-        let best_initial = engine.select_best_hypothesis().unwrap();
-        assert_eq!(best_initial.label, "continuation");
+    #[test]
+    fn test_mahalanobis_evidence_update() {
+        let mut engine = HypothesisEngine::new();
+        engine.branch_occlusion_hypotheses(50.0, 100.0, 200, 100);
 
-        // Audio impact transient arrives
-        engine.update_evidence(133, true, None);
+        // Continuation is at 60.0, reversal is somewhere else, dwell is at ~51.0
+        // If we observe 60.0, continuation should get the best likelihood
+        engine.update_evidence(300, 60.0, None);
 
-        // Audio impact flips winning hypothesis to reversal
-        let best_after = engine.select_best_hypothesis().unwrap();
-        assert_eq!(best_after.label, "reversal");
+        let best = engine.select_best_hypothesis().unwrap();
+        assert_eq!(best.label, "continuation");
     }
 }

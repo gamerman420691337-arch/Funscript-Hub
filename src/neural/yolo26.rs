@@ -1,11 +1,13 @@
+#![allow(dead_code)]
 //! YOLO26 & RF-DETR NMS-Free Direct Tensor Decoding Engine.
 //!
 //! Provides zero-overhead, end-to-end direct query decoding for modern one-to-one matched
 //! detectors (YOLO26, RF-DETR, D-FINE). Eliminates slow Non-Maximum Suppression (NMS) and
 //! Distribution Focal Loss (DFL) de-quantization loops.
 
-use crate::neural::yolo::CLASS_NAMES;
+use crate::neural::yolo::{preprocess_image_rgb, CLASS_NAMES};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 /// High-performance NMS-free detection candidate
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -29,6 +31,122 @@ pub enum DirectTensorLayout {
     QueryMajor,
     /// Channels first: shape [1, 4 + num_classes (+ num_masks), num_queries] (e.g. transposed ONNX export)
     ChannelMajor,
+}
+
+/// Configuration for the standalone YOLO26/RF-DETR detector
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Yolo26Config {
+    /// Input image size (square, e.g. 640)
+    pub input_size: u32,
+    /// Number of detection classes
+    pub num_classes: usize,
+    /// Number of mask prototype coefficients (0 for detection-only models)
+    pub num_mask_coeffs: usize,
+    /// Tensor output layout
+    pub layout: DirectTensorLayout,
+    /// Confidence threshold for filtering detections
+    pub conf_threshold: f32,
+}
+
+impl Default for Yolo26Config {
+    fn default() -> Self {
+        Self {
+            input_size: 640,
+            num_classes: 10,
+            num_mask_coeffs: 0,
+            layout: DirectTensorLayout::QueryMajor,
+            conf_threshold: 0.25,
+        }
+    }
+}
+
+/// Standalone YOLO26/RF-DETR detector with its own ONNX Runtime session.
+///
+/// Separate from the legacy `NeuralDetector` to allow independent model loading
+/// and NMS-free direct detection with modern one-to-one matched architectures.
+#[allow(dead_code)]
+pub struct Yolo26Detector {
+    session: Option<ort::session::Session>,
+    pub config: Yolo26Config,
+}
+
+impl Yolo26Detector {
+    /// Create a new detector with no model loaded (graceful fallback mode)
+    pub fn new(config: Yolo26Config) -> Self {
+        Self {
+            session: None,
+            config,
+        }
+    }
+
+    /// Load a YOLO26/RF-DETR ONNX model file
+    pub fn load_model(&mut self, model_path: &Path) -> anyhow::Result<()> {
+        let builder = ort::session::Session::builder()
+            .map_err(|e| anyhow::anyhow!("Failed to initialize SessionBuilder: {e}"))?;
+
+        let session = builder
+            .with_intra_threads(4)
+            .map_err(|e| anyhow::anyhow!("Failed to configure thread count: {e}"))?
+            .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Level3)
+            .map_err(|e| anyhow::anyhow!("Failed to configure optimization level: {e}"))?
+            .commit_from_file(model_path)
+            .map_err(|e| anyhow::anyhow!("Failed to load YOLO26 model from {model_path:?}: {e}"))?;
+
+        self.session = Some(session);
+        Ok(())
+    }
+
+    /// Returns true if an ONNX model is loaded and ready for inference
+    pub fn is_loaded(&self) -> bool {
+        self.session.is_some()
+    }
+
+    /// Run NMS-free detection on raw RGB image bytes.
+    /// Returns empty vec if no model is loaded (graceful fallback).
+    pub fn detect(&mut self, rgb_data: &[u8], width: usize, height: usize) -> anyhow::Result<Vec<DirectDetection>> {
+        let session = match &mut self.session {
+            Some(s) => s,
+            None => return Ok(Vec::new()),
+        };
+
+        let input_array = preprocess_image_rgb(rgb_data, width, height, self.config.input_size as usize);
+        let input_tensor = ort::value::Tensor::from_array(input_array)
+            .map_err(|e| anyhow::anyhow!("Failed to create ONNX input tensor: {e}"))?;
+
+        let inputs = ort::inputs![input_tensor];
+        let outputs = session
+            .run(inputs)
+            .map_err(|e| anyhow::anyhow!("YOLO26 inference failed: {e}"))?;
+
+        let (_, output_tensor) = outputs
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("No output tensors from YOLO26 session"))?;
+
+        let (shape, slice) = output_tensor
+            .try_extract_tensor::<f32>()
+            .map_err(|e| anyhow::anyhow!("Failed to extract YOLO26 output tensor: {e}"))?;
+
+        // Determine query count from tensor shape
+        let num_queries = match self.config.layout {
+            DirectTensorLayout::QueryMajor => {
+                if shape.len() >= 2 { shape[shape.len() - 2] as usize } else { 300 }
+            }
+            DirectTensorLayout::ChannelMajor => {
+                if shape.len() >= 1 { shape[shape.len() - 1] as usize } else { 300 }
+            }
+        };
+
+        Ok(decode_nms_free_detections(
+            slice,
+            num_queries,
+            self.config.num_classes,
+            self.config.num_mask_coeffs,
+            self.config.layout,
+            self.config.conf_threshold,
+        ))
+    }
 }
 
 /// Decodes NMS-free one-to-one predictions directly into filtered detections.
@@ -323,5 +441,35 @@ mod tests {
         assert_eq!(mask.len(), 16);
         let expected_val = (0.7310586 * 255.0) as u8;
         assert!((mask[0] as i32 - expected_val as i32).abs() <= 1);
+    }
+
+    #[test]
+    fn test_yolo26_config_defaults() {
+        let config = Yolo26Config::default();
+        assert_eq!(config.input_size, 640);
+        assert_eq!(config.num_classes, 10);
+        assert_eq!(config.num_mask_coeffs, 0);
+        assert_eq!(config.layout, DirectTensorLayout::QueryMajor);
+        assert!((config.conf_threshold - 0.25).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_yolo26_detector_creation_and_fallback() {
+        let mut detector = Yolo26Detector::new(Yolo26Config::default());
+        assert!(!detector.is_loaded());
+
+        // Graceful fallback: detect returns empty vec when no model loaded
+        let dummy_rgb = vec![128u8; 640 * 640 * 3];
+        let result = detector.detect(&dummy_rgb, 640, 640);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_yolo26_detector_load_nonexistent_model() {
+        let mut detector = Yolo26Detector::new(Yolo26Config::default());
+        let result = detector.load_model(std::path::Path::new("/nonexistent/model.onnx"));
+        assert!(result.is_err());
+        assert!(!detector.is_loaded());
     }
 }

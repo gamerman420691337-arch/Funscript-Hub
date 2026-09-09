@@ -9,10 +9,12 @@ use crate::neural::hypothesis::{HypothesisEngine, ObservabilityState};
 use crate::neural::point_tracker::{SurfaceKinematics, TapPointTracker, TapTrackerConfig};
 use crate::neural::pose::Pose3D;
 use crate::neural::router::{CalibratedUncertainty, ConfidenceMetrics, ExecutionBranch, FailureRouter, RouterConfig};
+use crate::neural::sam::{Sam31Config, Sam31Segmenter};
 use crate::neural::yolo::Detection;
-use crate::neural::yolo26::DirectDetection;
+use crate::neural::yolo26::{DirectDetection, Yolo26Config, Yolo26Detector};
 use crate::tracking::FlowField;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 /// The five non-dominated operating profiles on the empirical Pareto curve
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -108,12 +110,15 @@ pub struct AdaptiveFrameOutput {
 
 /// The Adaptive Fast/Slow Vision-to-Motion Pipeline
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
 pub struct AdaptiveMotionPipeline {
     pub profile: AdaptiveProfile,
     pub router: FailureRouter,
     pub point_tracker: TapPointTracker,
     pub hypothesis_engine: HypothesisEngine,
+    /// YOLO26/RF-DETR NMS-free detector (optional — loaded at runtime)
+    pub yolo26: Yolo26Detector,
+    /// SAM 3.1 promptable segmenter (optional — loaded at runtime)
+    pub sam: Sam31Segmenter,
     frame_counter: usize,
     last_refresh_frame: usize,
     last_pose: Pose3D,
@@ -145,6 +150,8 @@ impl AdaptiveMotionPipeline {
             router: FailureRouter::new(router_config),
             point_tracker: TapPointTracker::new(tap_config),
             hypothesis_engine: HypothesisEngine::new(),
+            yolo26: Yolo26Detector::new(Yolo26Config::default()),
+            sam: Sam31Segmenter::new(Sam31Config::default()),
             frame_counter: 0,
             last_refresh_frame: 0,
             last_pose: Pose3D::default(),
@@ -152,6 +159,32 @@ impl AdaptiveMotionPipeline {
             min_dist: 0.05,
             max_dist: 0.35,
         }
+    }
+
+    /// Load a YOLO26/RF-DETR model for NMS-free detection
+    pub fn load_yolo26_model(&mut self, model_path: &Path) -> anyhow::Result<()> {
+        self.yolo26.load_model(model_path)
+    }
+
+    /// Load SAM 3.1 encoder and decoder models
+    pub fn load_sam_models(&mut self, encoder_path: &Path, decoder_path: &Path) -> anyhow::Result<()> {
+        self.sam.load_encoder(encoder_path)?;
+        self.sam.load_decoder(decoder_path)?;
+        Ok(())
+    }
+
+    /// Load a TAPNext++ model for neural point tracking
+    pub fn load_tapnext_model(&mut self, model_path: &Path) -> anyhow::Result<()> {
+        self.point_tracker.load_model(model_path)
+    }
+
+    /// Returns which models are currently loaded
+    pub fn loaded_models(&self) -> Vec<&'static str> {
+        let mut loaded = Vec::new();
+        if self.yolo26.is_loaded() { loaded.push("YOLO26"); }
+        if self.sam.is_loaded() { loaded.push("SAM 3.1"); }
+        if self.point_tracker.neural_session.is_some() { loaded.push("TAPNext++"); }
+        loaded
     }
 
     /// Reset pipeline state (e.g. on new clip or scene boundary)

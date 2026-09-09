@@ -566,7 +566,7 @@ fn run_generate(
 
     let mut flow_ctx = crate::tracking::FlowScratchContext::new(0, 0);
 
-    // Helper for 2x2 average downscale to 256x256
+    // Helper for 2x2 average downscale to 256x256 (grayscale input)
     fn downscale_to_256(input: &[u8], width: usize, height: usize) -> Vec<u8> {
         let mut out = vec![0; 256 * 256];
         let dx = width as f32 / 256.0;
@@ -584,6 +584,36 @@ fn run_generate(
                 let i3 = sy2 * width + sx2;
                 
                 let v = (input[i0] as u16 + input[i1] as u16 + input[i2] as u16 + input[i3] as u16) / 4;
+                out[y * 256 + x] = v as u8;
+            }
+        }
+        out
+    }
+
+    /// Fused RGB → grayscale + spatial downscale to 256×256 in a single pass.
+    /// Eliminates the intermediate full-resolution grayscale allocation.
+    fn rgb_downscale_to_gray_256(rgb: &[u8], width: usize, height: usize) -> Vec<u8> {
+        let mut out = vec![0u8; 256 * 256];
+        let dx = width as f32 / 256.0;
+        let dy = height as f32 / 256.0;
+        for y in 0..256 {
+            let sy = (y as f32 * dy) as usize;
+            let sy2 = (sy + 1).min(height - 1);
+            for x in 0..256 {
+                let sx = (x as f32 * dx) as usize;
+                let sx2 = (sx + 1).min(width - 1);
+
+                // Sample 4 RGB pixels, convert each to luma (Rec.601 integer),
+                // then average the 4 luma values
+                let luma = |px: usize, py: usize| -> u16 {
+                    let base = (py * width + px) * 3;
+                    let r = rgb[base] as u32;
+                    let g = rgb[base + 1] as u32;
+                    let b = rgb[base + 2] as u32;
+                    ((r * 77 + g * 150 + b * 29) >> 8) as u16
+                };
+
+                let v = (luma(sx, sy) + luma(sx2, sy) + luma(sx, sy2) + luma(sx2, sy2)) / 4;
                 out[y * 256 + x] = v as u8;
             }
         }
@@ -653,10 +683,14 @@ fn run_generate(
 
     // Seed first frame
     let (mut last_raw, _first_ts) = stream.next_frame()?.context("Video stream returned zero frames")?;
-    let mut last_gray = if stream_cfg.is_rgb { Some(rgb_to_gray(&last_raw)) } else { None };
+    let mut last_gray = if stream_cfg.is_rgb && !is_neural { Some(rgb_to_gray(&last_raw)) } else { None };
     let mut last_flow_gray = if is_neural {
-        let ref_frame = last_gray.as_ref().unwrap_or(&last_raw);
-        Some(downscale_to_256(ref_frame, width as usize, height as usize))
+        if stream_cfg.is_rgb {
+            // Fused: RGB → gray + downscale in one pass (no intermediate W×H gray buffer)
+            Some(rgb_downscale_to_gray_256(&last_raw, width as usize, height as usize))
+        } else {
+            Some(downscale_to_256(&last_raw, width as usize, height as usize))
+        }
     } else {
         None
     };
@@ -664,10 +698,13 @@ fn run_generate(
     let mut total_processed = 0u64;
 
     while let Some((mut curr_raw, curr_ts)) = stream.next_frame()? {
-        let curr_gray = if stream_cfg.is_rgb { Some(rgb_to_gray(&curr_raw)) } else { None };
+        let curr_gray = if stream_cfg.is_rgb && !is_neural { Some(rgb_to_gray(&curr_raw)) } else { None };
         let curr_flow_gray = if is_neural {
-            let ref_frame = curr_gray.as_ref().unwrap_or(&curr_raw);
-            Some(downscale_to_256(ref_frame, width as usize, height as usize))
+            if stream_cfg.is_rgb {
+                Some(rgb_downscale_to_gray_256(&curr_raw, width as usize, height as usize))
+            } else {
+                Some(downscale_to_256(&curr_raw, width as usize, height as usize))
+            }
         } else {
             None
         };
@@ -684,6 +721,9 @@ fn run_generate(
         };
 
         let is_cut_diff = detect_cut_photometric(prev_ref, curr_ref, cut_diff_threshold);
+        // NOTE: clone() copies 524KB per frame. A future optimization is to have
+        // compute_dense_flow write into a caller-owned rotating FlowField pool,
+        // but replacing ctx.field would force re-allocation on the next resize().
         let flow = compute_dense_flow(prev_ref, curr_ref, flow_w, flow_h, &mut flow_ctx).clone();
         let is_cut = is_cut_diff && (flow.mean_magnitude() > cut_flow_threshold);
 

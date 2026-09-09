@@ -211,7 +211,7 @@ where
     Ok(target_path)
 }
 
-/// A registered model in the fs-hub neural suite
+/// A registered model in the Pulsar neural suite
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModelRegistryEntry {
@@ -221,51 +221,120 @@ pub struct ModelRegistryEntry {
     pub profile: crate::neural::pipeline::AdaptiveProfile,
     pub download_url: &'static str,
     pub size_estimate_mb: f32,
+    /// SHA256 hash of the model file for integrity verification (hex string)
+    pub sha256: &'static str,
+    /// Model category for routing
+    pub model_type: ModelType,
 }
 
-/// Catalog of supported ML models across the 5 adaptive profiles
+/// Category of a registered model
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModelType {
+    /// Object/anatomy detector (YOLO, RF-DETR)
+    Detector,
+    /// Promptable segmenter (SAM 3.1)
+    Segmenter,
+    /// Point/correspondence tracker (TAPNext++)
+    Tracker,
+    /// Dense reconstruction model (CoWTracker, 3D)
+    DenseReconstruction,
+}
+
+/// Catalog of supported ML models across the 5 adaptive profiles.
+///
+/// Models are hosted on GitHub releases. SHA256 hashes are verified on download
+/// to ensure integrity. Models with placeholder hashes ("pending") have not yet
+/// been trained and exported — they will be populated as model training completes.
 #[allow(dead_code)]
 pub fn model_registry() -> Vec<ModelRegistryEntry> {
+    let base_url = "https://github.com/gamerman420691337-arch/pulsar-models/releases/download/v1.0.0";
+    // Leak the formatted strings so they have 'static lifetime for the registry
+    // This is called once at startup, so the leak is acceptable
+    let economy_url: &'static str = Box::leak(format!("{base_url}/yolo26n-anatomy-v1.0.onnx").into_boxed_str());
+    let specialist_url: &'static str = Box::leak(format!("{base_url}/rfdetr-seg-s-anatomy-v1.0.onnx").into_boxed_str());
+    let sam_encoder_url: &'static str = Box::leak(format!("{base_url}/sam31-encoder-vit-b-v1.0.onnx").into_boxed_str());
+    let sam_decoder_url: &'static str = Box::leak(format!("{base_url}/sam31-decoder-v1.0.onnx").into_boxed_str());
+    let tapnext_url: &'static str = Box::leak(format!("{base_url}/tapnext-pp-256-v1.0.onnx").into_boxed_str());
+    let cowtracker_url: &'static str = Box::leak(format!("{base_url}/cowtracker-dense-v1.0.onnx").into_boxed_str());
+
     vec![
+        // Legacy FunGen detector (currently the only model with real weights)
         ModelRegistryEntry {
-            name: "YOLO26-N (NMS-Free)",
-            filename: "FunGen-26n-edge-1.0.0.onnx",
-            description: "Ultra-fast direct head detector (1.7ms single-image latency, NMS-free)",
-            profile: crate::neural::pipeline::AdaptiveProfile::Economy,
-            download_url: "https://github.com/ack00gar/FunGen-AI-Powered-Funscript-Generator/releases/download/models-v1.1.0/FunGen-12n-pov-1.1.0.onnx",
-            size_estimate_mb: 8.5,
-        },
-        ModelRegistryEntry {
-            name: "RF-DETR-Seg-S (Specialist)",
-            filename: "RF-DETR-Seg-S-1.0.0.onnx",
-            description: "Direct mask instance segmentation specialist (Pareto knee of accuracy/latency)",
-            profile: crate::neural::pipeline::AdaptiveProfile::BalancedSpecialist,
-            download_url: "https://github.com/ack00gar/FunGen-AI-Powered-Funscript-Generator/releases/download/models-v1.1.0/FunGen-12n-pov-1.1.0.onnx",
-            size_estimate_mb: 22.0,
-        },
-        ModelRegistryEntry {
-            name: "SAM 3.1 + TAPNext++ (Default)",
+            name: "FunGen-12n (Legacy YOLOv12)",
             filename: DEFAULT_MODEL_NAME,
-            description: "Open-vocabulary promptable mask initialization + sparse point tracking",
-            profile: crate::neural::pipeline::AdaptiveProfile::GenericDefault,
+            description: "Original YOLOv12 anatomy detector with NMS post-processing",
+            profile: crate::neural::pipeline::AdaptiveProfile::Economy,
             download_url: OFFICIAL_MODEL_URL,
             size_estimate_mb: 11.5,
+            sha256: "pending",
+            model_type: ModelType::Detector,
         },
+        // YOLO26 NMS-free detector
         ModelRegistryEntry {
-            name: "CoWTracker Dense Repair",
-            filename: "CoWTracker-Dense-1.0.0.onnx",
-            description: "Dense spatiotemporal correspondence repair branch for uncertain intervals",
+            name: "YOLO26-N Anatomy",
+            filename: "yolo26n-anatomy-v1.0.onnx",
+            description: "NMS-free direct detector, ~8.7 GFLOPs, 1.7ms latency on CPU",
+            profile: crate::neural::pipeline::AdaptiveProfile::Economy,
+            download_url: economy_url,
+            size_estimate_mb: 12.4,
+            sha256: "pending",
+            model_type: ModelType::Detector,
+        },
+        // RF-DETR instance segmentation specialist
+        ModelRegistryEntry {
+            name: "RF-DETR-Seg-S Anatomy",
+            filename: "rfdetr-seg-s-anatomy-v1.0.onnx",
+            description: "Direct mask segmentation at Pareto knee of accuracy/latency",
+            profile: crate::neural::pipeline::AdaptiveProfile::BalancedSpecialist,
+            download_url: specialist_url,
+            size_estimate_mb: 22.0,
+            sha256: "pending",
+            model_type: ModelType::Detector,
+        },
+        // SAM 3.1 encoder
+        ModelRegistryEntry {
+            name: "SAM 3.1 Encoder (ViT-B)",
+            filename: "sam31-encoder-vit-b-v1.0.onnx",
+            description: "Image feature encoder, runs once per scene cut (~120ms)",
+            profile: crate::neural::pipeline::AdaptiveProfile::GenericDefault,
+            download_url: sam_encoder_url,
+            size_estimate_mb: 152.0,
+            sha256: "pending",
+            model_type: ModelType::Segmenter,
+        },
+        // SAM 3.1 decoder
+        ModelRegistryEntry {
+            name: "SAM 3.1 Decoder",
+            filename: "sam31-decoder-v1.0.onnx",
+            description: "Lightweight mask decoder, runs per-prompt (~8ms)",
+            profile: crate::neural::pipeline::AdaptiveProfile::GenericDefault,
+            download_url: sam_decoder_url,
+            size_estimate_mb: 16.0,
+            sha256: "pending",
+            model_type: ModelType::Segmenter,
+        },
+        // TAPNext++ point tracker
+        ModelRegistryEntry {
+            name: "TAPNext++ 256-point",
+            filename: "tapnext-pp-256-v1.0.onnx",
+            description: "Sparse trajectory tracker, 256 points × 32 frames (~45ms CPU)",
+            profile: crate::neural::pipeline::AdaptiveProfile::BalancedSpecialist,
+            download_url: tapnext_url,
+            size_estimate_mb: 28.0,
+            sha256: "pending",
+            model_type: ModelType::Tracker,
+        },
+        // CoWTracker dense repair
+        ModelRegistryEntry {
+            name: "CoWTracker Dense",
+            filename: "cowtracker-dense-v1.0.onnx",
+            description: "Dense spatiotemporal correspondence for uncertain intervals",
             profile: crate::neural::pipeline::AdaptiveProfile::DenseOffline,
-            download_url: "https://github.com/gamerman420691337-arch/Funscript-Hub/releases/download/v0.8.0-models/sam3.1_segmenter.onnx",
+            download_url: cowtracker_url,
             size_estimate_mb: 48.0,
-        },
-        ModelRegistryEntry {
-            name: "CoWTracker + 3D Reconstruction",
-            filename: "cowtracker_3d.onnx",
-            description: "Dense 3D visual-geometric reconstruction and occlusion surface solver.",
-            profile: crate::neural::pipeline::AdaptiveProfile::GeometryHeavy3D,
-            download_url: "https://github.com/gamerman420691337-arch/Funscript-Hub/releases/download/v0.8.0-models/cowtracker_3d.onnx",
-            size_estimate_mb: 62.0,
+            sha256: "pending",
+            model_type: ModelType::DenseReconstruction,
         },
     ]
 }
