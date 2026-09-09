@@ -82,14 +82,9 @@ impl Yolo26Detector {
 
     /// Load a YOLO26/RF-DETR ONNX model file
     pub fn load_model(&mut self, model_path: &Path) -> anyhow::Result<()> {
-        let builder = ort::session::Session::builder()
-            .map_err(|e| anyhow::anyhow!("Failed to initialize SessionBuilder: {e}"))?;
+        let mut builder = crate::neural::create_session_builder()?;
 
         let session = builder
-            .with_intra_threads(4)
-            .map_err(|e| anyhow::anyhow!("Failed to configure thread count: {e}"))?
-            .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Level3)
-            .map_err(|e| anyhow::anyhow!("Failed to configure optimization level: {e}"))?
             .commit_from_file(model_path)
             .map_err(|e| anyhow::anyhow!("Failed to load YOLO26 model from {model_path:?}: {e}"))?;
 

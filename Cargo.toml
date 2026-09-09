@@ -28,6 +28,11 @@ tungstenite = { version = "0.24", default-features = false, features = ["handsha
 ureq = "3.4"
 serialport = "4.10"
 
+[features]
+default = []
+cuda = ["ort/cuda"]
+tensorrt = ["ort/tensorrt", "cuda"]
+
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6"
 

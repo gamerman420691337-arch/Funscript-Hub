@@ -127,12 +127,9 @@ impl TapPointTracker {
     }
 
     pub fn load_model(&mut self, path: &std::path::Path) -> anyhow::Result<()> {
-        let builder = ort::session::Session::builder()
-            .map_err(|e| anyhow::anyhow!("Failed to initialize SessionBuilder: {e}"))?;
+        let mut builder = crate::neural::create_session_builder()?;
 
         let session = builder
-            .with_intra_threads(2)
-            .map_err(|e| anyhow::anyhow!("Failed to configure thread count: {e}"))?
             .commit_from_file(path)
             .map_err(|e| anyhow::anyhow!("Failed to load ONNX model from {path:?}: {e}"))?;
 

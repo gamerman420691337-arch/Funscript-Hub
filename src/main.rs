@@ -509,6 +509,12 @@ fn run_generate(
         width, height, target_fps
     );
     println!("ML Profile:    {} (cadence k={})", adaptive_profile.name(), adaptive_profile.refresh_cadence());
+    let backend = if crate::neural::is_cuda_supported() {
+        "NVIDIA CUDA (Hardware Accelerated)"
+    } else {
+        "CPU (Multi-Threaded SIMD)"
+    };
+    println!("Compute Backend: {}", backend);
     if let Some(m) = model_path {
         println!("ONNX Model:    {} (conf: {:.2})", m.display(), conf_threshold);
     }

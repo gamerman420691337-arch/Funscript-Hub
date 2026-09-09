@@ -58,32 +58,22 @@ impl Sam31Segmenter {
     }
 
     pub fn load_encoder(&mut self, path: &Path) -> Result<()> {
-        let builder = Session::builder()
-            .map_err(|e| anyhow::anyhow!("Failed to initialize SessionBuilder: {e}"))?;
+        let mut builder = crate::neural::create_session_builder()?;
 
         let session = builder
-            .with_intra_threads(4)
-            .map_err(|e| anyhow::anyhow!("Failed to configure thread count: {e}"))?
-            .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Level3)
-            .map_err(|e| anyhow::anyhow!("Failed to configure optimization level: {e}"))?
             .commit_from_file(path)
-            .map_err(|e| anyhow::anyhow!("Failed to load ONNX model from {:?}: {e}", path))?;
+            .map_err(|e| anyhow::anyhow!("Failed to load SAM 3.1 encoder from {:?}: {e}", path))?;
 
         self.encoder_session = Some(session);
         Ok(())
     }
 
     pub fn load_decoder(&mut self, path: &Path) -> Result<()> {
-        let builder = Session::builder()
-            .map_err(|e| anyhow::anyhow!("Failed to initialize SessionBuilder: {e}"))?;
+        let mut builder = crate::neural::create_session_builder()?;
 
         let session = builder
-            .with_intra_threads(4)
-            .map_err(|e| anyhow::anyhow!("Failed to configure thread count: {e}"))?
-            .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Level3)
-            .map_err(|e| anyhow::anyhow!("Failed to configure optimization level: {e}"))?
             .commit_from_file(path)
-            .map_err(|e| anyhow::anyhow!("Failed to load ONNX model from {:?}: {e}", path))?;
+            .map_err(|e| anyhow::anyhow!("Failed to load SAM 3.1 decoder from {:?}: {e}", path))?;
 
         self.decoder_session = Some(session);
         Ok(())

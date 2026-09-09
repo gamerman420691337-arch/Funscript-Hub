@@ -14,9 +14,15 @@ if ! command -v cargo &> /dev/null; then
     exit 1
 fi
 
+CARGO_FEATURES=""
+if command -v nvidia-smi &> /dev/null; then
+    echo "-> NVIDIA GPU detected! Bundling hardware CUDA acceleration..."
+    CARGO_FEATURES="--features cuda"
+fi
+
 echo "-> Building optimized release binary..."
 cd "${SCRIPT_DIR}"
-cargo build --release --bin pulsar
+cargo build --release --bin pulsar ${CARGO_FEATURES}
 
 mkdir -p "${BIN_DIR}"
 

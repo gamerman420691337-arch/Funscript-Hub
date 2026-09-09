@@ -41,6 +41,41 @@ use ort::value::Tensor;
 use std::path::Path;
 use yolo::{decode_yolo_detections, preprocess_image_rgb, Detection};
 
+/// Returns true if Pulsar was compiled with CUDA GPU acceleration support
+pub fn is_cuda_supported() -> bool {
+    cfg!(feature = "cuda")
+}
+
+/// Creates an ONNX Runtime SessionBuilder configured with Level 3 graph optimizations,
+/// multi-threading, and hardware GPU acceleration (NVIDIA CUDA) when available.
+pub fn create_session_builder() -> Result<ort::session::builder::SessionBuilder> {
+    #[allow(unused_mut)]
+    let mut builder = Session::builder()
+        .map_err(|e| anyhow::anyhow!("Failed to initialize SessionBuilder: {e}"))?
+        .with_intra_threads(4)
+        .map_err(|e| anyhow::anyhow!("Failed to configure thread count: {e}"))?
+        .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Level3)
+        .map_err(|e| anyhow::anyhow!("Failed to configure optimization level: {e}"))?;
+
+    #[cfg(feature = "cuda")]
+    {
+        // Attempt to register NVIDIA CUDA execution provider for GPU acceleration
+        let cuda_ep = ort::ep::CUDA::default()
+            .with_device_id(0)
+            .build();
+        match builder.clone().with_execution_providers([cuda_ep]) {
+            Ok(b) => {
+                builder = b;
+            }
+            Err(e) => {
+                eprintln!("⚠️ CUDA acceleration unavailable ({e}), falling back to CPU execution");
+            }
+        }
+    }
+
+    Ok(builder)
+}
+
 pub struct NeuralDetector {
     session: Session,
     pub conf_threshold: f32,
@@ -50,14 +85,9 @@ pub struct NeuralDetector {
 impl NeuralDetector {
     pub fn new<P: AsRef<Path>>(model_path: P, conf_threshold: f32) -> Result<Self> {
         let path_buf = model_path.as_ref().to_path_buf();
-        let builder = Session::builder()
-            .map_err(|e| anyhow::anyhow!("Failed to initialize SessionBuilder: {e}"))?;
+        let mut builder = create_session_builder()?;
 
         let session = builder
-            .with_intra_threads(4)
-            .map_err(|e| anyhow::anyhow!("Failed to configure thread count: {e}"))?
-            .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Level3)
-            .map_err(|e| anyhow::anyhow!("Failed to configure optimization level: {e}"))?
             .commit_from_file(&path_buf)
             .map_err(|e| anyhow::anyhow!("Failed to load ONNX model from {path_buf:?}: {e}"))?;
 
