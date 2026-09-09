@@ -61,7 +61,8 @@ Pulsar allows authoring and refining funscripts in real time as you watch a vide
 - **Puppet via Tactile Slider**: Use the vertical slider strip on the right side of the canvas or hover and spin the mouse scroll wheel.
 - **Slow-Motion Capture**: Drop playback speed to `0.25x` or `0.5x` for hyper-precise tracking during fast or complex scenes.
 - **Curve Simplification**: Recorded samples are processed with automatic directional peak/valley detection and Ramer-Douglas-Peucker (RDP) filtering to produce clean, crisp keyframes without micro-jitters.
-- **Live Hardware Mirroring**: Active hardware (T-Code Serial, Buttplug.io, The Handy) tracks your puppeteered movements in real time as you record.
+- **Physical Movement Percentage & Selectable Axis Slider/Knob**: Real-time visualization of actual physical servo stroke percentage (`0–100%`) and knob position gliding live during playback. Switch between Stroke (`L0`), Surge (`L1`), Sway (`L2`), Roll (`R0`), Pitch (`R1`), Twist (`R2`), and Suction (`V0`) directly from the slider dropdown.
+- **Cursor-Centric Timeline Navigation**: Zooming in/out via the mouse scroll wheel locks precisely onto the exact millisecond under the mouse cursor without drifting. Zoom-out duration is clamped to the content duration (+5% margin), preventing empty infinite zoom and keeping scripts perfectly framed.
 - **Undo / Redo Support**: Any recording take cleanly splices into the script over the recorded interval and can be undone with `Ctrl+Z`.
 
 ### 2. Generate Funscripts from Video

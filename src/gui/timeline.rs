@@ -82,6 +82,8 @@ pub struct TimelineState {
     pub audio_viz_mode: AudioVizMode,
     /// Cached waveform mesh and transients for zero-allocation cross-frame rendering
     pub cached_waveform: Option<CachedWaveformRender>,
+    /// Known total content duration (video, audio, or script) in milliseconds, if available
+    pub content_duration_ms: Option<f64>,
 }
 
 /// Pre-computed waveform mesh cache for immediate-mode GUI cross-frame rendering reuse
@@ -116,6 +118,7 @@ impl Default for TimelineState {
             bookmarks: Vec::new(),
             audio_viz_mode: AudioVizMode::default(),
             cached_waveform: None,
+            content_duration_ms: None,
         }
     }
 }
@@ -137,6 +140,84 @@ impl TimelineState {
         let pad = 24.0;
         let inner_height = (rect.height() - pad * 2.0).max(10.0);
         rect.bottom() - pad - frac * inner_height
+    }
+
+    /// Returns the maximum allowable view_duration_ms (zoom-out ceiling).
+    /// Bounded to content length (+5% margin) so the timeline never zooms out into empty infinity.
+    pub fn get_max_view_duration_ms(&self) -> f64 {
+        if let Some(dur) = self.content_duration_ms.filter(|&d| d > 0.0) {
+            (dur * 1.05).max(5_000.0)
+        } else {
+            3_600_000.0 // Default 1 hour fallback when content length is completely unknown
+        }
+    }
+
+    /// Clamp view_start_ms and view_duration_ms to valid bounds
+    pub fn clamp_view(&mut self) {
+        let max_duration = self.get_max_view_duration_ms();
+        self.view_duration_ms = self.view_duration_ms.clamp(500.0, max_duration);
+
+        if let Some(dur) = self.content_duration_ms.filter(|&d| d > 0.0) {
+            let max_bound = (dur * 1.05).max(self.view_duration_ms);
+            let max_start = (max_bound - self.view_duration_ms).max(0.0);
+            self.view_start_ms = self.view_start_ms.clamp(0.0, max_start);
+        } else {
+            self.view_start_ms = self.view_start_ms.max(0.0);
+        }
+    }
+
+    /// Zoom centered on a specific screen X coordinate (e.g. mouse cursor position)
+    pub fn zoom_at_screen_x(&mut self, factor: f64, screen_x: f32, rect: Rect) {
+        let time_frac = ((screen_x - rect.left()) / rect.width().max(1.0)).clamp(0.0, 1.0) as f64;
+        let focal_time = self.view_start_ms + time_frac * self.view_duration_ms;
+
+        let max_duration = self.get_max_view_duration_ms();
+        let new_duration = (self.view_duration_ms * factor).clamp(500.0, max_duration);
+
+        let mut new_start = focal_time - time_frac * new_duration;
+
+        if let Some(dur) = self.content_duration_ms.filter(|&d| d > 0.0) {
+            let max_bound = (dur * 1.05).max(new_duration);
+            let max_start = (max_bound - new_duration).max(0.0);
+            new_start = new_start.clamp(0.0, max_start);
+        } else {
+            new_start = new_start.max(0.0);
+        }
+
+        self.view_start_ms = new_start;
+        self.view_duration_ms = new_duration;
+    }
+
+    /// Zoom centered on a specific millisecond timestamp (e.g. playhead cursor)
+    pub fn zoom_at_time(&mut self, factor: f64, center_time_ms: f64) {
+        let time_frac = if self.view_duration_ms > 0.0 {
+            ((center_time_ms - self.view_start_ms) / self.view_duration_ms).clamp(0.0, 1.0)
+        } else {
+            0.5
+        };
+
+        let max_duration = self.get_max_view_duration_ms();
+        let new_duration = (self.view_duration_ms * factor).clamp(500.0, max_duration);
+
+        let mut new_start = center_time_ms - time_frac * new_duration;
+
+        if let Some(dur) = self.content_duration_ms.filter(|&d| d > 0.0) {
+            let max_bound = (dur * 1.05).max(new_duration);
+            let max_start = (max_bound - new_duration).max(0.0);
+            new_start = new_start.clamp(0.0, max_start);
+        } else {
+            new_start = new_start.max(0.0);
+        }
+
+        self.view_start_ms = new_start;
+        self.view_duration_ms = new_duration;
+    }
+
+    /// Pan by a given pixel delta on the screen
+    pub fn pan_by_delta_x(&mut self, delta_x: f32, rect: Rect) {
+        let time_delta = -(delta_x as f64) * (self.view_duration_ms / (rect.width().max(1.0) as f64));
+        self.view_start_ms += time_delta;
+        self.clamp_view();
     }
 
     pub fn screen_y_to_pos(y: f32, rect: Rect) -> i32 {
@@ -253,19 +334,29 @@ pub fn show_timeline(
     let painter = ui.painter_at(rect);
 
     // 1. Handle Navigation: Zoom and Pan
-    let pointer = response.interact_pointer_pos();
+    let pointer = response
+        .hover_pos()
+        .or_else(|| ui.ctx().pointer_hover_pos())
+        .or_else(|| ui.ctx().pointer_latest_pos())
+        .or_else(|| response.interact_pointer_pos());
 
-    // Zoom via mouse scroll wheel
+    // Auto-detect and sync content duration from script or waveform
+    let script_dur = script.actions.last().map(|a| a.at as f64).unwrap_or(0.0);
+    let wave_dur = waveform.map(|w| w.duration_secs * 1000.0).unwrap_or(0.0);
+    let detected_dur = script_dur.max(wave_dur);
+    if detected_dur > 0.0 {
+        match state.content_duration_ms {
+            Some(existing) => state.content_duration_ms = Some(existing.max(detected_dur)),
+            None => state.content_duration_ms = Some(detected_dur),
+        }
+    }
+
+    // Zoom via mouse scroll wheel (zooms directly into where the mouse cursor is located)
     let scroll_delta = ui.input(|i| i.raw_scroll_delta.y);
     if scroll_delta != 0.0 && response.hovered() {
         let zoom_factor = if scroll_delta > 0.0 { 0.85 } else { 1.18 };
-        let pointer_x = pointer.map(|p| p.x).unwrap_or(rect.center().x);
-        let mouse_time = state.screen_x_to_time(pointer_x, rect) as f64;
-
-        let new_duration = (state.view_duration_ms * zoom_factor).clamp(500.0, 3_600_000.0);
-        let time_frac = (mouse_time - state.view_start_ms) / state.view_duration_ms;
-        state.view_start_ms = (mouse_time - time_frac * new_duration).max(0.0);
-        state.view_duration_ms = new_duration;
+        let pointer_x = pointer.map(|p| p.x).unwrap_or_else(|| rect.center().x);
+        state.zoom_at_screen_x(zoom_factor, pointer_x, rect);
     }
 
     // Pan via secondary/middle drag or Ctrl+drag
@@ -273,8 +364,7 @@ pub fn show_timeline(
         || (response.dragged() && ui.input(|i| i.modifiers.command || i.modifiers.ctrl))
     {
         let drag_delta = response.drag_delta();
-        let time_delta = -(drag_delta.x as f64) * (state.view_duration_ms / (rect.width() as f64));
-        state.view_start_ms = (state.view_start_ms + time_delta).max(0.0);
+        state.pan_by_delta_x(drag_delta.x, rect);
     }
 
     // 2. Render Canvas Background & Grids
@@ -1165,6 +1255,73 @@ mod tests {
         assert_eq!(cached.view_start_ms, 0);
         assert_eq!(cached.rect_width, 800);
         assert_eq!(cached.points.len(), 1);
+    }
+
+    #[test]
+    fn test_timeline_zoom_at_mouse_cursor_preserves_timestamp() {
+        let mut state = TimelineState {
+            view_start_ms: 10_000.0,
+            view_duration_ms: 20_000.0, // 10s to 30s
+            content_duration_ms: Some(600_000.0), // 10 minute video
+            ..Default::default()
+        };
+        let rect = Rect::from_min_size(pos2(0.0, 0.0), vec2(1000.0, 300.0));
+
+        // Place cursor at 350px (35% across the screen)
+        let cursor_x = 350.0_f32;
+        let time_before = state.screen_x_to_time(cursor_x, rect);
+        assert_eq!(time_before, 17_000); // 10,000 + 0.35 * 20,000 = 17,000 ms
+
+        // Zoom In (factor 0.85)
+        state.zoom_at_screen_x(0.85, cursor_x, rect);
+        let time_after_zoom_in = state.screen_x_to_time(cursor_x, rect);
+        assert!((time_after_zoom_in - time_before).abs() <= 1, "Timestamp under cursor must not drift on Zoom In");
+
+        // Zoom Out (factor 1.18)
+        state.zoom_at_screen_x(1.18, cursor_x, rect);
+        let time_after_zoom_out = state.screen_x_to_time(cursor_x, rect);
+        assert!((time_after_zoom_out - time_before).abs() <= 1, "Timestamp under cursor must not drift on Zoom Out");
+    }
+
+    #[test]
+    fn test_timeline_zoom_max_bound_caps_at_content_duration() {
+        let mut state = TimelineState {
+            view_start_ms: 50_000.0,
+            view_duration_ms: 10_000.0,
+            content_duration_ms: Some(60_000.0), // 1 minute content
+            ..Default::default()
+        };
+        let rect = Rect::from_min_size(pos2(0.0, 0.0), vec2(1000.0, 300.0));
+
+        // Zoom out aggressively 30 times
+        for _ in 0..30 {
+            state.zoom_at_screen_x(1.5, 500.0, rect);
+        }
+
+        // Max duration is capped at content_duration * 1.05 = 63,000 ms
+        assert!(state.view_duration_ms <= 63_000.0 + 1.0);
+        // Start is pinned to 0.0 when fully zoomed out so content is never squished into a corner
+        assert_eq!(state.view_start_ms, 0.0);
+    }
+
+    #[test]
+    fn test_timeline_pan_clamping_prevents_infinite_scroll() {
+        let mut state = TimelineState {
+            view_start_ms: 0.0,
+            view_duration_ms: 10_000.0,
+            content_duration_ms: Some(60_000.0), // 1 minute content
+            ..Default::default()
+        };
+        let rect = Rect::from_min_size(pos2(0.0, 0.0), vec2(1000.0, 300.0));
+
+        // Pan to the left (negative time): should clamp at 0.0
+        state.pan_by_delta_x(5000.0, rect);
+        assert_eq!(state.view_start_ms, 0.0);
+
+        // Pan to the right past content end: should clamp at content_duration * 1.05 - view_duration
+        state.pan_by_delta_x(-50000.0, rect);
+        let max_allowed = 60_000.0 * 1.05 - 10_000.0;
+        assert!((state.view_start_ms - max_allowed).abs() <= 1.0);
     }
 }
 

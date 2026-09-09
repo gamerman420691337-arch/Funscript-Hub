@@ -79,6 +79,8 @@ pub struct FunGenApp {
     pub multi_axis: MultiAxisScript,
     /// Currently selected active editing channel
     pub active_axis: AxisChannel,
+    /// Channel monitored by the physical movement slider knob
+    pub movement_axis: AxisChannel,
     /// Whether to show faint ghost curves of inactive channels on timeline
     pub show_ghost_axes: bool,
 
@@ -124,6 +126,7 @@ pub struct FunGenApp {
     // Generator settings
     pub video_path: Option<PathBuf>,
     pub video_info: Option<String>,
+    pub video_duration_ms: Option<f64>,
     pub model_path: Option<PathBuf>,
     pub detected_model_info: Option<ModelInfo>,
     pub model_download_in_progress: bool,
@@ -228,6 +231,7 @@ impl Default for FunGenApp {
             script,
             multi_axis: MultiAxisScript::new(),
             active_axis: AxisChannel::Stroke,
+            movement_axis: AxisChannel::Stroke,
             show_ghost_axes: true,
 
             infill_dialog_open: false,
@@ -262,6 +266,7 @@ impl Default for FunGenApp {
 
             video_path: None,
             video_info: None,
+            video_duration_ms: None,
             model_path: initial_model_path,
             detected_model_info: detected_model,
             model_download_in_progress: false,
@@ -440,13 +445,11 @@ impl eframe::App for FunGenApp {
                     }
                     ui.separator();
                     if ui.button("Zoom In (Scroll Up)").clicked() {
-                        self.timeline_state.view_duration_ms =
-                            (self.timeline_state.view_duration_ms * 0.75).max(500.0);
+                        self.timeline_state.zoom_at_time(0.75, self.timeline_state.cursor_time_ms as f64);
                         ui.close_menu();
                     }
                     if ui.button("Zoom Out (Scroll Down)").clicked() {
-                        self.timeline_state.view_duration_ms =
-                            (self.timeline_state.view_duration_ms * 1.33).min(3_600_000.0);
+                        self.timeline_state.zoom_at_time(1.33, self.timeline_state.cursor_time_ms as f64);
                         ui.close_menu();
                     }
                     if ui.button("Reset Zoom (Fit Script)").clicked() {
@@ -597,6 +600,34 @@ impl eframe::App for FunGenApp {
 impl FunGenApp {
     fn set_status(&mut self, msg: String) {
         self.status_message = Some((msg, Instant::now()));
+    }
+
+    /// Get the maximum known duration in milliseconds across video, audio, and all multi-axis script channels
+    pub fn get_content_duration_ms(&self) -> f64 {
+        let script_dur = self.script.actions.last().map(|a| a.at as f64).unwrap_or(0.0);
+        let multi_dur = self
+            .multi_axis
+            .channels
+            .values()
+            .filter_map(|s| s.actions.last().map(|a| a.at as f64))
+            .fold(0.0_f64, f64::max);
+        let video_dur = self.video_duration_ms.unwrap_or(0.0);
+        let audio_dur = self
+            .audio_waveform
+            .as_ref()
+            .map(|w| w.duration_secs * 1000.0)
+            .unwrap_or(0.0);
+        script_dur.max(multi_dur).max(video_dur).max(audio_dur)
+    }
+
+    /// Evaluates the true instantaneous physical movement percentage for any given axis channel [0.0, 100.0]
+    pub fn get_physical_position(&self, axis: AxisChannel) -> f32 {
+        if self.is_playing && self.recorder.is_recording_active && axis == AxisChannel::Stroke {
+            self.recorder.live_pos
+        } else {
+            let pos_map = self.evaluate_current_positions();
+            *pos_map.get(&axis).unwrap_or(&50.0)
+        }
     }
 
     pub fn switch_axis(&mut self, new_axis: AxisChannel) {
@@ -1396,6 +1427,13 @@ impl FunGenApp {
     fn poll_waveform(&mut self) {
         if let Some(ref rx) = self.waveform_rx {
             if let Ok(wf) = rx.try_recv() {
+                let wf_dur_ms = wf.duration_secs * 1000.0;
+                if self.video_duration_ms.is_none() {
+                    self.video_duration_ms = Some(wf_dur_ms);
+                }
+                if self.timeline_state.content_duration_ms.is_none() {
+                    self.timeline_state.content_duration_ms = Some(wf_dur_ms);
+                }
                 self.audio_waveform = Some(wf);
                 self.waveform_rx = None;
                 self.set_status("Audio waveform extracted and loaded".to_string());
@@ -1495,7 +1533,7 @@ impl FunGenApp {
                 }
 
                 if !looped {
-                    let duration_ms = self.script.actions.last().map(|a| a.at).unwrap_or(0);
+                    let duration_ms = self.get_content_duration_ms().round() as i64;
                     if duration_ms > 0 && self.timeline_state.cursor_time_ms > duration_ms {
                         self.timeline_state.cursor_time_ms = 0; // Loop playback
                         if let Some(ref path) = self.video_path {
@@ -1658,7 +1696,11 @@ impl FunGenApp {
     // View 1: Studio Editor (F1)
     // =========================================================================
     fn render_studio_view(&mut self, ui: &mut Ui) {
-        let duration_ms = self.script.actions.last().map(|a| a.at).unwrap_or(0);
+        let content_dur = self.get_content_duration_ms();
+        if content_dur > 0.0 {
+            self.timeline_state.content_duration_ms = Some(content_dur);
+        }
+        let duration_ms = content_dur.round() as i64;
 
         // Top Section: Embedded Synchronized Video + Inspector Sidebar
         let top_height = 240.0;
@@ -1726,33 +1768,76 @@ impl FunGenApp {
                     });
                 });
 
-                // Vertical Tactile Puppet Slider Strip
+                // Physical Movement Percentage & Tactile Stroke Knob Slider Strip
                 ui.vertical(|ui| {
-                    ui.set_width(38.0);
-                    ui.label(RichText::new("Puppet").size(10.0).color(Color32::GRAY));
-                    let mut cur_slider_pos = self.recorder.live_pos;
+                    ui.set_width(50.0);
+
+                    // Axis selector dropdown (e.g. "Stroke (L0)", "Surge (L1)", etc.)
+                    let (cr, cg, cb) = self.movement_axis.color_rgb();
+                    let axis_color = Color32::from_rgb(cr, cg, cb);
+
+                    ui.horizontal(|ui| {
+                        ui.menu_button(
+                            RichText::new(self.movement_axis.tcode_axis()).size(10.0).color(axis_color).strong(),
+                            |ui| {
+                                for axis in AxisChannel::ALL {
+                                    let is_sel = axis == self.movement_axis;
+                                    let (r, g, b) = axis.color_rgb();
+                                    let col = Color32::from_rgb(r, g, b);
+                                    if ui.selectable_label(is_sel, RichText::new(axis.display_name()).color(col)).clicked() {
+                                        self.movement_axis = axis;
+                                        ui.close_menu();
+                                    }
+                                }
+                            },
+                        ).response.on_hover_text("Select motion axis to monitor or puppet (Click to choose Stroke, Surge, Sway, etc.)");
+                    });
+
+                    // Live physical position for selected movement axis
+                    let cur_physical = self.get_physical_position(self.movement_axis);
+                    let is_rec = self.is_playing && self.recorder.is_recording_active && self.movement_axis == AxisChannel::Stroke;
+
+                    let mut slider_val = if is_rec {
+                        self.recorder.live_pos
+                    } else {
+                        cur_physical
+                    };
+
+                    let slider_h = (video_h - 68.0).max(80.0);
                     let slider_res = ui.add_sized(
-                        egui::vec2(32.0, video_h - 60.0),
-                        Slider::new(&mut cur_slider_pos, 0.0..=100.0)
+                        egui::vec2(36.0, slider_h),
+                        Slider::new(&mut slider_val, 0.0..=100.0)
                             .vertical()
                             .show_value(false),
                     );
+
                     if slider_res.changed() {
-                        self.recorder.live_pos = cur_slider_pos;
-                        if self.is_playing && self.recorder.is_armed {
-                            self.recorder.sample(self.timeline_state.cursor_time_ms, cur_slider_pos);
-                        }
-                    }
-                    if slider_res.hovered() {
-                        let scroll = ui.input(|i| i.raw_scroll_delta.y);
-                        if scroll.abs() > 0.1 {
-                            self.recorder.live_pos = (self.recorder.live_pos + scroll * 0.5).clamp(0.0, 100.0);
+                        if self.movement_axis == AxisChannel::Stroke {
+                            self.recorder.live_pos = slider_val;
                             if self.is_playing && self.recorder.is_armed {
-                                self.recorder.sample(self.timeline_state.cursor_time_ms, self.recorder.live_pos);
+                                self.recorder.sample(self.timeline_state.cursor_time_ms, slider_val);
                             }
                         }
                     }
-                    ui.monospace(RichText::new(format!("{:.0}%", self.recorder.live_pos)).size(10.0).strong());
+
+                    if slider_res.hovered() {
+                        let scroll = ui.input(|i| i.raw_scroll_delta.y);
+                        if scroll.abs() > 0.1 {
+                            let next = (slider_val + scroll * 0.5).clamp(0.0, 100.0);
+                            if self.movement_axis == AxisChannel::Stroke {
+                                self.recorder.live_pos = next;
+                                if self.is_playing && self.recorder.is_armed {
+                                    self.recorder.sample(self.timeline_state.cursor_time_ms, next);
+                                }
+                            }
+                        }
+                    }
+
+                    // Display actual physical movement percentage
+                    ui.vertical_centered(|ui| {
+                        ui.label(RichText::new(format!("{:.0}%", cur_physical)).size(11.0).color(axis_color).strong())
+                            .on_hover_text(format!("Actual physical position: {:.1}%", cur_physical));
+                    });
                 });
 
                 ui.separator();
@@ -2289,8 +2374,8 @@ impl FunGenApp {
                 self.render_recorder_overlay(ui.painter(), video_rect);
             }
 
-            // Floating Right-Side Tactile Puppet Slider
-            let slider_w = 40.0;
+            // Floating Right-Side Tactile Movement Slider & Stroke Knob
+            let slider_w = 46.0;
             let slider_h = (avail_rect.height() * 0.45).clamp(160.0, 320.0);
             let slider_rect = egui::Rect::from_min_size(
                 egui::pos2(avail_rect.right() - slider_w - 12.0, avail_rect.top() + 40.0),
@@ -2301,30 +2386,59 @@ impl FunGenApp {
                 ui.painter().rect_stroke(slider_rect, 6.0, egui::Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(80, 95, 120, 180)), egui::StrokeKind::Middle);
                 ui.vertical_centered(|ui| {
                     ui.add_space(4.0);
-                    ui.label(RichText::new("PUPPET").size(9.0).color(Color32::LIGHT_GRAY));
-                    let mut s_pos = self.recorder.live_pos;
+                    let (cr, cg, cb) = self.movement_axis.color_rgb();
+                    let axis_color = Color32::from_rgb(cr, cg, cb);
+
+                    ui.menu_button(
+                        RichText::new(self.movement_axis.tcode_axis()).size(9.0).color(axis_color).strong(),
+                        |ui| {
+                            for axis in AxisChannel::ALL {
+                                let is_sel = axis == self.movement_axis;
+                                let (r, g, b) = axis.color_rgb();
+                                let col = Color32::from_rgb(r, g, b);
+                                if ui.selectable_label(is_sel, RichText::new(axis.display_name()).color(col)).clicked() {
+                                    self.movement_axis = axis;
+                                    ui.close_menu();
+                                }
+                            }
+                        },
+                    );
+
+                    let cur_physical = self.get_physical_position(self.movement_axis);
+                    let is_rec = self.is_playing && self.recorder.is_recording_active && self.movement_axis == AxisChannel::Stroke;
+                    let mut s_pos = if is_rec {
+                        self.recorder.live_pos
+                    } else {
+                        cur_physical
+                    };
+
                     let s_res = ui.add_sized(
-                        egui::vec2(28.0, slider_h - 48.0),
+                        egui::vec2(32.0, slider_h - 52.0),
                         Slider::new(&mut s_pos, 0.0..=100.0)
                             .vertical()
                             .show_value(false),
                     );
                     if s_res.changed() {
-                        self.recorder.live_pos = s_pos;
-                        if self.is_playing && self.recorder.is_armed {
-                            self.recorder.sample(self.timeline_state.cursor_time_ms, s_pos);
+                        if self.movement_axis == AxisChannel::Stroke {
+                            self.recorder.live_pos = s_pos;
+                            if self.is_playing && self.recorder.is_armed {
+                                self.recorder.sample(self.timeline_state.cursor_time_ms, s_pos);
+                            }
                         }
                     }
                     if s_res.hovered() {
                         let scroll = ui.input(|i| i.raw_scroll_delta.y);
                         if scroll.abs() > 0.1 {
-                            self.recorder.live_pos = (self.recorder.live_pos + scroll * 0.5).clamp(0.0, 100.0);
-                            if self.is_playing && self.recorder.is_armed {
-                                self.recorder.sample(self.timeline_state.cursor_time_ms, self.recorder.live_pos);
+                            let next = (s_pos + scroll * 0.5).clamp(0.0, 100.0);
+                            if self.movement_axis == AxisChannel::Stroke {
+                                self.recorder.live_pos = next;
+                                if self.is_playing && self.recorder.is_armed {
+                                    self.recorder.sample(self.timeline_state.cursor_time_ms, next);
+                                }
                             }
                         }
                     }
-                    ui.label(RichText::new(format!("{:.0}%", self.recorder.live_pos)).size(10.0).strong());
+                    ui.monospace(RichText::new(format!("{:.0}%", cur_physical)).size(10.0).color(axis_color).strong());
                 });
             });
         } else {
@@ -2450,7 +2564,7 @@ impl FunGenApp {
             });
 
             // Scrubber slider
-            let duration_ms = self.script.actions.last().map(|a| a.at).unwrap_or(0);
+            let duration_ms = self.get_content_duration_ms().round() as i64;
             if duration_ms > 0 {
                 let mut scrub_time = self.timeline_state.cursor_time_ms;
                 if ui.add(
@@ -3680,11 +3794,17 @@ impl FunGenApp {
                     meta.width, meta.height, meta.fps, meta.duration_secs, meta.total_frames
                 ));
                 self.target_fps = meta.fps;
+                let dur_ms = meta.duration_secs * 1000.0;
+                self.video_duration_ms = Some(dur_ms);
+                self.timeline_state.content_duration_ms = Some(dur_ms);
                 meta.fps
             } else {
                 30.0
             };
             self.video_path = Some(path.clone());
+            if self.script.actions.is_empty() {
+                self.fit_timeline();
+            }
             self.playback_streamer = Some(crate::video::PlaybackStreamer::new(
                 &path,
                 480,
@@ -3750,9 +3870,17 @@ impl FunGenApp {
     }
 
     fn fit_timeline(&mut self) {
-        if let Some(last) = self.script.actions.last() {
+        let dur = self.get_content_duration_ms();
+        if dur > 0.0 {
+            self.timeline_state.content_duration_ms = Some(dur);
             self.timeline_state.view_start_ms = 0.0;
-            self.timeline_state.view_duration_ms = (last.at as f64).max(5000.0);
+            self.timeline_state.view_duration_ms = (dur * 1.05).max(5000.0);
+        } else if let Some(last) = self.script.actions.last() {
+            self.timeline_state.view_start_ms = 0.0;
+            self.timeline_state.view_duration_ms = (last.at as f64 * 1.05).max(5000.0);
+        } else {
+            self.timeline_state.view_start_ms = 0.0;
+            self.timeline_state.view_duration_ms = 10_000.0;
         }
     }
 
