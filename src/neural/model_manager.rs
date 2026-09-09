@@ -339,6 +339,144 @@ pub fn model_registry() -> Vec<ModelRegistryEntry> {
     ]
 }
 
+/// Status of a registered model on the local system
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModelStatusItem {
+    pub entry: ModelRegistryEntry,
+    pub is_installed: bool,
+    pub local_path: Option<PathBuf>,
+    pub local_size_bytes: Option<u64>,
+}
+
+/// Retrieve status for all registered models
+pub fn get_models_status() -> Vec<ModelStatusItem> {
+    let registry = model_registry();
+    let cache_dir = default_model_cache_dir();
+    let mut results = Vec::new();
+
+    for entry in registry {
+        let cache_target = cache_dir.join(entry.filename);
+        let info = if cache_target.is_file() {
+            inspect_model(&cache_target)
+        } else if entry.filename == DEFAULT_MODEL_NAME {
+            auto_detect_model()
+        } else {
+            None
+        };
+
+        let is_installed = info.as_ref().map(|i| i.is_valid).unwrap_or(false);
+        let local_path = info.as_ref().map(|i| i.path.clone());
+        let local_size_bytes = info.as_ref().map(|i| i.size_bytes);
+
+        results.push(ModelStatusItem {
+            entry,
+            is_installed,
+            local_path,
+            local_size_bytes,
+        });
+    }
+
+    results
+}
+
+/// Summary of the local model cache directory: (path, count, total_bytes)
+pub fn cache_summary() -> (PathBuf, usize, u64) {
+    let cache_dir = default_model_cache_dir();
+    let mut count = 0;
+    let mut total_bytes = 0u64;
+
+    if let Ok(entries) = fs::read_dir(&cache_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_file() && p.extension().and_then(|e| e.to_str()) == Some("onnx") {
+                if let Ok(m) = fs::metadata(&p) {
+                    count += 1;
+                    total_bytes += m.len();
+                }
+            }
+        }
+    }
+
+    (cache_dir, count, total_bytes)
+}
+
+/// Download a model by its registry name, filename, or "default"
+pub fn download_model_by_name<F>(name: &str, progress_fn: F) -> Result<PathBuf, String>
+where
+    F: Fn(u64, u64) + Send + 'static,
+{
+    let target_dir = default_model_cache_dir();
+    fs::create_dir_all(&target_dir)
+        .map_err(|e| format!("Failed to create model cache dir {:?}: {}", target_dir, e))?;
+
+    let lower = name.to_lowercase();
+    if lower == "default" || lower == "legacy" || lower.contains("12n") {
+        return install_or_download_default_model(progress_fn);
+    }
+
+    let registry = model_registry();
+    let entry = registry.iter().find(|e| {
+        e.name.to_lowercase().contains(&lower)
+            || e.filename.to_lowercase().contains(&lower)
+    }).ok_or_else(|| format!("Unknown model '{name}'. Run 'pulsar model list' to view available models."))?;
+
+    let target_path = target_dir.join(entry.filename);
+    if target_path.is_file() {
+        if let Some(info) = inspect_model(&target_path) {
+            if info.is_valid {
+                progress_fn(info.size_bytes, info.size_bytes);
+                return Ok(target_path);
+            }
+        }
+    }
+
+    // Download from release URL
+    let tmp_path = target_dir.join(format!("{}.tmp", entry.filename));
+    let resp = ureq::get(entry.download_url)
+        .call()
+        .map_err(|e| format!("HTTP request to {} failed: {}", entry.download_url, e))?;
+
+    let content_len = resp
+        .headers()
+        .get("content-length")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or((entry.size_estimate_mb * 1_000_000.0) as u64);
+
+    let mut reader = resp.into_body().into_reader();
+    let mut out_file = File::create(&tmp_path)
+        .map_err(|e| format!("Failed to create temp file {:?}: {}", tmp_path, e))?;
+
+    let mut downloaded = 0u64;
+    let mut buffer = [0u8; 65536];
+
+    loop {
+        match reader.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => {
+                out_file
+                    .write_all(&buffer[..n])
+                    .map_err(|e| format!("Failed writing to temp model: {}", e))?;
+                downloaded += n as u64;
+                progress_fn(downloaded, content_len);
+            }
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(format!("Download stream read error: {}", e)),
+        }
+    }
+
+    out_file
+        .flush()
+        .map_err(|e| format!("Failed to flush model file: {}", e))?;
+    drop(out_file);
+
+    fs::rename(&tmp_path, &target_path)
+        .map_err(|e| format!("Failed to finalize model file: {}", e))?;
+
+    Ok(target_path)
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;

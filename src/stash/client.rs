@@ -174,6 +174,56 @@ impl StashClient {
         let ok = data.get("metadataScan").and_then(|v| v.as_bool()).unwrap_or(true);
         Ok(ok)
     }
+
+    /// Create or find a tag and attach it to a scene in Stash
+    pub fn tag_scene(&self, scene_id: &str, tag_name: &str) -> Result<()> {
+        let find_tag_query = r#"
+            query FindTag($name: String!) {
+                findTags(tag_filter: { name: { value: $name, modifier: EQUALS } }) {
+                    tags { id name }
+                }
+            }
+        "#;
+        let data = self.execute_graphql(find_tag_query, json!({ "name": tag_name }))?;
+        let tag_id = if let Some(tags) = data.get("findTags").and_then(|f| f.get("tags")).and_then(|t| t.as_array()) {
+            if let Some(first) = tags.first() {
+                first.get("id").and_then(|i| i.as_str()).map(|s| s.to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let effective_tag_id = match tag_id {
+            Some(id) => id,
+            None => {
+                let create_tag_query = r#"
+                    mutation TagCreate($input: TagCreateInput!) {
+                        tagCreate(input: $input) { id }
+                    }
+                "#;
+                let cdata = self.execute_graphql(create_tag_query, json!({ "input": { "name": tag_name } }))?;
+                cdata.get("tagCreate").and_then(|t| t.get("id")).and_then(|i| i.as_str()).unwrap_or("").to_string()
+            }
+        };
+
+        if !effective_tag_id.is_empty() {
+            let update_query = r#"
+                mutation SceneUpdate($input: SceneUpdateInput!) {
+                    sceneUpdate(input: $input) { id }
+                }
+            "#;
+            let _ = self.execute_graphql(update_query, json!({
+                "input": {
+                    "id": scene_id,
+                    "tag_ids": [effective_tag_id]
+                }
+            }))?;
+        }
+
+        Ok(())
+    }
 }
 
 /// Helper function to build GraphQL query payloads for offline testing

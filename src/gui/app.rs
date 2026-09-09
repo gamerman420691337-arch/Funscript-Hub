@@ -997,6 +997,16 @@ impl FunGenApp {
             self.set_status("Cleared selection".to_string());
         }
 
+        // Toggle Keyboard & Mouse Shortcuts Cheat Sheet (? or Ctrl+H)
+        if ctx.input(|i| {
+            let ctrl = i.modifiers.command || i.modifiers.ctrl;
+            (ctrl && i.key_pressed(egui::Key::H))
+                || i.key_pressed(egui::Key::Questionmark)
+                || (i.modifiers.shift && i.key_pressed(egui::Key::Slash))
+        }) {
+            self.help_dialog_open = !self.help_dialog_open;
+        }
+
         if ctx.input(|i| i.key_pressed(egui::Key::F1)) {
             self.active_tab = HubTab::Studio;
         }

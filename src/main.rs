@@ -22,8 +22,9 @@ use indicatif::{ProgressBar, ProgressStyle};
 use neural::tracker::AnatomicalTracker;
 use neural::NeuralDetector;
 use signal::{detrend_and_normalize, extract_actions, extract_actions_full_range, integrate_flow};
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tracking::{
     compute_dense_flow, detect_cut_photometric, filter_centers_median, find_divergence_center,
     project_adaptive_motion, project_companion_motion,
@@ -138,6 +139,10 @@ enum Commands {
         /// Adaptive vision-to-motion profile: economy, specialist, default, dense, geometry
         #[arg(long, default_value = "default")]
         profile: String,
+
+        /// Export detected scene cut timestamps to a JSON file
+        #[arg(long)]
+        cuts: Option<PathBuf>,
     },
 
     /// Audit and lint an existing .funscript with Script Doctor
@@ -252,11 +257,66 @@ enum Commands {
         bundle: bool,
     },
 
+    /// Manage and pre-download neural ONNX tracking models
+    Model {
+        #[command(subcommand)]
+        command: ModelCommands,
+    },
+
+    /// Run a system hardware performance microbenchmark (Optical Flow, FFT DSP, CUDA)
+    Bench,
+
+    /// Generate shell autocompletions for bash, zsh, fish, powershell, or elvish
+    Completions {
+        /// Shell type
+        shell: clap_complete::Shell,
+    },
+
+    /// Headless interactive player streaming funscripts to hardware (Serial T-Code, Handy, or Buttplug.io)
+    Play {
+        /// Path to video or media file
+        video: PathBuf,
+
+        /// Path to .funscript file (defaults to matching companion script)
+        #[arg(short, long)]
+        script: Option<PathBuf>,
+
+        /// Serial COM port for OSR2/SR6 T-Code (e.g. /dev/ttyACM0 or COM3)
+        #[arg(long)]
+        serial: Option<String>,
+
+        /// Baud rate for serial port (default: 115200)
+        #[arg(long, default_value_t = 115200)]
+        baud: u32,
+
+        /// Handy connection key for Wi-Fi streaming
+        #[arg(long)]
+        handy: Option<String>,
+
+        /// Buttplug.io / Intiface Central WebSocket URL (default: ws://127.0.0.1:12345)
+        #[arg(long)]
+        buttplug: Option<String>,
+    },
+
     /// Stash Media Server GraphQL integration and automation
     Stash {
         #[command(subcommand)]
         command: StashCommands,
     },
+}
+
+#[derive(Subcommand)]
+enum ModelCommands {
+    /// List all registered neural models, profiles, and download statuses
+    List,
+    /// Download a specific neural model by name or "default"
+    Download {
+        /// Model name (e.g. "default", "yolo26", "sam31", "tapnext")
+        #[arg(default_value = "default")]
+        model: String,
+    },
+    /// Display model cache location, count, and disk usage
+    Status,
 }
 
 #[derive(Subcommand)]
@@ -298,6 +358,10 @@ enum StashCommands {
         /// Generate full 6-DOF companion bundle
         #[arg(long, default_value_t = false)]
         multi_axis: bool,
+
+        /// Automatically tag processed scenes in Stash
+        #[arg(long)]
+        tag: Option<String>,
     },
 }
 
@@ -337,6 +401,7 @@ fn main() -> Result<()> {
             cut_flow,
             multi_axis,
             profile,
+            cuts,
         }) => {
             let eff_width = width.unwrap_or(if model.is_some() { 640 } else { 256 });
             let eff_height = height.unwrap_or(if model.is_some() { 640 } else { 256 });
@@ -360,6 +425,7 @@ fn main() -> Result<()> {
                 cut_flow,
                 multi_axis,
                 &profile,
+                cuts.as_deref(),
             )?;
         }
         Some(Commands::Doctor { script, max_speed }) => {
@@ -367,6 +433,25 @@ fn main() -> Result<()> {
         }
         Some(Commands::Info { video }) => {
             run_info(&video)?;
+        }
+        Some(Commands::Model { command }) => {
+            run_model(command)?;
+        }
+        Some(Commands::Bench) => {
+            run_bench()?;
+        }
+        Some(Commands::Completions { shell }) => {
+            run_completions(shell)?;
+        }
+        Some(Commands::Play {
+            video,
+            script,
+            serial,
+            baud,
+            handy,
+            buttplug,
+        }) => {
+            run_play(&video, script.as_deref(), serial, baud, handy, buttplug)?;
         }
         Some(Commands::Scan {
             folder,
@@ -430,8 +515,9 @@ fn main() -> Result<()> {
                 api_key,
                 model,
                 multi_axis,
+                tag,
             } => {
-                run_stash_auto_generate(&url, api_key.as_deref(), limit, model.as_deref(), multi_axis)?;
+                run_stash_auto_generate(&url, api_key.as_deref(), limit, model.as_deref(), multi_axis, tag.as_deref())?;
             }
         },
     }
@@ -554,6 +640,7 @@ fn run_generate(
     cut_flow_threshold: f32,
     multi_axis: bool,
     profile_str: &str,
+    cuts_path: Option<&Path>,
 ) -> Result<()> {
     let t0 = Instant::now();
     let meta = probe_video(video_path).context("Failed to probe input video")?;
@@ -562,7 +649,37 @@ fn run_generate(
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| video_path.with_extension("funscript"));
 
-    let is_neural = model_path.is_some();
+    let resolved_model: Option<PathBuf> = match model_path {
+        Some(p) => Some(p.to_path_buf()),
+        None => {
+            if profile_str != "economy" && !vr_mode && !pov_mode {
+                if let Some(info) = crate::neural::model_manager::auto_detect_model() {
+                    Some(info.path)
+                } else {
+                    println!("Neural vision model not found locally. Auto-downloading default SOTA YOLO model...");
+                    match crate::neural::model_manager::install_or_download_default_model(|downloaded, total| {
+                        if total > 0 {
+                            let pct = (downloaded as f64 / total as f64) * 100.0;
+                            print!("\rDownloading: {:.1}% ({:.1} MB / {:.1} MB)", pct, downloaded as f64 / 1_048_576.0, total as f64 / 1_048_576.0);
+                            let _ = std::io::stdout().flush();
+                        }
+                    }) {
+                        Ok(p) => {
+                            println!("\nModel ready: {}", p.display());
+                            Some(p)
+                        }
+                        Err(e) => {
+                            eprintln!("\nNotice: Auto-download skipped ({e}). Falling back to optical flow.");
+                            None
+                        }
+                    }
+                }
+            } else {
+                None
+            }
+        }
+    };
+    let is_neural = resolved_model.is_some();
     let adaptive_profile = crate::neural::pipeline::AdaptiveProfile::parse_str(profile_str)
         .unwrap_or(crate::neural::pipeline::AdaptiveProfile::GenericDefault);
 
@@ -583,7 +700,7 @@ fn run_generate(
         "CPU (Multi-Threaded SIMD)"
     };
     println!("Compute Backend: {}", backend);
-    if let Some(m) = model_path {
+    if let Some(m) = resolved_model.as_deref() {
         println!("ONNX Model:    {} (conf: {:.2})", m.display(), conf_threshold);
     }
     if multi_axis {
@@ -591,7 +708,7 @@ fn run_generate(
     }
     println!("--------------------------------------------------");
 
-    let mut neural_detector = if let Some(m) = model_path {
+    let mut neural_detector = if let Some(m) = resolved_model.as_deref() {
         Some(NeuralDetector::new(m, conf_threshold)?)
     } else {
         None
@@ -770,6 +887,7 @@ fn run_generate(
     };
 
     let mut total_processed = 0u64;
+    let mut detected_cuts: Vec<serde_json::Value> = Vec::new();
 
     while let Some((mut curr_raw, curr_ts)) = stream.next_frame()? {
         let curr_gray = if stream_cfg.is_rgb && !is_neural { Some(rgb_to_gray(&curr_raw)) } else { None };
@@ -800,6 +918,12 @@ fn run_generate(
         // but replacing ctx.field would force re-allocation on the next resize().
         let flow = compute_dense_flow(prev_ref, curr_ref, flow_w, flow_h, &mut flow_ctx).clone();
         let is_cut = is_cut_diff && (flow.mean_magnitude() > cut_flow_threshold);
+        if is_cut {
+            detected_cuts.push(serde_json::json!({
+                "frame": total_processed + window.len() as u64,
+                "timestamp_ms": curr_ts,
+            }));
+        }
 
         let center = if pov_mode {
             ((flow_w / 2) as f32, (flow_h - 1) as f32)
@@ -1003,6 +1127,16 @@ fn run_generate(
         println!("==================================================");
     }
 
+    if let Some(cp) = cuts_path {
+        let cuts_json = serde_json::to_string_pretty(&serde_json::json!({
+            "video": video_path.to_string_lossy(),
+            "total_cuts": detected_cuts.len(),
+            "cuts": detected_cuts,
+        }))?;
+        std::fs::write(cp, cuts_json)?;
+        println!("Scene boundaries exported: {}", cp.display());
+    }
+
     Ok(())
 }
 
@@ -1131,6 +1265,7 @@ fn run_batch(
             8.0,
             multi_axis,
             config.profile.short_name(),
+            None,
         ) {
             Ok(_) => {
                 succeeded += 1;
@@ -1203,6 +1338,7 @@ fn run_stash_auto_generate(
     limit: u32,
     model: Option<&Path>,
     multi_axis: bool,
+    tag: Option<&str>,
 ) -> Result<()> {
     use stash::client::{StashClient, StashConfig};
 
@@ -1261,9 +1397,16 @@ fn run_stash_auto_generate(
             8.0,
             multi_axis,
             "default",
+            None,
         ) {
             Ok(_) => {
                 generated_paths.push(file.path.clone());
+                if let Some(t) = tag {
+                    match client.tag_scene(&scene.id, t) {
+                        Ok(_) => println!("✓ Tagged scene {} with '{}' in Stash", scene.id, t),
+                        Err(e) => eprintln!("Notice: Could not tag scene {}: {e}", scene.id),
+                    }
+                }
                 println!("✓ Successfully generated {}", script_output.display());
             }
             Err(e) => {
@@ -1416,6 +1559,264 @@ fn run_audio_synth(
         );
     }
 
+    Ok(())
+}
+
+fn run_model(command: ModelCommands) -> Result<()> {
+    use crate::neural::model_manager::*;
+    match command {
+        ModelCommands::List => {
+            println!("==================================================");
+            println!("Pulsar Neural Vision Models");
+            println!("==================================================");
+            let status = get_models_status();
+            let (cache_dir, _, _) = cache_summary();
+            println!("Cache Directory: {}\n", cache_dir.display());
+            println!("{:<14} {:<24} {:<10} {:<12} {}", "ID", "FILENAME", "SIZE", "STATUS", "DESCRIPTION");
+            println!("{:-<14} {:-<24} {:-<10} {:-<12} {:-<30}", "", "", "", "", "");
+            for item in status {
+                let size_str = if item.is_installed {
+                    format!("{:.1} MB", item.local_size_bytes.unwrap_or(0) as f64 / 1_048_576.0)
+                } else {
+                    "-".to_string()
+                };
+                let status_str = if item.is_installed { "Installed" } else { "Available" };
+                let default_badge = if item.entry.filename == DEFAULT_MODEL_NAME { " [default]" } else { "" };
+                println!("{:<14} {:<24} {:<10} {:<12} {}{}", item.entry.name, item.entry.filename, size_str, status_str, item.entry.description, default_badge);
+            }
+            println!("==================================================");
+            println!("Run `pulsar model download <ID>` to download a model.");
+        }
+        ModelCommands::Download { model } => {
+            println!("Downloading model '{}'...", model);
+            let path = download_model_by_name(&model, |downloaded, total| {
+                if total > 0 {
+                    let pct = (downloaded as f64 / total as f64) * 100.0;
+                    print!("\rDownloading: {:.1}% ({:.1} MB / {:.1} MB)", pct, downloaded as f64 / 1_048_576.0, total as f64 / 1_048_576.0);
+                    let _ = std::io::stdout().flush();
+                }
+            }).map_err(|e| anyhow::anyhow!(e))?;
+            println!("\n✓ Model ready at: {}", path.display());
+        }
+        ModelCommands::Status => {
+            let (cache_dir, count, total_bytes) = cache_summary();
+            println!("Model Cache Summary:");
+            println!("  Path:            {}", cache_dir.display());
+            println!("  Installed count: {}", count);
+            println!("  Total footprint: {:.2} MB", total_bytes as f64 / 1_048_576.0);
+        }
+    }
+    Ok(())
+}
+
+fn run_bench() -> Result<()> {
+    println!("==================================================");
+    println!("Pulsar Engine Hardware Benchmark");
+    println!("==================================================");
+    println!("System Architecture: {} {}", std::env::consts::OS, std::env::consts::ARCH);
+    println!("CPU Worker Threads:  {}", rayon::current_num_threads());
+    let cuda = crate::neural::is_cuda_supported();
+    println!("CUDA GPU Engine:     {}", if cuda { "Available & Ready" } else { "Unavailable (CPU SIMD active)" });
+    println!("--------------------------------------------------");
+
+    // 1. Lucas-Kanade Optical Flow (256x256)
+    println!("Benchmarking Dense Lucas-Kanade (256x256)...");
+    let w = 256;
+    let h = 256;
+    let p0 = vec![128u8; w * h];
+    let mut p1 = vec![128u8; w * h];
+    for i in (0..p1.len()).step_by(4) {
+        p1[i] = 135;
+    }
+    let mut ctx = crate::tracking::FlowScratchContext::new(w, h);
+
+    // Warmup
+    for _ in 0..5 {
+        let _ = crate::tracking::compute_dense_flow(&p0, &p1, w, h, &mut ctx);
+    }
+    let iterations = 50;
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let _ = crate::tracking::compute_dense_flow(&p0, &p1, w, h, &mut ctx);
+    }
+    let elapsed = start.elapsed();
+    let fps_256 = iterations as f64 / elapsed.as_secs_f64();
+    println!("  256x256 Flow Speed:  {:.1} FPS ({:.2} ms/frame)", fps_256, (elapsed.as_secs_f64() * 1000.0) / iterations as f64);
+
+    // 2. Audio Spectral FFT
+    println!("Benchmarking Spectral Cooley-Tukey FFT (256-bin)...");
+    let fft = crate::audio::spectral::CooleyTukeyFft::new();
+    let fft_iters = 10_000;
+    let dummy_samples = [0.5f32; crate::audio::spectral::FFT_SIZE];
+    let fft_start = Instant::now();
+    for _ in 0..fft_iters {
+        let _ = fft.compute_16_bands(&dummy_samples);
+    }
+    let fft_elapsed = fft_start.elapsed();
+    let fft_rate = fft_iters as f64 / fft_elapsed.as_secs_f64();
+    println!("  FFT Transforms:      {:.0} transforms/sec ({:.2} µs/transform)", fft_rate, (fft_elapsed.as_secs_f64() * 1_000_000.0) / fft_iters as f64);
+
+    // 3. S-Curve Quintic Kinematics Interpolator
+    println!("Benchmarking S-Curve Kinematics Engine...");
+    let scurve_iters = 100_000;
+    let sc_start = Instant::now();
+    let mut dummy_val = 0.0f32;
+    for i in 0..scurve_iters {
+        let t = (i % 1000) as f32 / 1000.0;
+        dummy_val += crate::kinematics::scurve::quintic_smoothstep(t);
+    }
+    let sc_elapsed = sc_start.elapsed();
+    let sc_rate = scurve_iters as f64 / sc_elapsed.as_secs_f64();
+    println!("  Interpolations:      {:.0} evaluations/sec", sc_rate);
+    std::hint::black_box(dummy_val);
+
+    println!("==================================================");
+    println!("Benchmark Complete. System is optimized for Pulsar.");
+    println!("==================================================");
+    Ok(())
+}
+
+fn run_completions(shell: clap_complete::Shell) -> Result<()> {
+    use clap::CommandFactory;
+    use clap_complete::generate;
+    let mut cmd = Cli::command();
+    generate(shell, &mut cmd, "pulsar", &mut std::io::stdout());
+    Ok(())
+}
+
+fn run_play(
+    video: &Path,
+    script: Option<&Path>,
+    serial: Option<String>,
+    baud: u32,
+    handy: Option<String>,
+    buttplug: Option<String>,
+) -> Result<()> {
+    let script_path = match script {
+        Some(s) => s.to_path_buf(),
+        None => {
+            let candidate = video.with_extension("funscript");
+            if candidate.is_file() {
+                candidate
+            } else {
+                anyhow::bail!("No funscript specified or found for video '{}'. Generate one first with `pulsar generate`.", video.display());
+            }
+        }
+    };
+
+    println!("==================================================");
+    println!("Pulsar Real-Time Hardware Player");
+    println!("==================================================");
+    println!("Media:   {}", video.display());
+    println!("Script:  {}", script_path.display());
+
+    let funscript = Funscript::load(&script_path)
+        .with_context(|| format!("Failed to load funscript from {}", script_path.display()))?;
+
+    if funscript.actions.is_empty() {
+        anyhow::bail!("Funscript contains no actions to play.");
+    }
+
+    println!("Actions: {}", funscript.actions.len());
+
+    let mut serial_dispatcher = if let Some(port_name) = &serial {
+        let mut disp = crate::sync::SerialDispatcher::new();
+        match disp.connect(port_name, baud) {
+            Ok(()) => {
+                println!("Connected to Serial COM Port: {} @ {} baud", port_name, baud);
+                Some(disp)
+            }
+            Err(e) => anyhow::bail!("Failed to connect to serial port {}: {}", port_name, e),
+        }
+    } else {
+        None
+    };
+
+    let mut buttplug_dispatcher = if let Some(server_url) = &buttplug {
+        let mut disp = crate::sync::ButtplugDispatcher::new();
+        match disp.connect_server(crate::sync::ButtplugConfig {
+            server_url: server_url.clone(),
+            client_name: "Pulsar Real-Time Player".to_string(),
+        }) {
+            Ok(()) => {
+                println!("Connected to Intiface / Buttplug server: {}", server_url);
+                // Give devices 1 second to enumerate
+                std::thread::sleep(Duration::from_millis(1000));
+                if let Ok(devs) = disp.known_devices.lock() {
+                    println!("Detected {} Buttplug devices.", devs.len());
+                    for d in devs.values() {
+                        println!("  - [{}] {}", d.index, d.name);
+                    }
+                }
+                Some(disp)
+            }
+            Err(e) => anyhow::bail!("Failed to connect to Buttplug server {}: {}", server_url, e),
+        }
+    } else {
+        None
+    };
+
+    let mut handy_dispatcher = if let Some(key) = &handy {
+        let mut disp = crate::sync::HandyDispatcher::new();
+        disp.connect(key);
+        println!("Connected to The Handy API (key: {}...)", &key[..key.len().min(4)]);
+        Some(disp)
+    } else {
+        None
+    };
+
+    if serial_dispatcher.is_none() && buttplug_dispatcher.is_none() && handy_dispatcher.is_none() {
+        println!("Note: Running in SIMULATION mode (no hardware dispatchers specified). Pass --serial, --buttplug, or --handy to sync with hardware.");
+    }
+
+    println!("--------------------------------------------------");
+    println!("Starting real-time playback... Press Ctrl+C to stop.");
+
+    let start_instant = Instant::now();
+
+    for (i, action) in funscript.actions.iter().enumerate() {
+        let target_ms = action.at;
+        let elapsed_ms = start_instant.elapsed().as_millis() as i64;
+        if target_ms > elapsed_ms {
+            let sleep_dur = Duration::from_millis((target_ms - elapsed_ms) as u64);
+            std::thread::sleep(sleep_dur);
+        }
+
+        // Send to serial T-Code
+        if let Some(disp) = &mut serial_dispatcher {
+            let tcode = format!("L0{:02}I100\n", action.pos);
+            let _ = disp.send_tcode(&tcode);
+        }
+
+        // Send to buttplug linear actuators & vibrators
+        if let Some(disp) = &mut buttplug_dispatcher {
+            let pos_normalized = (action.pos.clamp(0, 100) as f64) / 100.0;
+            disp.send_stroke(pos_normalized, 100);
+            disp.send_vibrate(pos_normalized);
+        }
+
+        // Send to handy
+        if let Some(disp) = &mut handy_dispatcher {
+            if let Some(k) = &handy {
+                let handy_cfg = crate::sync::handy::HandyConfig::default();
+                disp.stream_position(k, action.pos as f32, &handy_cfg, 100);
+            }
+        }
+
+        if i % 10 == 0 || i == funscript.actions.len() - 1 {
+            let cur_s = action.at as f64 / 1000.0;
+            print!("\r[Playing] Time: {:02}:{:05.2} | Pos: {:>3} | Action: {}/{}",
+                (cur_s / 60.0) as u32,
+                cur_s % 60.0,
+                action.pos,
+                i + 1,
+                funscript.actions.len()
+            );
+            let _ = std::io::stdout().flush();
+        }
+    }
+
+    println!("\nPlayback completed successfully.");
     Ok(())
 }
 
