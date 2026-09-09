@@ -1,6 +1,7 @@
 //! GUI module for Pulsar.
 
 pub mod app;
+pub mod live_recorder;
 pub mod rig_simulator;
 pub mod timeline;
 

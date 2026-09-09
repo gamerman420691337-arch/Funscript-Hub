@@ -119,6 +119,7 @@ pub struct FunGenApp {
     pub last_frame_time: Option<Instant>,
     pub audio_player: crate::audio::AudioPlayer,
     pub show_tracking_overlay: bool,
+    pub recorder: crate::gui::live_recorder::LiveRecorderState,
 
     // Generator settings
     pub video_path: Option<PathBuf>,
@@ -257,6 +258,7 @@ impl Default for FunGenApp {
             last_frame_time: None,
             audio_player: crate::audio::AudioPlayer::default(),
             show_tracking_overlay: true,
+            recorder: crate::gui::live_recorder::LiveRecorderState::default(),
 
             video_path: None,
             video_info: None,
@@ -623,20 +625,95 @@ impl FunGenApp {
         self.is_playing = playing;
         if playing {
             self.last_frame_time = Some(Instant::now());
+            if self.recorder.is_armed {
+                self.undo_history.push_snapshot(&self.script);
+                self.recorder.start_take(self.timeline_state.cursor_time_ms);
+            }
             if let Some(ref path) = self.video_path {
                 self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
             }
         } else {
             self.audio_player.pause();
+            if self.recorder.is_recording_active {
+                self.finalize_recording_take();
+            }
         }
     }
 
     pub fn seek_to(&mut self, time_ms: i64) {
+        if self.recorder.is_recording_active {
+            self.finalize_recording_take();
+        }
         self.timeline_state.cursor_time_ms = time_ms.max(0);
         if let Some(ref streamer) = self.playback_streamer {
             streamer.seek_to(self.timeline_state.cursor_time_ms);
         }
         self.audio_player.seek_to(self.timeline_state.cursor_time_ms, self.playback_speed);
+    }
+
+    pub fn finalize_recording_take(&mut self) {
+        if let Some((start_ms, end_ms, actions)) = self.recorder.finish_take() {
+            if !actions.is_empty() {
+                let n = actions.len();
+                crate::gui::live_recorder::LiveRecorderState::splice_take_into_script(
+                    &mut self.script,
+                    start_ms,
+                    end_ms,
+                    &actions,
+                );
+                self.run_doctor();
+                self.set_status(format!("✓ Recorded {} keyframes ({:.2}s take)", n, (end_ms - start_ms).max(0) as f64 / 1000.0));
+            }
+        }
+    }
+
+    pub fn render_recorder_overlay(&self, painter: &egui::Painter, rect: egui::Rect) {
+        if !self.recorder.is_armed {
+            return;
+        }
+
+        let pos_frac = (self.recorder.live_pos / 100.0).clamp(0.0, 1.0);
+        let line_y = if self.recorder.invert_y {
+            rect.top() + pos_frac * rect.height()
+        } else {
+            rect.bottom() - pos_frac * rect.height()
+        };
+
+        let is_rec = self.is_playing && self.recorder.is_recording_active;
+        let line_color = if is_rec {
+            egui::Color32::from_rgb(255, 60, 60)
+        } else {
+            egui::Color32::from_rgb(255, 175, 45)
+        };
+
+        // Horizontal laser guide line
+        painter.line_segment(
+            [egui::pos2(rect.left(), line_y), egui::pos2(rect.right(), line_y)],
+            egui::Stroke::new(2.0_f32, line_color),
+        );
+
+        // Position & status badge
+        let badge_w = 92.0;
+        let badge_h = 22.0;
+        let badge_center = egui::pos2((rect.right() - badge_w / 2.0 - 10.0).max(rect.left() + badge_w / 2.0), line_y);
+        let badge_rect = egui::Rect::from_center_size(badge_center, egui::vec2(badge_w, badge_h));
+
+        painter.rect_filled(badge_rect, 4.0, egui::Color32::from_rgba_unmultiplied(16, 18, 24, 230));
+        painter.rect_stroke(badge_rect, 4.0, egui::Stroke::new(1.5_f32, line_color), egui::StrokeKind::Middle);
+
+        let status_label = if is_rec {
+            format!("● REC {:.0}%", self.recorder.live_pos)
+        } else {
+            format!("ARM {:.0}%", self.recorder.live_pos)
+        };
+
+        painter.text(
+            badge_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            status_label,
+            egui::FontId::monospace(11.0),
+            line_color,
+        );
     }
 
     pub fn render_tracking_overlay(&self, painter: &egui::Painter, video_rect: egui::Rect, cur_pos: f32) {
@@ -1028,6 +1105,16 @@ impl FunGenApp {
 
         // Editing, playback, frame stepping, and axis channel hotkeys (when not typing in an input field)
         if !ctx.wants_keyboard_input() {
+            // R: Toggle Live Motion Recording Arm / Disarm
+            if ctx.input(|i| i.key_pressed(egui::Key::R) && !i.modifiers.ctrl && !i.modifiers.command && !i.modifiers.alt) {
+                if self.recorder.toggle_armed() {
+                    self.set_status("🔴 Live Recording Armed — Press Space to play & move mouse over video/slider to record".to_string());
+                } else {
+                    self.finalize_recording_take();
+                    self.set_status("⏹ Live Recording Disarmed".to_string());
+                }
+            }
+
             // Delete / Backspace: delete selected keyframe(s)
             if ctx.input(|i| i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace)) {
                 self.delete_selected_keyframes();
@@ -1423,11 +1510,23 @@ impl FunGenApp {
                     self.timeline_state.view_start_ms = (self.timeline_state.cursor_time_ms as f64)
                         - self.timeline_state.view_duration_ms * 0.15;
                 }
+
+                // Sample live gestural input when recording is armed
+                if self.recorder.is_armed {
+                    if !self.recorder.is_recording_active {
+                        self.undo_history.push_snapshot(&self.script);
+                        self.recorder.start_take(self.timeline_state.cursor_time_ms);
+                    }
+                    self.recorder.sample(self.timeline_state.cursor_time_ms, self.recorder.live_pos);
+                }
             }
             self.last_frame_time = Some(now);
 
             // Hardware Kinematics & T-Code Streaming
-            let positions = self.evaluate_current_positions();
+            let mut positions = self.evaluate_current_positions();
+            if self.recorder.is_recording_active {
+                positions.insert(AxisChannel::Stroke, self.recorder.live_pos);
+            }
             let limits = &self.device_profile.limits;
             self.kinematic_state.update(&positions, self.timeline_state.cursor_time_ms, limits);
             self.thermal_model.step(dt_secs as f32, self.kinematic_state.instantaneous_speed, self.kinematic_state.instantaneous_accel);
@@ -1565,36 +1664,95 @@ impl FunGenApp {
         let top_height = 240.0;
         ui.allocate_ui(egui::vec2(ui.available_width(), top_height), |ui| {
             ui.horizontal(|ui| {
-                // Embedded Video Canvas
+                // Embedded Video Canvas with Live Mouse Tracking & Overlay
                 let video_w = 426.0;
                 let video_h = 240.0;
                 ui.group(|ui| {
                     ui.set_width(video_w);
                     ui.set_height(video_h);
 
+                    let video_size = egui::vec2(video_w - 8.0, video_h - 28.0);
+                    let (video_rect, _) = ui.allocate_exact_size(video_size, egui::Sense::hover());
+
                     if let Some(ref tex) = self.video_texture {
-                        ui.image((tex.id(), egui::vec2(video_w - 8.0, video_h - 26.0)));
+                        ui.painter().image(
+                            tex.id(),
+                            video_rect,
+                            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                            Color32::WHITE,
+                        );
                     } else if let Some(ref p) = self.video_path {
-                        ui.vertical_centered(|ui| {
-                            ui.add_space(80.0);
-                            ui.label(RichText::new(p.file_name().unwrap_or_default().to_string_lossy()).strong());
-                            ui.label(RichText::new("Loading video frames...").size(11.0).color(Color32::GRAY));
-                        });
+                        ui.painter().rect_filled(video_rect, 4.0, Color32::from_rgb(20, 22, 28));
+                        ui.painter().text(
+                            video_rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            p.file_name().unwrap_or_default().to_string_lossy(),
+                            egui::FontId::proportional(12.0),
+                            Color32::LIGHT_GRAY,
+                        );
                     } else {
-                        ui.vertical_centered(|ui| {
-                            ui.add_space(80.0);
-                            ui.label(RichText::new("No Video Loaded").color(Color32::GRAY));
-                            if ui.button("Select Video...").clicked() {
-                                self.select_video_dialog();
-                            }
-                        });
+                        ui.painter().rect_filled(video_rect, 4.0, Color32::from_rgb(20, 22, 28));
+                        ui.painter().text(
+                            video_rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            "No Video Loaded",
+                            egui::FontId::proportional(12.0),
+                            Color32::GRAY,
+                        );
                     }
+
+                    // Mouse pointer tracker over Studio video canvas
+                    if let Some(mouse_pos) = ui.ctx().pointer_latest_pos() {
+                        if video_rect.contains(mouse_pos) {
+                            let is_drag = ui.ctx().input(|i| i.pointer.primary_down());
+                            if !self.recorder.require_mouse_drag || is_drag {
+                                let norm_y = 1.0 - ((mouse_pos.y - video_rect.top()) / video_rect.height()).clamp(0.0, 1.0);
+                                let target_pos = if self.recorder.invert_y { (1.0 - norm_y) * 100.0 } else { norm_y * 100.0 };
+                                self.recorder.live_pos = target_pos;
+                                if self.is_playing && self.recorder.is_armed {
+                                    self.recorder.sample(self.timeline_state.cursor_time_ms, target_pos);
+                                }
+                            }
+                        }
+                    }
+
+                    // Render live laser guide line & badge if armed or recording
+                    self.render_recorder_overlay(ui.painter(), video_rect);
 
                     // Video caption overlay
                     ui.horizontal(|ui| {
                         let cur_time_str = format_ms(self.timeline_state.cursor_time_ms);
                         ui.monospace(RichText::new(format!("Frame Time: {cur_time_str}")).size(10.0));
                     });
+                });
+
+                // Vertical Tactile Puppet Slider Strip
+                ui.vertical(|ui| {
+                    ui.set_width(38.0);
+                    ui.label(RichText::new("Puppet").size(10.0).color(Color32::GRAY));
+                    let mut cur_slider_pos = self.recorder.live_pos;
+                    let slider_res = ui.add_sized(
+                        egui::vec2(32.0, video_h - 60.0),
+                        Slider::new(&mut cur_slider_pos, 0.0..=100.0)
+                            .vertical()
+                            .show_value(false),
+                    );
+                    if slider_res.changed() {
+                        self.recorder.live_pos = cur_slider_pos;
+                        if self.is_playing && self.recorder.is_armed {
+                            self.recorder.sample(self.timeline_state.cursor_time_ms, cur_slider_pos);
+                        }
+                    }
+                    if slider_res.hovered() {
+                        let scroll = ui.input(|i| i.raw_scroll_delta.y);
+                        if scroll.abs() > 0.1 {
+                            self.recorder.live_pos = (self.recorder.live_pos + scroll * 0.5).clamp(0.0, 100.0);
+                            if self.is_playing && self.recorder.is_armed {
+                                self.recorder.sample(self.timeline_state.cursor_time_ms, self.recorder.live_pos);
+                            }
+                        }
+                    }
+                    ui.monospace(RichText::new(format!("{:.0}%", self.recorder.live_pos)).size(10.0).strong());
                 });
 
                 ui.separator();
@@ -1617,6 +1775,25 @@ impl FunGenApp {
             let play_label = if self.is_playing { "⏸ Pause (Space)" } else { "▶ Play (Space)" };
             if ui.button(play_label).clicked() {
                 self.toggle_playback();
+            }
+
+            let rec_text = if self.recorder.is_armed {
+                if self.is_playing { "⏹ Recording... (R)" } else { "🔴 Armed (R)" }
+            } else {
+                "🔴 Record (R)"
+            };
+            let rec_btn = if self.recorder.is_armed {
+                egui::Button::new(RichText::new(rec_text).color(Color32::from_rgb(255, 75, 75)).strong())
+            } else {
+                egui::Button::new(rec_text)
+            };
+            if ui.add(rec_btn).on_hover_text("Arm live gestural motion recording (R). Move mouse over video canvas or puppet slider during playback to generate funscript keyframes.").clicked() {
+                if self.recorder.toggle_armed() {
+                    self.set_status("🔴 Live Recording Armed — Start playback (Space) to record".to_string());
+                } else {
+                    self.finalize_recording_take();
+                    self.set_status("⏹ Live Recording Disarmed".to_string());
+                }
             }
 
             let frame_step_ms = (1000.0 / self.target_fps.max(1.0)).round() as i64;
@@ -1646,6 +1823,7 @@ impl FunGenApp {
             // Playback speed selector
             ui.label("Speed:");
             let old_speed = self.playback_speed;
+            ui.selectable_value(&mut self.playback_speed, 0.25, "0.25x");
             ui.selectable_value(&mut self.playback_speed, 0.5, "0.5x");
             ui.selectable_value(&mut self.playback_speed, 1.0, "1.0x");
             ui.selectable_value(&mut self.playback_speed, 1.5, "1.5x");
@@ -1655,6 +1833,11 @@ impl FunGenApp {
                     self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
                 }
             }
+
+            // Quick live recorder configuration
+            ui.separator();
+            ui.checkbox(&mut self.recorder.invert_y, "Invert Y").on_hover_text("Invert mouse vertical axis mapping (top=0, bottom=100)");
+            ui.checkbox(&mut self.recorder.require_mouse_drag, "Drag to REC").on_hover_text("Only capture when primary mouse button is held/dragged");
 
             // Audio Mute & Volume Controls
             ui.separator();
@@ -2084,7 +2267,66 @@ impl FunGenApp {
                 if self.show_tracking_overlay {
                     self.render_tracking_overlay(ui.painter(), video_rect, cur_pos);
                 }
+
+                // Mouse pointer tracker over Cinema video canvas
+                if let Some(mouse_pos) = ui.ctx().pointer_latest_pos() {
+                    // Check if mouse is inside video_rect and above the bottom HUD
+                    let hud_top = avail_rect.bottom() - 65.0;
+                    if video_rect.contains(mouse_pos) && mouse_pos.y < hud_top {
+                        let is_drag = ui.ctx().input(|i| i.pointer.primary_down());
+                        if !self.recorder.require_mouse_drag || is_drag {
+                            let norm_y = 1.0 - ((mouse_pos.y - video_rect.top()) / video_rect.height()).clamp(0.0, 1.0);
+                            let target_pos = if self.recorder.invert_y { (1.0 - norm_y) * 100.0 } else { norm_y * 100.0 };
+                            self.recorder.live_pos = target_pos;
+                            if self.is_playing && self.recorder.is_armed {
+                                self.recorder.sample(self.timeline_state.cursor_time_ms, target_pos);
+                            }
+                        }
+                    }
+                }
+
+                // Render live laser guide line & badge if armed or recording in Cinema
+                self.render_recorder_overlay(ui.painter(), video_rect);
             }
+
+            // Floating Right-Side Tactile Puppet Slider
+            let slider_w = 40.0;
+            let slider_h = (avail_rect.height() * 0.45).clamp(160.0, 320.0);
+            let slider_rect = egui::Rect::from_min_size(
+                egui::pos2(avail_rect.right() - slider_w - 12.0, avail_rect.top() + 40.0),
+                egui::vec2(slider_w, slider_h),
+            );
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(slider_rect), |ui| {
+                ui.painter().rect_filled(slider_rect, 6.0, Color32::from_rgba_unmultiplied(18, 20, 26, 215));
+                ui.painter().rect_stroke(slider_rect, 6.0, egui::Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(80, 95, 120, 180)), egui::StrokeKind::Middle);
+                ui.vertical_centered(|ui| {
+                    ui.add_space(4.0);
+                    ui.label(RichText::new("PUPPET").size(9.0).color(Color32::LIGHT_GRAY));
+                    let mut s_pos = self.recorder.live_pos;
+                    let s_res = ui.add_sized(
+                        egui::vec2(28.0, slider_h - 48.0),
+                        Slider::new(&mut s_pos, 0.0..=100.0)
+                            .vertical()
+                            .show_value(false),
+                    );
+                    if s_res.changed() {
+                        self.recorder.live_pos = s_pos;
+                        if self.is_playing && self.recorder.is_armed {
+                            self.recorder.sample(self.timeline_state.cursor_time_ms, s_pos);
+                        }
+                    }
+                    if s_res.hovered() {
+                        let scroll = ui.input(|i| i.raw_scroll_delta.y);
+                        if scroll.abs() > 0.1 {
+                            self.recorder.live_pos = (self.recorder.live_pos + scroll * 0.5).clamp(0.0, 100.0);
+                            if self.is_playing && self.recorder.is_armed {
+                                self.recorder.sample(self.timeline_state.cursor_time_ms, self.recorder.live_pos);
+                            }
+                        }
+                    }
+                    ui.label(RichText::new(format!("{:.0}%", self.recorder.live_pos)).size(10.0).strong());
+                });
+            });
         } else {
             ui.vertical_centered(|ui| {
                 ui.add_space(avail_rect.height() * 0.35);
@@ -2110,6 +2352,26 @@ impl FunGenApp {
                 if ui.button(play_label).clicked() {
                     self.toggle_playback();
                 }
+
+                let rec_text = if self.recorder.is_armed {
+                    if self.is_playing { "⏹ REC..." } else { "🔴 ARMED" }
+                } else {
+                    "🔴 REC (R)"
+                };
+                let rec_btn = if self.recorder.is_armed {
+                    egui::Button::new(RichText::new(rec_text).color(Color32::from_rgb(255, 75, 75)).strong())
+                } else {
+                    egui::Button::new(rec_text)
+                };
+                if ui.add(rec_btn).on_hover_text("Arm live gestural motion recording (R). Move mouse over video or slider to record.").clicked() {
+                    if self.recorder.toggle_armed() {
+                        self.set_status("🔴 Live Recording Armed — Start playback (Space) to record".to_string());
+                    } else {
+                        self.finalize_recording_take();
+                        self.set_status("⏹ Live Recording Disarmed".to_string());
+                    }
+                }
+
                 if ui.button("⏮").clicked() {
                     self.seek_to(0);
                 }
@@ -2122,6 +2384,7 @@ impl FunGenApp {
                 // Playback speed selector
                 ui.separator();
                 let old_speed = self.playback_speed;
+                ui.selectable_value(&mut self.playback_speed, 0.25, "0.25x");
                 ui.selectable_value(&mut self.playback_speed, 0.5, "0.5x");
                 ui.selectable_value(&mut self.playback_speed, 1.0, "1.0x");
                 ui.selectable_value(&mut self.playback_speed, 1.5, "1.5x");
@@ -2131,6 +2394,11 @@ impl FunGenApp {
                         self.audio_player.play_at(path, self.timeline_state.cursor_time_ms, self.playback_speed);
                     }
                 }
+
+                // Quick recording toggles
+                ui.separator();
+                ui.checkbox(&mut self.recorder.invert_y, "Invert Y");
+                ui.checkbox(&mut self.recorder.require_mouse_drag, "Drag to REC");
 
                 // Audio Mute & Volume Controls
                 ui.separator();

@@ -15,10 +15,11 @@ Pulsar is a high-performance workstation and CLI suite for automated visual and 
 ## 🚀 Key Features
 
 - **Adaptive Fast/Slow ML Architecture**: Combines SAM 3.1 open-vocabulary semantic segmentation, YOLO26 direct NMS/DFL-free top-$K$ tensor decoding, TAPNext++ sparse point tracking with forward-backward cycle consistency, and Bayesian multi-hypothesis occlusion resolution.
+- **Live Gestural Motion Recording ("Puppeteering")**: Real-time interactive funscript capture in both Studio Editor and Cinema Player. Puppet motions directly via mouse Y tracking over the video canvas or tactile vertical slider strip with scroll-wheel support across variable playback speeds (`0.25x`, `0.5x`, `1.0x`, `1.5x`, `2.0x`). Includes automatic inflection point extraction, RDP curve simplification, non-destructive undo/redo splicing, and live hardware mirroring.
 - **Hardware Ecosystem & Live Player**: Direct real-time streaming to USB Serial COM ports (T-Code v0.3), Intiface Central / Buttplug.io v3 WebSockets (hundreds of Bluetooth LE & Wi-Fi toys), The Handy cloud API, and DeoVR/HereSphere VR headsets.
 - **3D Robotic Rig Simulator**: Real-time 60+ FPS interactive 3D forward-kinematics simulator for OSR2 and SR6 multi-axis hardware with servo limit visualization.
 - **Sub-Millisecond Audio Waterfall Spectrogram**: Real-time STFT 16-band perceptual frequency decomposition (Sub-Bass, Mid, High), beat-snapping, and automated haptic infill synthesis.
-- **Interactive Desktop Timeline GUI Editor**: Built with `egui` / `eframe` for ultra-responsive native rendering, live keyframe dragging, pan/zoom, visual motor speed violation heatmaps, and integrated Script Doctor auditing panel.
+- **Interactive Desktop Timeline GUI Editor & Cinema Player**: Built with `egui` / `eframe` for ultra-responsive native rendering, live keyframe dragging, pan/zoom, visual motor speed violation heatmaps, integrated Script Doctor auditing panel, and distraction-free cinema mode.
 - **Hardware Benchmark**: Built-in `pulsar bench` utility measuring Lucas-Kanade optical flow throughput (3,000+ FPS), FFT transforms (700,000+ transforms/sec), and quintic kinematics evaluations (800M+ ops/sec).
 - **Automated Model Manager**: Zero-config auto-download of default SOTA YOLO models, local model catalog discovery, and global caching in `~/.cache/pulsar/models/`.
 - **Stash Media Server Integration & Headless Batch**: Direct GraphQL querying of scenes missing interactive scripts, automated generation, scene auto-tagging, and background batch queues.
@@ -52,6 +53,16 @@ pulsar
 pulsar gui
 ```
 *(Press `?` or `Ctrl+H` inside the GUI to open the interactive keyboard & mouse shortcuts cheat sheet).*
+
+#### 🎬 Live Puppeteering & Motion Recording (Studio & Cinema Modes)
+Pulsar allows authoring and refining funscripts in real time as you watch a video:
+- **Arm / Disarm Recording**: Press `R` or click `🔴 Record (R)` in the transport bar.
+- **Puppet via Mouse Tracking**: Hover or click-drag over the video viewport. A glowing laser guide line tracks your vertical position (`0–100%`) with live badge telemetry.
+- **Puppet via Tactile Slider**: Use the vertical slider strip on the right side of the canvas or hover and spin the mouse scroll wheel.
+- **Slow-Motion Capture**: Drop playback speed to `0.25x` or `0.5x` for hyper-precise tracking during fast or complex scenes.
+- **Curve Simplification**: Recorded samples are processed with automatic directional peak/valley detection and Ramer-Douglas-Peucker (RDP) filtering to produce clean, crisp keyframes without micro-jitters.
+- **Live Hardware Mirroring**: Active hardware (T-Code Serial, Buttplug.io, The Handy) tracks your puppeteered movements in real time as you record.
+- **Undo / Redo Support**: Any recording take cleanly splices into the script over the recorded interval and can be undone with `Ctrl+Z`.
 
 ### 2. Generate Funscripts from Video
 
