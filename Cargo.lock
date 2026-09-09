@@ -2605,28 +2605,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
-name = "open-fungen"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "eframe",
- "image",
- "indicatif",
- "ndarray",
- "ort",
- "rayon",
- "rfd",
- "serde",
- "serde_json",
- "serialport",
- "thiserror 2.0.20",
- "tikv-jemallocator",
- "tungstenite",
- "ureq",
-]
-
-[[package]]
 name = "openssl"
 version = "0.10.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2919,6 +2897,28 @@ name = "profiling"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d595e54a326bc53c1c197b32d295e14b169e3cfeaa8dc82b529f947fba6bcf5"
+
+[[package]]
+name = "pulsar"
+version = "0.8.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "eframe",
+ "image",
+ "indicatif",
+ "ndarray",
+ "ort",
+ "rayon",
+ "rfd",
+ "serde",
+ "serde_json",
+ "serialport",
+ "thiserror 2.0.20",
+ "tikv-jemallocator",
+ "tungstenite",
+ "ureq",
+]
 
 [[package]]
 name = "pxfm"

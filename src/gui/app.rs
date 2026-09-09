@@ -1,4 +1,4 @@
-//! Main Funscript Hub desktop application window.
+//! Main Pulsar desktop application window.
 
 use anyhow::Context;
 use crate::audio::{
@@ -502,7 +502,7 @@ impl eframe::App for FunGenApp {
                         self.help_dialog_open = true;
                         ui.close_menu();
                     }
-                    if ui.button("About Funscript Hub...").clicked() {
+                    if ui.button("About Pulsar...").clicked() {
                         self.about_dialog_open = true;
                         ui.close_menu();
                     }
@@ -3022,7 +3022,7 @@ impl FunGenApp {
 
                 ui.add_space(6.0);
                 ui.label(RichText::new("How to connect:").size(11.0).strong());
-                ui.label(RichText::new("1. In HereSphere or DeoVR on your Quest/Pico/PCVR headset, enable External Sync / WebSocket.\n2. Point it to this PC's local IP address and configured port.\n3. Funscript Hub will automatically lock playhead time, scrubbing, and pause states with zero latency.").size(10.5).color(Color32::from_rgb(170, 180, 195)));
+                ui.label(RichText::new("1. In HereSphere or DeoVR on your Quest/Pico/PCVR headset, enable External Sync / WebSocket.\n2. Point it to this PC's local IP address and configured port.\n3. Pulsar will automatically lock playhead time, scrubbing, and pause states with zero latency.").size(10.5).color(Color32::from_rgb(170, 180, 195)));
             });
 
             ui.add_space(10.0);
@@ -3630,7 +3630,7 @@ impl FunGenApp {
             .resizable(true)
             .default_width(540.0)
             .show(ctx, |ui| {
-                ui.heading("Funscript Hub Controls & Shortcuts");
+                ui.heading("Pulsar Controls & Shortcuts");
                 ui.separator();
 
                 ScrollArea::vertical().max_height(450.0).show(ui, |ui| {
@@ -3810,31 +3810,32 @@ impl FunGenApp {
         }
 
         let mut open = self.about_dialog_open;
-        egui::Window::new("ℹ About Funscript Hub")
+        egui::Window::new("ℹ About Pulsar")
             .open(&mut open)
             .resizable(false)
             .default_width(420.0)
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.heading("Funscript Hub (fs-hub)");
-                    ui.label(RichText::new("v0.1.0 • Pure Rust SOTA Composed Monolith").color(Color32::from_rgb(0, 200, 255)));
+                    ui.heading("⚡ Pulsar — Funscript Generator");
+                    ui.label(RichText::new("v0.8.0 • Neural Kinematic Workstation").color(Color32::from_rgb(0, 200, 255)));
                 });
                 ui.add_space(8.0);
                 ui.separator();
                 ui.add_space(4.0);
 
-                ui.label("Funscript Hub is the open-source, native-first funscript generation, precision editing, and haptic synchronization suite.");
+                ui.label("Pulsar is the open-source, neural-first kinematic workstation, precision funscript generator, and robotic haptic synchronization suite.");
                 ui.add_space(6.0);
 
                 ui.group(|ui| {
                     ui.strong("Core Architectural Highlights:");
                     ui.label("• Pure Rust Native Engine (Zero external C bindings)");
-                    ui.label("• Real-time Lucas-Kanade dense optical flow with Rayon parallelization");
-                    ui.label("• AI Neural YOLOv12 / SAM 2 tracking with ONNX Runtime");
+                    ui.label("• Phase 8 Adaptive Fast/Slow Vision-to-Motion ML Engine");
+                    ui.label("• Multi-hypothesis tracking, SAM 3.1 & YOLO26 top-K direct tensor decoding");
+                    ui.label("• 3D Robotic Rig Simulator (OSR2/SR6) with T-Code v0.3 protocol");
+                    ui.label("• Sub-millisecond multi-band audio waterfall spectrogram & transient infill");
                     ui.label("• 6-DOF Multi-Axis Timeline & Jerk-Limited S-Curve Kinematics");
                     ui.label("• Hardware thermal dissipation wattage protection");
                     ui.label("• Stash GraphQL media server sync & headless batch queue");
-                    ui.label("• T-Code v0.3 protocol dispatcher & DeoVR/HereSphere telemetry");
                 });
 
                 ui.add_space(8.0);
@@ -4103,7 +4104,7 @@ impl FunGenApp {
 
     fn render_automation_view(&mut self, ui: &mut Ui) {
         ScrollArea::vertical().show(ui, |ui| {
-            ui.heading("Funscript Hub: Automation, Stash & Community Plugin Ecosystem");
+            ui.heading("Pulsar: Automation, Stash & Community Plugin Ecosystem");
             ui.label(
                 RichText::new("Centralized control center for media server sync, high-throughput batch generation queues, and procedural macro plugins.")
                     .color(Color32::from_rgb(160, 170, 185)),

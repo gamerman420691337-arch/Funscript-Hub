@@ -31,9 +31,9 @@ use tracking::{
 use video::{probe_video, rgb_to_gray, FrameStreamReader, StreamConfig};
 
 #[derive(Parser)]
-#[command(name = "fs-hub")]
-#[command(about = "Funscript Hub (fs-hub): The unified open-source funscript generation, editing, and auditing suite", long_about = None)]
-#[command(version = "0.1.0")]
+#[command(name = "pulsar")]
+#[command(about = "⚡ Pulsar: Neural Kinematic Workstation & Funscript Generator", long_about = None)]
+#[command(version = "0.8.0")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -262,7 +262,7 @@ fn main() -> Result<()> {
 
     match cli.command {
         None | Some(Commands::Gui) => {
-            println!("Launching Funscript Hub Desktop Application...");
+            println!("Launching Pulsar Desktop Application...");
             gui::run_gui().map_err(|e| anyhow::anyhow!("GUI execution error: {e}"))?;
         }
         Some(Commands::Fix {
@@ -499,7 +499,7 @@ fn run_generate(
         .unwrap_or(crate::neural::pipeline::AdaptiveProfile::GenericDefault);
 
     println!("==================================================");
-    println!("Open-FunGen: Video Motion Tracking Engine");
+    println!("Pulsar: Video Motion Tracking Engine");
     println!("==================================================");
     println!("Input Video:   {}", video_path.display());
     println!("Output Script: {}", effective_output.display());
@@ -902,7 +902,7 @@ fn run_batch(
     use batch::queue::{BatchJobConfig, BatchQueue};
 
     println!("==================================================");
-    println!("Funscript Hub: Headless Batch Processing Queue");
+    println!("Pulsar: Headless Batch Processing Queue");
     println!("==================================================");
     println!("Target Directory: {}", folder.display());
     println!("Recursive Scan:   {}", recursive);
@@ -979,7 +979,7 @@ fn run_stash_list_missing(url: &str, api_key: Option<&str>, limit: u32) -> Resul
     use stash::client::{StashClient, StashConfig};
 
     println!("==================================================");
-    println!("Funscript Hub: Stash Media Server Integration");
+    println!("Pulsar: Stash Media Server Integration");
     println!("==================================================");
     println!("Connecting to Stash endpoint: {}", url);
 
@@ -1028,7 +1028,7 @@ fn run_stash_auto_generate(
     use stash::client::{StashClient, StashConfig};
 
     println!("==================================================");
-    println!("Funscript Hub: Stash Media Server Auto-Generate");
+    println!("Pulsar: Stash Media Server Auto-Generate");
     println!("==================================================");
     println!("Connecting to Stash endpoint: {}", url);
 
@@ -1120,7 +1120,7 @@ fn run_audio_synth(
 ) -> Result<()> {
     let t0 = Instant::now();
     println!("==================================================");
-    println!("Funscript Hub: Audio Spectral Haptic Synthesizer");
+    println!("Pulsar: Audio Spectral Haptic Synthesizer");
     println!("Target: {}", video_path.display());
     println!("==================================================");
 

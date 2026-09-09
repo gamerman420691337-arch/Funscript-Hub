@@ -1,14 +1,14 @@
 [package]
-name = "open-fungen"
-version = "0.1.0"
+name = "pulsar"
+version = "0.8.0"
 edition = "2021"
-authors = ["Funscript Hub Developers"]
-description = "Funscript Hub: Cleanroom open-source funscript generation, editing, and auditing suite"
+authors = ["Pulsar Developers"]
+description = "Pulsar: Neural Kinematic Workstation & Funscript Generator"
 license = "MIT OR Apache-2.0"
-default-run = "fs-hub"
+default-run = "pulsar"
 
 [[bin]]
-name = "fs-hub"
+name = "pulsar"
 path = "src/main.rs"
 
 [dependencies]

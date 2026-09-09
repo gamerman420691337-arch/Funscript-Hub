@@ -39,7 +39,7 @@ impl FunscriptPlugin for ExponentialRampPlugin {
         PluginMetadata {
             id: "exponential_ramp".to_string(),
             name: "Exponential Climax Ramp".to_string(),
-            author: "Funscript Hub Team".to_string(),
+            author: "Pulsar Team".to_string(),
             version: "1.0.0".to_string(),
             description: "Applies non-linear power-law curve (p^gamma) for crescendo buildups.".to_string(),
         }
@@ -83,7 +83,7 @@ impl FunscriptPlugin for BeatPulserPlugin {
         PluginMetadata {
             id: "beat_pulser".to_string(),
             name: "Harmonic Beat Pulser".to_string(),
-            author: "Funscript Hub Team".to_string(),
+            author: "Pulsar Team".to_string(),
             version: "1.0.0".to_string(),
             description: "Superimposes high-frequency micro-pulses over primary strokes.".to_string(),
         }
@@ -136,7 +136,7 @@ impl FunscriptPlugin for ChaosJitterPlugin {
         PluginMetadata {
             id: "chaos_jitter".to_string(),
             name: "Organic Chaos Jitter".to_string(),
-            author: "Funscript Hub Team".to_string(),
+            author: "Pulsar Team".to_string(),
             version: "1.0.0".to_string(),
             description: "Injects organic stochastic variations to mimic human tremor.".to_string(),
         }

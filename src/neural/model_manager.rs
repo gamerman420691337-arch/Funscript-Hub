@@ -17,7 +17,7 @@ pub struct ModelInfo {
     pub is_valid: bool,
 }
 
-/// Returns the default cache directory for models: `~/.cache/fs-hub/models/`.
+/// Returns the default cache directory for models: `~/.cache/pulsar/models/`.
 pub fn default_model_cache_dir() -> PathBuf {
     let base = std::env::var("XDG_CACHE_HOME")
         .map(PathBuf::from)
@@ -25,21 +25,30 @@ pub fn default_model_cache_dir() -> PathBuf {
             let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
             PathBuf::from(home).join(".cache")
         });
-    base.join("fs-hub").join("models")
+    base.join("pulsar").join("models")
 }
 
 /// Returns prioritized search locations for FunGen YOLO models.
 pub fn model_search_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
-    // 1. fs-hub global cache
+    // 1. Pulsar global cache
     paths.push(default_model_cache_dir().join(DEFAULT_MODEL_NAME));
 
-    // 2. Local workspace models directory
+    // 2. Legacy fs-hub global cache (backward compatibility)
+    if let Ok(home) = std::env::var("HOME") {
+        paths.push(
+            PathBuf::from(&home)
+                .join(".cache/fs-hub/models")
+                .join(DEFAULT_MODEL_NAME),
+        );
+    }
+
+    // 3. Local workspace models directory
     paths.push(PathBuf::from("models").join(DEFAULT_MODEL_NAME));
     paths.push(PathBuf::from("../models").join(DEFAULT_MODEL_NAME));
 
-    // 3. FunGen project cache
+    // 4. FunGen project cache
     if let Ok(home) = std::env::var("HOME") {
         paths.push(
             PathBuf::from(&home)
@@ -117,7 +126,7 @@ pub fn auto_detect_model() -> Option<ModelInfo> {
     None
 }
 
-/// Ensure the default model is installed into `~/.cache/fs-hub/models/`.
+/// Ensure the default model is installed into `~/.cache/pulsar/models/`.
 ///
 /// If found in an existing local directory (such as FunGen cache), copies it over.
 /// Otherwise, downloads it from the official GitHub release via `ureq`.
@@ -247,16 +256,16 @@ pub fn model_registry() -> Vec<ModelRegistryEntry> {
             filename: "CoWTracker-Dense-1.0.0.onnx",
             description: "Dense spatiotemporal correspondence repair branch for uncertain intervals",
             profile: crate::neural::pipeline::AdaptiveProfile::DenseOffline,
-            download_url: "https://github.com/ack00gar/FunGen-AI-Powered-Funscript-Generator/releases/download/models-v1.1.0/FunGen-12n-pov-1.1.0.onnx",
+            download_url: "https://github.com/gamerman420691337-arch/Funscript-Hub/releases/download/v0.8.0-models/sam3.1_segmenter.onnx",
             size_estimate_mb: 48.0,
         },
         ModelRegistryEntry {
-            name: "TrackCraft3R / D4RT (3D Geometry)",
-            filename: "TrackCraft3R-Geom-1.0.0.onnx",
-            description: "Dense 3D metric geometry and camera ray triangulation for VR180/multiview",
+            name: "CoWTracker + 3D Reconstruction",
+            filename: "cowtracker_3d.onnx",
+            description: "Dense 3D visual-geometric reconstruction and occlusion surface solver.",
             profile: crate::neural::pipeline::AdaptiveProfile::GeometryHeavy3D,
-            download_url: "https://github.com/ack00gar/FunGen-AI-Powered-Funscript-Generator/releases/download/models-v1.1.0/FunGen-12n-pov-1.1.0.onnx",
-            size_estimate_mb: 95.0,
+            download_url: "https://github.com/gamerman420691337-arch/Funscript-Hub/releases/download/v0.8.0-models/cowtracker_3d.onnx",
+            size_estimate_mb: 62.0,
         },
     ]
 }
@@ -266,7 +275,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_model_search_paths() {
+    fn test_search_paths_include_defaults() {
         let paths = model_search_paths();
         assert!(!paths.is_empty());
         assert!(paths.iter().any(|p| p.ends_with(DEFAULT_MODEL_NAME)));
@@ -275,7 +284,7 @@ mod tests {
     #[test]
     fn test_default_cache_dir() {
         let dir = default_model_cache_dir();
-        assert!(dir.ends_with("fs-hub/models"));
+        assert!(dir.ends_with("pulsar/models"));
     }
 
     #[test]
