@@ -1759,7 +1759,20 @@ fn run_play(
     let mut handy_dispatcher = if let Some(key) = &handy {
         let mut disp = crate::sync::HandyDispatcher::new();
         disp.connect(key);
-        println!("Connected to The Handy API (key: {}...)", &key[..key.len().min(4)]);
+        print!("Connecting to The Handy API (key: {}...)... ", &key[..key.len().min(4)]);
+        let wait_start = Instant::now();
+        while wait_start.elapsed() < Duration::from_secs(4) {
+            disp.poll_events();
+            if disp.status.is_connected {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        if disp.status.is_connected {
+            println!("Connected! ({} | FW: {} | {}ms ping)", disp.status.model, disp.status.fw_version, disp.status.last_ping_ms);
+        } else {
+            println!("Warning: Connection check timed out. Attempting HDSP streaming anyway.");
+        }
         Some(disp)
     } else {
         None
@@ -1801,8 +1814,10 @@ fn run_play(
 
         // Send to handy
         if let Some(disp) = &mut handy_dispatcher {
+            disp.poll_events();
             if let Some(k) = &handy {
-                let handy_cfg = crate::sync::handy::HandyConfig::default();
+                let mut handy_cfg = crate::sync::handy::HandyConfig::default();
+                handy_cfg.is_enabled = true;
                 disp.stream_position(k, action.pos as f32, &handy_cfg, 100);
             }
         }

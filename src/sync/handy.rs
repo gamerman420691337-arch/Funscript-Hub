@@ -23,6 +23,8 @@ pub struct HandyConfig {
     pub max_stroke_pct: f32,
     /// HDSP real-time direct streaming mode (true) vs HSSP script mode (false)
     pub direct_hdsp_mode: bool,
+    /// Invert stroke direction (0% ⇄ 100%)
+    pub invert: bool,
 }
 
 impl Default for HandyConfig {
@@ -33,6 +35,7 @@ impl Default for HandyConfig {
             min_stroke_pct: 0.0,
             max_stroke_pct: 100.0,
             direct_hdsp_mode: true,
+            invert: false,
         }
     }
 }
@@ -71,12 +74,17 @@ pub enum HandyEvent {
 /// Synchronous HTTP client for HandyFeeling API v2
 pub struct HandyHttpClient {
     base_url: String,
+    agent: ureq::Agent,
 }
 
 impl Default for HandyHttpClient {
     fn default() -> Self {
+        let config = ureq::config::Config::builder()
+            .timeout_global(Some(Duration::from_secs(5)))
+            .build();
         Self {
             base_url: "https://www.handyfeeling.com/api/handy/v2".to_string(),
+            agent: config.into(),
         }
     }
 }
@@ -86,17 +94,10 @@ impl HandyHttpClient {
         Self::default()
     }
 
-    fn agent() -> ureq::Agent {
-        let config = ureq::config::Config::builder()
-            .timeout_global(Some(Duration::from_secs(5)))
-            .build();
-        config.into()
-    }
-
     /// Check if device with given connection key is online
     pub fn check_connected(&self, key: &str) -> Result<bool> {
         let url = format!("{}/connected", self.base_url);
-        let resp = Self::agent()
+        let resp = self.agent
             .get(&url)
             .header("X-Connection-Key", key.trim())
             .header("Accept", "application/json")
@@ -119,7 +120,7 @@ impl HandyHttpClient {
         }
 
         let url = format!("{}/info", self.base_url);
-        let resp = Self::agent()
+        let resp = self.agent
             .get(&url)
             .header("X-Connection-Key", key.trim())
             .header("Accept", "application/json")
@@ -151,7 +152,7 @@ impl HandyHttpClient {
         let payload = json!({ "mode": mode });
         let bytes = serde_json::to_vec(&payload)?;
 
-        Self::agent()
+        self.agent
             .put(&url)
             .header("X-Connection-Key", key.trim())
             .header("Content-Type", "application/json")
@@ -166,13 +167,16 @@ impl HandyHttpClient {
         let url = format!("{}/hdsp/xpt", self.base_url);
         let clamped_pos = position_pct.clamp(0.0, 100.0);
         let payload = json!({
+            "xp": clamped_pos,
+            "t": duration_ms.max(10),
             "position": clamped_pos,
             "duration": duration_ms.max(10),
-            "immediateResponse": false
+            "immediateResponse": false,
+            "stopOnTarget": false
         });
         let bytes = serde_json::to_vec(&payload)?;
 
-        Self::agent()
+        self.agent
             .put(&url)
             .header("X-Connection-Key", key.trim())
             .header("Content-Type", "application/json")
@@ -185,7 +189,7 @@ impl HandyHttpClient {
     /// Stop Handy motion
     pub fn stop(&self, key: &str) -> Result<()> {
         let url = format!("{}/hamp/stop", self.base_url);
-        let _ = Self::agent()
+        let _ = self.agent
             .put(&url)
             .header("X-Connection-Key", key.trim())
             .send(vec![]);
@@ -224,10 +228,6 @@ impl HandyDispatcher {
                         if let HandyCommand::SendPosition { .. } = newer {
                             cmd = newer;
                         } else {
-                            // Non-position command, execute it next
-                            let _ = event_tx.send(HandyEvent::Error {
-                                message: "Interrupted by command".to_string(),
-                            });
                             cmd = newer;
                             break;
                         }
@@ -265,8 +265,15 @@ impl HandyDispatcher {
                         }
                     }
                     HandyCommand::SendPosition { key, position_pct, duration_ms } => {
-                        if let Ok(()) = client.send_hdsp_xpt(&key, position_pct, duration_ms) {
-                            let _ = event_tx.send(HandyEvent::PositionAck { position: position_pct });
+                        match client.send_hdsp_xpt(&key, position_pct, duration_ms) {
+                            Ok(()) => {
+                                let _ = event_tx.send(HandyEvent::PositionAck { position: position_pct });
+                            }
+                            Err(e) => {
+                                let _ = event_tx.send(HandyEvent::Error {
+                                    message: format!("HDSP position command failed: {e}"),
+                                });
+                            }
                         }
                     }
                     HandyCommand::Stop { key } => {
@@ -323,24 +330,55 @@ impl HandyDispatcher {
             return;
         }
 
-        // Rate limit cloud commands to max 15 requests/sec (~65ms interval) to comply with API limits
+        let pos = if config.invert {
+            (100.0 - raw_pos).clamp(0.0, 100.0)
+        } else {
+            raw_pos.clamp(0.0, 100.0)
+        };
+
+        // Rate limit cloud commands to max 15-16 requests/sec (~60ms interval) to comply with API limits
         let elapsed = self.last_send_time.elapsed().as_millis();
-        let pos_delta = (raw_pos - self.last_pos_sent).abs();
-        if elapsed < 65 && pos_delta < 3.0 {
+        let pos_delta = (pos - self.last_pos_sent).abs();
+        if elapsed < 60 || (pos_delta < 1.0 && elapsed < 250) {
             return;
         }
 
         // Map raw [0, 100] into user's [min_stroke_pct, max_stroke_pct] range
         let range = (config.max_stroke_pct - config.min_stroke_pct).max(5.0);
-        let mapped_pos = config.min_stroke_pct + (raw_pos.clamp(0.0, 100.0) / 100.0) * range;
+        let mapped_pos = config.min_stroke_pct + (pos / 100.0) * range;
 
         let _ = self.cmd_tx.send(HandyCommand::SendPosition {
             key: key.trim().to_string(),
             position_pct: mapped_pos,
-            duration_ms: duration_ms.clamp(20, 500),
+            duration_ms: duration_ms.clamp(40, 400),
         });
 
-        self.last_pos_sent = raw_pos;
+        self.last_pos_sent = pos;
+        self.last_send_time = Instant::now();
+    }
+
+    /// Explicitly send a manual position command without rate-limiting (e.g. for test buttons or scrubbing)
+    pub fn send_manual_position(&mut self, key: &str, raw_pos: f32, config: &HandyConfig, duration_ms: u32) {
+        if !self.status.is_connected || key.trim().is_empty() {
+            return;
+        }
+
+        let pos = if config.invert {
+            (100.0 - raw_pos).clamp(0.0, 100.0)
+        } else {
+            raw_pos.clamp(0.0, 100.0)
+        };
+
+        let range = (config.max_stroke_pct - config.min_stroke_pct).max(5.0);
+        let mapped_pos = config.min_stroke_pct + (pos / 100.0) * range;
+
+        let _ = self.cmd_tx.send(HandyCommand::SendPosition {
+            key: key.trim().to_string(),
+            position_pct: mapped_pos,
+            duration_ms: duration_ms.clamp(40, 600),
+        });
+
+        self.last_pos_sent = pos;
         self.last_send_time = Instant::now();
     }
 
@@ -379,6 +417,7 @@ mod tests {
         assert_eq!(cfg.max_stroke_pct, 100.0);
         assert!(cfg.direct_hdsp_mode);
         assert!(!cfg.is_enabled);
+        assert!(!cfg.invert);
     }
 
     #[test]
@@ -389,16 +428,39 @@ mod tests {
             min_stroke_pct: 20.0,
             max_stroke_pct: 80.0,
             direct_hdsp_mode: true,
+            invert: false,
         };
 
-        let map_fn = |raw: f32| -> f32 {
+        let map_fn = |raw: f32, invert: bool| -> f32 {
+            let pos = if invert { (100.0 - raw).clamp(0.0, 100.0) } else { raw.clamp(0.0, 100.0) };
             let range = cfg.max_stroke_pct - cfg.min_stroke_pct;
-            cfg.min_stroke_pct + (raw / 100.0) * range
+            cfg.min_stroke_pct + (pos / 100.0) * range
         };
 
-        assert_eq!(map_fn(0.0), 20.0);
-        assert_eq!(map_fn(50.0), 50.0);
-        assert_eq!(map_fn(100.0), 80.0);
+        assert_eq!(map_fn(0.0, false), 20.0);
+        assert_eq!(map_fn(50.0, false), 50.0);
+        assert_eq!(map_fn(100.0, false), 80.0);
+        assert_eq!(map_fn(0.0, true), 80.0);
+        assert_eq!(map_fn(50.0, true), 50.0);
+        assert_eq!(map_fn(100.0, true), 20.0);
+    }
+
+    #[test]
+    fn test_handy_payload_json_schema() {
+        let position_pct = 75.0_f32;
+        let duration_ms = 120_u32;
+        let clamped_pos = position_pct.clamp(0.0, 100.0);
+        let payload = json!({
+            "xp": clamped_pos,
+            "t": duration_ms.max(10),
+            "position": clamped_pos,
+            "duration": duration_ms.max(10),
+            "immediateResponse": false,
+            "stopOnTarget": false
+        });
+        assert_eq!(payload["xp"], 75.0);
+        assert_eq!(payload["t"], 120);
+        assert_eq!(payload["immediateResponse"], false);
     }
 
     #[test]

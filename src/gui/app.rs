@@ -692,6 +692,15 @@ impl FunGenApp {
             streamer.seek_to(self.timeline_state.cursor_time_ms);
         }
         self.audio_player.seek_to(self.timeline_state.cursor_time_ms, self.playback_speed);
+        if self.handy_config.is_enabled {
+            let cur_pos = self.script.interpolate_position(self.timeline_state.cursor_time_ms);
+            self.handy_dispatcher.send_manual_position(
+                &self.handy_config.connection_key,
+                cur_pos,
+                &self.handy_config,
+                150,
+            );
+        }
     }
 
     pub fn finalize_recording_take(&mut self) {
@@ -3681,6 +3690,7 @@ impl FunGenApp {
                     } else {
                         if ui.button("Connect & Verify").clicked() {
                             self.handy_dispatcher.connect(&self.handy_config.connection_key);
+                            self.handy_config.is_enabled = true;
                             self.set_status("Connecting to The Handy...".to_string());
                         }
                         ui.colored_label(Color32::GRAY, "○ Disconnected");
@@ -3695,6 +3705,7 @@ impl FunGenApp {
 
                 ui.horizontal(|ui| {
                     ui.checkbox(&mut self.handy_config.is_enabled, RichText::new("Enable Hardware Streaming").strong());
+                    ui.checkbox(&mut self.handy_config.invert, "Invert Stroke (0% ⇄ 100%)");
                     ui.separator();
 
                     ui.label("Protocol Mode:");
@@ -3747,6 +3758,22 @@ impl FunGenApp {
                         self.handy_config.max_stroke_pct = 80.0;
                     }
                 });
+
+                if self.handy_dispatcher.status.is_connected {
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Physical Actuator Test:").strong());
+                        if ui.button("⬇ Test Bottom (0%)").on_hover_text("Move Handy slider to bottom (0%)").clicked() {
+                            self.handy_dispatcher.send_manual_position(&self.handy_config.connection_key, 0.0, &self.handy_config, 500);
+                        }
+                        if ui.button("↕ Test Mid (50%)").on_hover_text("Move Handy slider to middle (50%)").clicked() {
+                            self.handy_dispatcher.send_manual_position(&self.handy_config.connection_key, 50.0, &self.handy_config, 500);
+                        }
+                        if ui.button("⬆ Test Top (100%)").on_hover_text("Move Handy slider to top (100%)").clicked() {
+                            self.handy_dispatcher.send_manual_position(&self.handy_config.connection_key, 100.0, &self.handy_config, 500);
+                        }
+                    });
+                }
 
                 if self.handy_config.is_enabled && !self.handy_dispatcher.status.is_connected {
                     ui.add_space(4.0);
