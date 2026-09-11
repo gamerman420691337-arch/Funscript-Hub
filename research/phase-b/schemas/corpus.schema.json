@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pulsar B1 corpus manifest",
+  "description": "Companion to executable validation in scripts/benchmark-good.mjs. Runtime checks leakage groups/digests, rights uses, heldout lock, bounded relative artifact reads, candidate/reference identity and real-media annotation independence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_version",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "policy_version": {
+      "const": "B1.1"
+    },
+    "heldout_lock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frozen_at",
+        "owner",
+        "decision_record"
+      ],
+      "properties": {
+        "frozen_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "decision_record": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "category",
+          "split",
+          "source_group_id",
+          "evidence_class",
+          "source_sha256",
+          "rights",
+          "annotation_provenance",
+          "reference",
+          "candidate"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "split": {
+            "enum": [
+              "training",
+              "development",
+              "heldout"
+            ]
+          },
+          "source_group_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "evidence_class": {
+            "enum": [
+              "synthetic",
+              "real-media"
+            ]
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "rights": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "evidence_id",
+              "permitted_uses",
+              "redistribution"
+            ],
+            "properties": {
+              "status": {
+                "const": "permitted"
+              },
+              "evidence_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "permitted_uses": {
+                "type": "array",
+                "maxItems": 4,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "training",
+                    "evaluation",
+                    "redistribution"
+                  ]
+                }
+              },
+              "redistribution": {
+                "enum": [
+                  "allowed",
+                  "forbidden"
+                ]
+              }
+            }
+          },
+          "annotation_provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "reference_author",
+              "independent",
+              "method",
+              "review_record"
+            ],
+            "properties": {
+              "reference_author": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "independent": {
+                "type": "boolean"
+              },
+              "method": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "review_record": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          },
+          "reference": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          },
+          "candidate": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          },
+          "effort": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "rater_id",
+              "session_record",
+              "active_edit_ns",
+              "review_plus_edit_ns"
+            ],
+            "properties": {
+              "rater_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "session_record": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "active_edit_ns": {
+                "type": "string",
+                "pattern": "^-?(0|[1-9][0-9]*)$",
+                "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+              },
+              "review_plus_edit_ns": {
+                "type": "string",
+                "pattern": "^-?(0|[1-9][0-9]*)$",
+                "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+              }
+            }
+          },
+          "execution": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "wall_time_ns",
+              "cpu",
+              "gpu",
+              "ram_bytes",
+              "backend",
+              "model_sha256",
+              "runtime_sha256",
+              "configuration_sha256",
+              "preset",
+              "axis_mode",
+              "qualification_record"
+            ],
+            "properties": {
+              "wall_time_ns": {
+                "type": "string",
+                "pattern": "^-?(0|[1-9][0-9]*)$",
+                "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+              },
+              "cpu": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "gpu": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "ram_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "backend": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "model_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "runtime_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "configuration_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "preset": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "axis_mode": {
+                "enum": [
+                  "stroke-only",
+                  "six-axis"
+                ]
+              },
+              "qualification_record": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

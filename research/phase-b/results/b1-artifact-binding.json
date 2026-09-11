@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "kind": "B1-measurement-artifact-binding",
+  "created_at": "2026-09-11T09:34:09.011Z",
+  "status": "SCOPED_HARNESS_PASS",
+  "real_media_subjects": 0,
+  "release_qualified": false,
+  "artifacts": [
+    {
+      "path": "scripts/benchmark-good.mjs",
+      "byte_len": 30852,
+      "sha256": "9a019767a8eab410be91eef89996df90dc691cfea52eca2a6b5fc0b333bf149e"
+    },
+    {
+      "path": "research/phase-b/artifact-tests.mjs",
+      "byte_len": 8480,
+      "sha256": "c9aee22251578297269f938f093273752160f420cd168714e965bddc403f5be1"
+    },
+    {
+      "path": "research/phase-b/fixtures/metric-kat.json",
+      "byte_len": 25969,
+      "sha256": "31753803dc76478fd4c9aeec04bd8976df4e6104425ea60c896d460e49278a65"
+    },
+    {
+      "path": "research/phase-b/schemas/annotation.schema.json",
+      "byte_len": 5003,
+      "sha256": "6a7a83d814a9d4eed96207a12c1d88a1423557c4337ed494afcfa3bf01574f15"
+    },
+    {
+      "path": "research/phase-b/schemas/corpus.schema.json",
+      "byte_len": 8541,
+      "sha256": "e644c9c1b5100b6b2eafa0ac022b69bedce653d75578845db29410061d840df5"
+    },
+    {
+      "path": "research/phase-b/results/b1-metric-kat.json",
+      "byte_len": 817,
+      "sha256": "0d013d14bb9e3fc2328ed7d67a17c3361d17c12096328f462e0a571b83ef8069"
+    },
+    {
+      "path": "research/phase-b/results/b1-independent-oracle.json",
+      "byte_len": 272,
+      "sha256": "bcf158718872e96bdc1ce516d629363701df01c25e0d3b1a1c099f3069a291ec"
+    },
+    {
+      "path": "research/phase-b/results/b1-synthetic-example.json",
+      "byte_len": 3422,
+      "sha256": "8efb6ee43d2e14815962ac5f8cf14f2e08ccd61337f20822b78b35a3831c0713"
+    },
+    {
+      "path": "research/phase-b/results/b1-empty-heldout.json",
+      "byte_len": 856,
+      "sha256": "340725756ef5ccaf03fc2a0bd85eed0c607c8cc3f453a797353c593245e69826"
+    }
+  ]
+}

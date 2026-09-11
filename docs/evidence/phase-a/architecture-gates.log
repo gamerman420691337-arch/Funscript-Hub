@@ -1,0 +1,773 @@
+{
+  "gate": "phase-a-structure",
+  "generated_at": "2026-09-11T07:43:43.839Z",
+  "source_sha256": "4e84e6c97dea136ed8e24dfb61e457604c61f05b490870920f07c953a964b2c2",
+  "checks": [
+    {
+      "name": "workspace:pulsar-core",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "workspace:pulsar-protocol",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "workspace:pulsar-engine",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "workspace:pulsar-clients",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "exactly-four-product-libraries",
+      "result": "PASS",
+      "detail": "pulsar-clients,pulsar-core,pulsar-engine,pulsar-protocol"
+    },
+    {
+      "name": "dependency-direction:pulsar-core",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "dependency-direction:pulsar-protocol",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "dependency-direction:pulsar-engine",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "dependency-direction:pulsar-clients",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-forbids-unsafe",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/authority.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/device.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/dsp.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/geometry.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/ids.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/jobs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/motion.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/project.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/proofs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/time.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "composition-no-legacy-modules",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/authority.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/device.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/dsp.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/geometry.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/ids.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/jobs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/motion.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/project.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/proofs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/time.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/framing.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/transport.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/worker.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/artifacts.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/authority.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/cgroup.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/launch.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/resources.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/artifacts.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/detector.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/integration_tests.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/media.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/mod.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/cli.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/cli.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/desktop.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/desktop.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/editor.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/editor.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/preview.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/preview.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/session.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/session.rs",
+      "result": "PASS",
+      "detail": ""
+    }
+  ],
+  "passed": true,
+  "limitations": [
+    "Static direct-dependency/source checks only; not proof of transitive runtime behavior.",
+    "No neural accuracy, OS/platform, sandbox or physical qualification claim."
+  ]
+}
+    Checking once_cell v1.21.4
+    Checking log v0.4.34
+    Checking linux-raw-sys v0.12.1
+    Checking smallvec v1.16.0
+    Checking pin-project-lite v0.2.17
+    Checking libloading v0.8.9
+    Checking serde v1.0.229
+    Checking dlib v0.5.3
+    Checking memchr v2.8.3
+    Checking slab v0.4.12
+    Checking rustix v1.1.4
+    Checking wayland-sys v0.31.11
+    Checking parking v2.2.1
+    Checking scoped-tls v1.0.1
+    Checking downcast-rs v1.2.1
+    Checking futures-core v0.3.34
+    Checking tracing-core v0.1.36
+    Checking futures-io v0.3.34
+    Checking tracing v0.1.44
+    Checking zerofrom v0.1.8
+    Checking crossbeam-utils v0.8.22
+    Checking event-listener v5.4.2
+    Checking stable_deref_trait v1.2.1
+    Checking yoke v0.8.3
+    Checking bytemuck v1.25.2
+    Checking event-listener-strategy v0.5.4
+    Checking concurrent-queue v2.5.0
+    Checking getrandom v0.3.4
+    Checking futures-lite v2.6.1
+    Checking enumflags2 v0.7.12
+    Checking static_assertions v1.1.0
+    Checking endi v1.1.1
+    Checking zvariant v4.2.0
+    Checking polling v3.11.0
+    Checking wayland-backend v0.3.17
+    Checking wayland-client v0.31.15
+    Checking thiserror v2.0.20
+    Checking zerovec v0.11.8
+    Checking wayland-protocols v0.32.13
+    Checking ahash v0.8.12
+    Checking getrandom v0.2.17
+    Checking async-task v4.7.1
+    Checking atomic-waker v1.1.2
+    Checking piper v0.2.5
+    Checking rand_core v0.6.4
+    Checking memoffset v0.9.1
+    Checking zbus_names v3.0.0
+    Checking async-channel v2.5.0
+    Checking ppv-lite86 v0.2.21
+    Checking thiserror v1.0.69
+    Checking rand_chacha v0.3.1
+    Checking blocking v1.7.0
+    Checking num-traits v0.2.19
+    Checking async-lock v3.4.2
+    Checking quick-xml v0.30.0
+    Checking futures-task v0.3.34
+    Checking arrayvec v0.7.8
+    Checking futures-sink v0.3.34
+    Checking ttf-parser v0.25.1
+    Checking futures-util v0.3.34
+    Checking owned_ttf_parser v0.25.1
+    Checking zbus_xml v4.0.0
+    Checking async-fs v2.2.0
+    Checking nix v0.29.0
+    Checking rand v0.8.8
+    Checking async-io v2.6.0
+    Checking async-executor v1.14.0
+    Checking tinystr v0.8.4
+    Checking sha1 v0.10.7
+    Checking async-broadcast v0.7.2
+    Checking ordered-stream v0.2.0
+    Checking xdg-home v1.3.0
+    Checking ab_glyph_rasterizer v0.1.10
+    Checking cursor-icon v1.2.0
+    Checking writeable v0.6.4
+    Checking hex v0.4.3
+    Checking linux-raw-sys v0.4.15
+    Checking xcursor v0.3.11
+    Checking litemap v0.8.3
+    Checking xkeysym v0.2.1
+    Checking icu_locale_core v2.3.0
+    Checking rustix v0.38.44
+    Checking wayland-cursor v0.31.14
+    Checking zbus v4.4.0
+    Checking wayland-csd-frame v0.3.0
+    Checking ab_glyph v0.2.32
+    Checking zbus-lockstep v0.4.4
+    Checking wayland-protocols-wlr v0.3.12
+    Checking zerotrie v0.2.5
+    Checking potential_utf v0.1.6
+    Checking memmap2 v0.9.11
+    Checking simd-adler32 v0.3.10
+    Checking utf8_iter v1.0.4
+    Checking percent-encoding v2.3.2
+    Checking icu_collections v2.3.0
+    Checking atspi-common v0.6.0
+    Checking serde_json v1.0.151
+    Checking icu_provider v2.3.1
+    Checking calloop v0.13.0
+    Checking adler2 v2.0.1
+    Checking strict-num v0.1.1
+    Checking accesskit v0.17.1
+    Checking scopeguard v1.2.0
+    Checking arrayref v0.3.9
+    Checking tiny-skia-path v0.11.4
+    Checking lock_api v0.4.14
+    Checking calloop-wayland-source v0.3.0
+    Checking x11-dl v2.21.0
+    Checking icu_properties_data v2.3.0
+    Checking icu_normalizer_data v2.3.0
+    Checking parking_lot_core v0.9.12
+    Checking pulsar-core v0.1.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1/crates/pulsar-core)
+    Checking gethostname v1.1.0
+    Checking as-raw-xcb-connection v1.0.1
+    Checking x11rb-protocol v0.13.2
+    Checking foldhash v0.1.5
+    Checking hashbrown v0.15.5
+    Checking parking_lot v0.12.5
+    Checking icu_normalizer v2.3.0
+    Checking icu_properties v2.3.0
+    Checking atspi-proxies v0.6.0
+    Checking smithay-client-toolkit v0.19.2
+    Checking crc32fast v1.5.1
+    Checking tiny-skia v0.11.4
+    Checking miniz_oxide v0.9.1
+    Checking immutable-chunkmap v2.1.3
+    Checking emath v0.31.1
+    Checking raw-window-handle v0.6.2
+    Checking ecolor v0.31.1
+    Checking accesskit_consumer v0.26.0
+    Checking flate2 v1.1.10
+    Checking sctk-adwaita v0.10.1
+    Checking atspi-connection v0.6.0
+    Checking idna_adapter v1.2.2
+    Checking miniz_oxide v0.8.9
+    Checking fdeflate v0.3.7
+    Checking xkbcommon-dl v0.4.2
+    Checking wayland-protocols-plasma v0.3.12
+    Checking x11rb v0.13.2
+    Checking calloop v0.14.4
+    Checking nohash-hasher v0.2.0
+    Checking dpi v0.1.2
+    Checking pxfm v0.1.30
+    Checking profiling v1.0.18
+    Checking epaint_default_fonts v0.31.1
+    Checking smol_str v0.2.2
+    Checking utf8parse v0.2.2
+    Checking anstyle-parse v1.0.0
+    Checking winit v0.30.13
+    Checking moxcms v0.8.1
+    Checking epaint v0.31.1
+    Checking calloop-wayland-source v0.4.1
+    Checking png v0.18.1
+    Checking idna v1.1.0
+    Checking atspi v0.22.0
+    Checking accesskit_atspi_common v0.10.1
+    Checking form_urlencoded v1.2.2
+    Checking wayland-protocols-misc v0.3.12
+    Checking wayland-protocols-experimental v20250721.0.1
+    Checking colorchoice v1.0.5
+    Checking byteorder-lite v0.1.0
+    Checking anstyle v1.0.14
+    Checking is_terminal_polyfill v1.70.2
+    Checking anstyle-query v1.1.5
+    Checking image v0.25.10
+    Checking anstream v1.0.0
+    Checking smithay-client-toolkit v0.20.0
+    Checking accesskit_unix v0.13.1
+    Checking url v2.5.8
+    Checking glutin_glx_sys v0.6.1
+    Checking glutin_egl_sys v0.7.1
+    Checking egui v0.31.1
+    Checking pulsar-protocol v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1/crates/pulsar-protocol)
+    Checking strsim v0.11.1
+    Checking clap_lex v1.1.0
+    Checking clap_builder v4.6.6
+    Checking accesskit_winit v0.23.1
+    Checking glutin v0.32.3
+    Checking webbrowser v1.2.4
+    Checking arboard v3.6.1
+    Checking smithay-clipboard v0.7.3
+    Checking num-integer v0.1.47
+    Checking num-complex v0.4.6
+    Checking hashbrown v0.14.5
+    Checking web-time v1.1.0
+    Checking glow v0.16.0
+    Checking hashlink v0.9.1
+    Checking egui-winit v0.31.1
+    Checking ndarray v0.17.2
+    Checking egui_glow v0.31.1
+    Checking clap v4.6.6
+    Checking glutin-winit v0.5.0
+    Checking ort-sys v2.0.0-rc.13
+    Checking rusqlite v0.32.1
+    Checking eframe v0.31.1
+    Checking clap_complete v4.6.9
+    Checking tempfile v3.27.0
+    Checking pulsar-clients v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1/crates/pulsar-clients)
+    Checking ort v2.0.0-rc.13
+    Checking pulsar-engine v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1/crates/pulsar-engine)
+    Checking pulsar v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 40.39s
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling pulsar-protocol v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1/crates/pulsar-protocol)
+   Compiling pulsar-engine v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1/crates/pulsar-engine)
+   Compiling pulsar-clients v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1/crates/pulsar-clients)
+   Compiling pulsar v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1)
+    Finished `test` profile [optimized + debuginfo] target(s) in 54.08s
+     Running unittests src/main.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar-c9a554de28c4e9d0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/phase_a_integration.rs (/tmp/pulsar-phase-a-target/debug/deps/phase_a_integration-75ac009840999ad4)
+
+running 1 test
+test actual_clients_worker_and_durable_authority_cross_process ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.67s
+
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_clients-c9e723bbcefe02c7)
+
+running 14 tests
+test editor::tests::duplicate_gesture_timestamps_are_not_silently_sanitized ... ok
+test editor::tests::gesture_stays_draft_and_commits_against_original_revision ... ok
+test preview::tests::absent_detections_clear_previous_observations ... ok
+test preview::tests::moving_boxes_and_actual_decoder_frame_replace_previous_evidence ... ok
+test preview::tests::seek_source_transform_and_request_changes_reject_late_results ... ok
+test preview::tests::raw_artifact_hash_is_checked_before_display ... ok
+test session::tests::cli_and_gui_share_identical_authority_and_revision_envelopes ... ok
+test session::tests::request_authentication_is_distinct_and_redacted_in_debug ... ok
+test session::tests::session_identity_alone_is_not_a_client_credential ... ok
+test tests::cli_and_batch_generation_use_engine_commits_and_pin_candidate_revision ... ok
+test tests::unsupported_legacy_capability_keeps_typed_failure ... ok
+test cli::tests::complete_legacy_generate_grammar_is_preserved ... ok
+test cli::tests::legacy_aliases_remain_parseable ... ok
+test tests::informational_commands_do_not_start_engine ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_core-c53da1b26989fb39)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/contracts-2d02fc2bb1658de9)
+
+running 17 tests
+test box_clipping_preserves_center_and_rejects_bad_geometry ... ok
+test identifiers_reject_empty_path_unicode_and_wire_bypass ... ok
+test overflow_rejects_whole_project_transition ... ok
+test malformed_motion_cannot_cross_constructor_or_serde ... ok
+test every_frame_identity_dimension_fences_stale_observations ... ok
+test explicit_gaps_survive_wire_and_reject_interpolated_observations ... ok
+test project_scope_and_stale_candidate_do_not_leak_authority ... ok
+test cancellation_fences_late_attempts_and_results ... ok
+test numeric_domains_do_not_wrap_or_accept_nonfinite ... ok
+test rational_timestamps_preserve_quantization_and_negative_direction ... ok
+test reconnect_preserves_stop_uncertainty_and_blocks_rearm ... ok
+test headless_disconnect_differs_from_revocation_and_reconnect_is_disarmed ... ok
+test protection_and_revocation_are_rechecked_for_edits_and_undo ... ok
+test device_configuration_and_stopping_qualification_fail_closed ... ok
+test motion_keeps_shallow_plateaus_without_range_expansion ... ok
+test stop_request_does_not_prove_physical_stopping ... ok
+test project_edits_are_atomic_revision_checked_and_undo_creates_new_revision ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dsp.rs (/tmp/pulsar-phase-a-target/debug/deps/dsp-1efe4c7a88f041ba)
+
+running 3 tests
+test dimensions_and_resource_bounds_are_checked_before_access ... ok
+test static_texture_is_zero_motion_but_flat_frames_are_missing_evidence ... ok
+test translation_matches_vertical_motion_without_range_stretch ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_engine-d82ec4df3a5f73f6)
+
+running 31 tests
+test artifacts::tests::refuses_snapshot_budget ... ok
+test authority::tests::explicit_gaps_block_standard_export ... ok
+test artifacts::tests::immutable_copy_and_non_destructive_export ... ok
+test worker::artifacts::tests::artifact_writer_refuses_path_escape_before_open ... ok
+test resources::tests::storage_reservations_are_aggregate_and_release ... ok
+test resources::tests::aggregate_limits_and_release ... ok
+test worker::detector::tests::clipping_remains_normalized_and_absence_is_empty ... ok
+test worker::detector::tests::decoder_rejects_shape_guessing_nonfinite_and_reversed_boxes ... ok
+test worker::media::tests::frame_bounds_reject_overflow_and_empty ... ok
+test worker::integration_tests::source_byte_replacement_rejected_before_native_execution ... ok
+test worker::media::tests::preview_preserves_aspect_ratio ... ok
+test worker::tests::grayscale_and_cut_are_real_pixel_functions ... ok
+test worker::tests::rational_source_pts_and_project_origin_stay_distinct ... ok
+test authority::tests::full_durability_is_selected ... ok
+test authority::tests::active_model_bytes_cannot_be_evicted_through_source_alias ... ok
+test authority::tests::public_session_identity_is_not_a_bearer_credential ... ok
+test authority::tests::duplicate_edit_is_durable_replay_not_second_revision ... ok
+test authority::tests::cancelled_and_revoked_work_cannot_publish_late_candidates ... ok
+test authority::tests::invalid_credentials_never_create_session ... ok
+test authority::tests::stale_revision_and_reused_request_identity_reject ... ok
+test authority::tests::imported_snapshot_pin_and_evict_are_scoped ... ok
+test authority::tests::independently_paired_client_has_no_existing_project_authority ... ok
+test authority::tests::ordinary_edit_grant_does_not_authorize_filesystem_import ... ok
+test authority::tests::physical_effects_fail_closed ... ok
+test authority::tests::protected_regions_cover_replacement_and_undo ... ok
+test authority::tests::queries_do_not_accumulate_durable_request_rows ... ok
+test authority::tests::revocation_denies_cached_queries_and_undo_preserves_fresh_revisions ... ok
+test authority::tests::export_has_no_provenance_and_replays_without_overwrite ... ok
+test worker::integration_tests::artifact_budget_failure_is_typed_resource_exhaustion ... ok
+test worker::integration_tests::actual_pixel_generation_returns_checked_candidate_and_lineage ... ok
+test worker::integration_tests::actual_decode_preview_binds_frame_pts_and_reports_missing_model ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_protocol-4975294200b03299)
+
+running 11 tests
+test framing::tests::bulk_limit_is_independent ... ok
+test framing::tests::control_round_trip_and_adjacent_frames ... ok
+test framing::tests::oversized_and_zero_header_rejected_without_body ... ok
+test framing::tests::partial_reads_and_writes_supported ... ok
+test framing::tests::truncated_invalid_utf8_and_trailing_json_rejected ... ok
+test framing::tests::sender_rejects_oversized_without_writing_header ... ok
+test worker::tests::tensor_overflow_zero_and_out_of_bounds_rejected ... ok
+test worker::tests::zero_budget_and_stride_rejected ... ok
+test worker::tests::transfer_cannot_escape_artifact_or_budget ... ok
+test worker::tests::invalid_frame_layout_rejected ... ok
+test worker::tests::malformed_digests_rejected ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/contracts-9f09365a029c08dd)
+
+running 9 tests
+test diagnostic_formatting_redacts_pairing_and_authentication_secrets ... ok
+test conflicting_project_scope_and_protocol_versions_rejected ... ok
+test mutations_require_scope_and_expected_revision ... ok
+test fingerprints_ignore_request_id_but_not_content_or_session ... ok
+test error_serialization_keeps_unknown_outcomes_explicit ... ok
+test preview_adopts_actual_frame_but_rejects_stale_seek_or_transform ... ok
+test wire_rejects_unknown_command_fields_and_unchecked_ids ... ok
+test local::mismatched_response_poisoned_not_reused ... ok
+test local::whole_rpc_deadline_resists_slow_header ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+   Doc-tests pulsar_clients
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pulsar_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pulsar_engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pulsar_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Warning: Please run the Java VM which executes TLC with a throughput optimized garbage collector by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 70 and seed 3372004189793111222 with 1 worker on 20 cores with 16016MB heap and 64MB offheap memory [pid: 962197] (Linux 7.2.3-1-cachyos amd64, Arch Linux 26.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.wNCNfQTa4I/PulsarLifecycle.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module PulsarLifecycle
+Starting... (2026-09-11 03:45:21)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-11 03:45:22.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 9.1E-15
+888 states generated, 273 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 9.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 6 and the 95th percentile is 4).
+Finished in 01s at (2026-09-11 03:45:22)
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Warning: Please run the Java VM which executes TLC with a throughput optimized garbage collector by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 11 and seed -8039999789614705350 with 1 worker on 20 cores with 16016MB heap and 64MB offheap memory [pid: 962376] (Linux 7.2.3-1-cachyos amd64, Arch Linux 26.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.wNCNfQTa4I/PulsarLifecycle.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module PulsarLifecycle
+Starting... (2026-09-11 03:45:23)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-11 03:45:23.
+Error: Invariant NoUnauthorizedCommit is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ revision = 0
+/\ durableRevision = 0
+/\ unauthorizedCommits = 0
+/\ deviceArmed = FALSE
+/\ candidateBase = 0
+/\ authorized = TRUE
+/\ controller = FALSE
+/\ sessionEpoch = 0
+/\ committedCount = 0
+/\ job = "Idle"
+
+State 2: <Revoke line 52, col 3 to line 57, col 51 of module PulsarLifecycle>
+/\ revision = 0
+/\ durableRevision = 0
+/\ unauthorizedCommits = 0
+/\ deviceArmed = FALSE
+/\ candidateBase = 0
+/\ authorized = FALSE
+/\ controller = FALSE
+/\ sessionEpoch = 0
+/\ committedCount = 0
+/\ job = "Idle"
+
+State 3: <Edit line 32, col 3 to line 37, col 54 of module PulsarLifecycle>
+/\ revision = 1
+/\ durableRevision = 1
+/\ unauthorizedCommits = 1
+/\ deviceArmed = FALSE
+/\ candidateBase = 0
+/\ authorized = FALSE
+/\ controller = FALSE
+/\ sessionEpoch = 0
+/\ committedCount = 1
+/\ job = "Idle"
+
+18 states generated, 18 distinct states found, 13 states left on queue.
+The depth of the complete state graph search is 3.
+The average outdegree of the complete state graph is 5 (minimum is 5, the maximum 6 and the 95th percentile is 6).
+Finished in 00s at (2026-09-11 03:45:23)
+PASS: authorization-negative mutant killed by NoUnauthorizedCommit.
+Architecture checks passed. GUI evidence and capability ledger still require review.

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "policy_version": "B1.1",
+  "entries": [
+    {
+      "id": "synthetic-metric-demo",
+      "category": "synthetic-kat",
+      "split": "development",
+      "source_group_id": "authored-analytic-demo",
+      "evidence_class": "synthetic",
+      "source_sha256": "8e80de50138586e4eb2c7b08f8c8192cbaad6dcfff722c84ffa2f9be7a289b6a",
+      "rights": {
+        "status": "permitted",
+        "evidence_id": "authored-analytic-fixture:repository-license",
+        "permitted_uses": [
+          "evaluation",
+          "redistribution"
+        ],
+        "redistribution": "allowed"
+      },
+      "annotation_provenance": {
+        "reference_author": "analytic-fixture-author",
+        "independent": false,
+        "method": "hand-authored mathematical expected values; not production-generated labels",
+        "review_record": "metric-kat:self-test-only"
+      },
+      "reference": {
+        "path": "synthetic-reference.json",
+        "sha256": "b48bbd5a5d8401100f5ef1504195dce82e22188bc75d373107b719f4fa9723b9"
+      },
+      "candidate": {
+        "path": "synthetic-candidate.json",
+        "sha256": "027c710ee958b283f479ede87d89eb7c8542ae955c27042074bea0cf3f3e477e"
+      }
+    }
+  ]
+}

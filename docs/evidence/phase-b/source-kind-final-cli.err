@@ -1,0 +1,3 @@
+Project: 345ae570-d5e9-4a9a-ab6c-45340d9365ad. Deterministic synthesis is not local AI inference.
+Job: 19e1c3be-ab17-4248-94ec-d98379874246. Disconnecting does not cancel engine-owned work.
+REVIEW constrained_pattern_parser_not_local_ai None 0.000..2.000s Synthesized

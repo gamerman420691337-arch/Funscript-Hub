@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-11",
+  "phase": "B",
+  "phase_status": "IN_PROGRESS",
+  "work_package": "large-motion transport and startup correctness",
+  "implementation_status": "IMPLEMENTED_LOCAL_CONTRACT_GATES_PASSED",
+  "whole_phase_complete": false,
+  "release_qualified": false,
+  "subject": {
+    "source_sha256": "8b12bd2343e9c10b16485f517bc8a28af33b0a2b323ce625bb45965bae05bc1f",
+    "linux_debug_binary_sha256": "1700a4d9d485add4320d6a270d23903c41d45055633f56ae375b8f34d29cc81a"
+  },
+  "final_gate": {
+    "gate_exit": 0,
+    "source_sha256": "8b12bd2343e9c10b16485f517bc8a28af33b0a2b323ce625bb45965bae05bc1f",
+    "passed": 305,
+    "failed": 0,
+    "ignored": 0,
+    "groups": 25,
+    "log_bytes": 64010,
+    "command": "ulimit -n 1024; CARGO_TARGET_DIR=/tmp/pulsar-phase-a-target CARGO_BUILD_JOBS=2 TLA2TOOLS_JAR=/tmp/pulsar-phase-a-tools/tla2tools.jar bash scripts/qualify-motion-transfers.sh",
+    "full_log": "final-gate.log"
+  },
+  "models": {
+    "lifecycle": {
+      "distinct_states": 273,
+      "depth": 9,
+      "killed_mutants": 1
+    },
+    "transfer": {
+      "distinct_states": 852,
+      "depth": 13,
+      "killed_mutants": 4,
+      "model_sha256": "00caebfd6c1c0e13d9cb5329b3a23ccc4068d5b8db571b4f5b44652de3018c7f",
+      "config_sha256": "6ee539ee7dbf1356949041575843c912c764edae5d7f6e78378e717d10fb840b",
+      "tlc_jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+    }
+  },
+  "gui": "final-gui.json",
+  "independent_review": "independent-review.md",
+  "external_review": {
+    "status": "UNAVAILABLE",
+    "error": "Transport closed",
+    "pass_claimed": false
+  },
+  "kani": {
+    "status": "NOT_RUN",
+    "proof_claimed": false
+  },
+  "real_media_benchmark_subjects": 0,
+  "human_sessions": 0,
+  "physical_actuation": false,
+  "commit_made": false,
+  "open_qualification": [
+    "real media/curated quality",
+    "five-human-hour pilot",
+    "reference CPU/GPU end-to-end performance",
+    "local assistant model/runtime bundles",
+    "semantic modalities/observed six axes",
+    "physical device qualification",
+    "Windows/macOS/vendor qualification",
+    "Kani bounded Rust proof",
+    "whole Good or release qualification"
+  ],
+  "prior_gate_capture": {
+    "file": "pre-launcher-gate-captured.log",
+    "initial_structure_output_truncated": true,
+    "tests": 298,
+    "not_final_subject": true
+  },
+  "related_artifacts": {
+    "docs/evidence/phase-b-large-motion/independent-review.md": {
+      "bytes": 10416,
+      "sha256": "25bbf1177b651b5b18ade043f5434ab0a6e420e95f45ba293a8ce6ce6d060c10"
+    },
+    "docs/evidence/phase-b-large-motion/large-motion-process-summary.json": {
+      "bytes": 5957,
+      "sha256": "e39e7fa8e65847708d12428c5b44e8f354a2d29fcc139aa98c2042614a285104"
+    },
+    "docs/PULSAR_PORTABLE_PROJECT_IMPLEMENTATION_PLAN.md": {
+      "bytes": 25638,
+      "sha256": "283aca406f80219193f09a9fef1e76342f5db4b15a82fe6783f6e7269de9c727"
+    }
+  },
+  "artifacts": {
+    "docs/adr/0008-motion-artifacts-and-transfer-leases.md": {
+      "bytes": 10517,
+      "sha256": "2a2cdc1793b38322db87eef0c062bf452b031d9a39d24a6397a24fb6bcabdb0b"
+    },
+    "docs/PULSAR_PHASE_B_LARGE_MOTION_STATUS.md": {
+      "bytes": 10746,
+      "sha256": "8fd34a799052f53b9627a2e3678b7ea0cb4dc7c484342b97a6abb3dfe563b8ab"
+    },
+    "docs/evidence/phase-b-large-motion/final-gate-summary.json": {
+      "bytes": 1956,
+      "sha256": "8ad4edc1d3e930e9250cfeb2ae1c0c85f00db28652007680b83d044b22e6d2df"
+    },
+    "docs/evidence/phase-b-large-motion/final-gui.json": {
+      "bytes": 1988,
+      "sha256": "47a1396a5052387b75734e0f1080d098517f4c1ed7f75ed48a381d37ebfbdd96"
+    },
+    "docs/evidence/phase-b-large-motion/final-gui-parity.log": {
+      "bytes": 142,
+      "sha256": "be3f6c2694ae1f460202f81407ad9a770896bd8339a56eaecd5bbf4ac68694e4"
+    },
+    "docs/evidence/phase-b-large-motion/source-hashes.sha256": {
+      "bytes": 1235,
+      "sha256": "43888471b3be641a68a1ec43b8f6445ab0346e2a7a49e8ef4a8c195020d2d226"
+    },
+    "docs/evidence/phase-b-large-motion/launcher-os-red.log": {
+      "bytes": 281,
+      "sha256": "2d5cbb0ae298d5b42f4a6ac51fa411d6ba2059acba316b302a29246785be9ea1"
+    },
+    "docs/evidence/phase-b-large-motion/final-gate.log": {
+      "bytes": 64010,
+      "sha256": "3aa8ecc490d27b6b1d501816ed68c3ace0baf8c2c0a4235b90071a38495edd94"
+    },
+    "docs/evidence/phase-b-large-motion/final-reopened.png": {
+      "bytes": 167282,
+      "sha256": "bc017f689d2534936e49f59d9689111e28b88fc52bcff9a943c523eda38a2531"
+    },
+    "docs/evidence/phase-b-large-motion/final-export.png": {
+      "bytes": 171842,
+      "sha256": "2dd5794c194e11f4221cbad4a4fe6adbda49b529b0c55759171969941933a801"
+    }
+  }
+}

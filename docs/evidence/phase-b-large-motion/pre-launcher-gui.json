@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "phase": "B",
+  "phase_status": "IN_PROGRESS",
+  "scope": "GUI transport smoke before additional launcher repair",
+  "binary_sha256": "53dd35533afbe0a9ced5d62e8dbac32a61124ef6ac63c6e09c1314cc6e7c1943",
+  "source_gate_sha256": "440fa727fac9915ed0617a332c9ddade2c2b846baa34edd34647ac5185f00aba",
+  "project_id": "07db5f57-3d53-42e8-b7c0-f51e14103d18",
+  "axis": "yaw",
+  "source_kind": "GenerationInput",
+  "duration_seconds": 1800,
+  "actions": 180001,
+  "program_bytes": 13919716,
+  "program_sha256": "e9d8184e308f1dd969d919251c263de851f1fdeee09c9e1141c07c4cc853266b",
+  "cli_revision": 1,
+  "undo_revision": 2,
+  "redo_revision": 3,
+  "reopened_revision": 3,
+  "review_code": "constrained_pattern_parser_not_local_ai",
+  "gui_cli_exports_identical": true,
+  "export_sha256": "ee7f29f641fe50c8f3ded8c23501d51b253d52b8edd9ac2758a7a40918cdafb1",
+  "gui_acknowledged_filename": "gui-yaw",
+  "requested_automation_filename": "gui-yaw.funscript",
+  "qualifications": {
+    "real_media": false,
+    "neural_accuracy": false,
+    "performance": false,
+    "frame_latency": false,
+    "physical_actuation": false
+  },
+  "harness_events": [
+    "First private Xvfb terminated; exact cause unproven. Owned GUI then reported X connection broken. Project state retained.",
+    "GUI launched 0.5s after engine restart reported startup exit status 1; original engine later had live private listeners. Launcher race investigation recorded separately.",
+    "Export acknowledged path lacked typed suffix .funscript. Initial cmp of assumed path failed; cmp of acknowledged path succeeded. Exact submitted event sequence was not captured; no export-data-loss claim."
+  ]
+}

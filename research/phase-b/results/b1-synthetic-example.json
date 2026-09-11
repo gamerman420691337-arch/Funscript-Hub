@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "policy_version": "B1.1",
+  "corpus_sha256": "21f07be06f42c6cfc406f1b2c44e587ae5793138db4d6b772134e0637a7a1830",
+  "split": "development",
+  "thresholds": {
+    "reversal_timing_ns": "100000000",
+    "neutral_stroke_travel_relative_error_percent": 20,
+    "preview_precision_recall_floor": 0.8,
+    "preview_target": 0.9,
+    "stable_precision_recall_floor": 0.95,
+    "material_flag_recall_floor": 0.95
+  },
+  "categories": {
+    "synthetic/synthetic-kat": {
+      "evidence_class": "synthetic",
+      "category": "synthetic-kat",
+      "clips": 1,
+      "axes": {
+        "stroke": {
+          "reference_strokes": 1,
+          "predicted_strokes": 1,
+          "true_positive_strokes": 1,
+          "precision": 1,
+          "recall": 1
+        }
+      },
+      "material_sections": 0,
+      "any_overlap_hits": 0,
+      "half_coverage_hits": 0,
+      "full_coverage_hits": 0,
+      "effort_eligible_subjects": 0,
+      "active_budget_passes": 0,
+      "total_budget_passes": 0,
+      "independent_source_groups": 1,
+      "any_overlap_recall": null,
+      "half_coverage_recall": null,
+      "full_coverage_recall": null,
+      "active_budget_fraction": null,
+      "total_budget_fraction": null
+    }
+  },
+  "clips": [
+    {
+      "entry_id": "synthetic-metric-demo",
+      "category": "synthetic-kat",
+      "evidence_class": "synthetic",
+      "source_group_id": "authored-analytic-demo",
+      "metrics": {
+        "subject_id": "synthetic-metric-demo",
+        "evidence_scope": "annotation-metrics-only; no neural, physical, or release qualification",
+        "axes": {
+          "stroke": {
+            "reference_strokes": 1,
+            "predicted_strokes": 1,
+            "true_positive_strokes": 1,
+            "precision": 1,
+            "recall": 1
+          }
+        },
+        "matches": [
+          {
+            "reference_id": "r1",
+            "candidate_id": "p1",
+            "axis": "stroke",
+            "start_timing_error_ns": "0",
+            "end_timing_error_ns": "0",
+            "travel_relative_error": 0
+          }
+        ],
+        "unmatched_reference_ids": [],
+        "unmatched_candidate_ids": [],
+        "timing_error_distribution_scope": "matched strokes only; unmatched strokes remain false positives/negatives",
+        "review": {
+          "independently_annotated_material_sections": 0,
+          "any_overlap_hits": 0,
+          "half_coverage_hits": 0,
+          "full_coverage_hits": 0,
+          "any_overlap_recall": null,
+          "half_coverage_recall": null,
+          "full_coverage_recall": null,
+          "section_coverage": [],
+          "flagged_duration_ns": "0",
+          "flagged_duration_fraction": 0,
+          "flagged_nonmaterial_duration_ns": "0",
+          "flagged_duration_material_precision": null,
+          "release_hit_rule": "UNAPPROVED: three descriptive coverage rules are not interchangeable release gates"
+        },
+        "release_qualified": false
+      },
+      "effort": null,
+      "execution": null
+    }
+  ],
+  "release_qualified": false,
+  "missing_release_gates": [
+    "Approved category taxonomy, stroke segmentation and plateau reversal policy",
+    "Approved material-section hit rule and false-alarm/review-burden policy",
+    "Permitted independent heldout corpus and sample-size/statistical decision rule",
+    "Candidate-bound model/runtime/hardware and full release qualification"
+  ]
+}

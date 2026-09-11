@@ -1,12 +1,24 @@
 # Pulsar Major Roadmap
 
-Version: 1.0
-Date: 2026-09-10
+Version: 1.2
+Date: 2026-09-11
 Status: Approved implementation direction; milestones require evidence before closure
 
 ## Authority and scope
 
 The [Pulsar Software Specification](PULSAR_SOFTWARE_SPECIFICATION.md) is the product contract. Its confirmed requirements and Appendix D decision sources take precedence over this roadmap, implementation notes, README feature claims, and historical plans. Design defaults and open choices remain labeled as such.
+
+The [Architecture Decisions and Design Continuation](PULSAR_ARCHITECTURE_DECISIONS.md) records ARCH-001 through ARCH-041, distinguishes submitted decisions from selected technical contracts, and consolidates the source map, module responsibilities, interfaces, and assurance obligations. Architecture discussion is complete. Implementation, regression closure, performance evidence, and release/hardware qualification remain incomplete. The architecture record supplements this roadmap without superseding the software specification's product requirements.
+
+## Authoritative execution order: architecture first
+
+ARCH-041 supersedes the earlier M1-first delivery order. The [Architecture-First Execution Plan](PULSAR_ARCHITECTURE_FIRST_EXECUTION_PLAN.md) is authoritative for sequencing; the software specification remains authoritative for product requirements. M1-M8 below now identify scope and acceptance workstreams, not a strict chronological implementation order. Their defects, compatibility requirements, numerical gates, and qualification obligations remain binding.
+
+1. **Phase A: architecture scaffolding.** Establish the final four-library shape, shared authority interfaces, enforced dependency directions, and representative real input-to-result vertical paths. Move supported implementations behind those boundaries. Fix only correctness defects that block the migration; keep the remaining historical M1 defects explicitly open. Unimplemented or unqualified capabilities must be disabled or reported as unsupported, not represented by hollow success-returning stubs.
+2. **Phase B: make it good.** Complete functional behavior and correctness through the new architecture, including the full M1 regression and GUI tracking work. Address difficult numerical, model, runtime, and device-integration questions with deep research, falsifiable experiments, and ADR-recorded scientific reasoning. Preserve unsuccessful or inconclusive evidence rather than treating research as qualification.
+3. **Phase C: make it solid.** Complete hardening and acceptance evidence across M1-M8: critical formal gates, fault/recovery and adversarial testing, performance and real-media qualification, physical device qualification, compatibility, and portable release evidence. Earlier green paths or research results do not substitute for these gates.
+
+Phase A exits on real composed behavior and enforced ownership boundaries, not directory structure, type declarations, or placeholder APIs alone. It must demonstrate that supported client paths use the shared authority interfaces and that dependency directions are enforced. Architecture completion does not qualify unsupported models, devices, backends, or platforms.
 
 This roadmap authorizes staged implementation of that contract. It does not assert that current models, hardware paths, benchmarks, or packages satisfy it. The product owner requested that the roadmap be committed first, followed by milestone planning, the first milestone, debugging, and substantial correctness review.
 
@@ -95,20 +107,57 @@ Model choice, quantization, inference backend, and final memory budgets remain e
 - Material-error thresholds remain >100 ms reversal deviation and >20% reference stroke-travel error. Flag recall and pre-edit stroke accuracy are separate gates.
 - Other input/hardware envelopes, Fast/Maximum quality floors, creative scoring, and secondary-axis metrics must be specified and qualified; unspecified metrics are not automatically passed.
 
-## Decisions to resolve during implementation
+## Architecture-to-milestone crosswalk
 
-| Item | Resolution point |
-| --- | --- |
-| Exact model/runtime and per-vendor backend selection | M3 comparison, then M6 platform qualification. |
-| Curated pilot sources, annotations, statistical protocol, and expanded data budget | Pilot before model tuning or release qualification; preserve the five-hour initial budget. |
-| Concrete box/flow/timestamp contracts and verified consumer paths | M1/M2; derive from actual code and reproducible defects. |
-| Native project schema and recovery/version retention | M2. |
-| Canonical six-axis coordinates and reference device | M4/M5; physical qualification before Stable. |
-| Handy firmware/API/BLE coverage and external-player synchronization | M5. |
-| Core size, peak memory, minimum OS versions, signing, extraction/update feasibility | M3/M6; escalate conflicts with confirmed portability requirements. |
-| Other ARM64 release milestone and later Intel Mac support | Explicit support-matrix decision; no silent launch-scope expansion or reduction. |
+These contracts strengthen the existing M1-M8 acceptance scope; they do not change workstream purposes, relax numerical gates, or reduce platform, modality, offline, or device requirements. The M1-M8 mapping identifies responsibility and required evidence, not chronological precedence; the architecture-first phases above govern execution order. The software specification remains authoritative for product requirements. The architecture record supplies the detailed contract and decision provenance.
 
-Escalate only genuine conflicts with confirmed requirements or missing human-owned resources/decisions. Do not restart an open-ended requirements interview for ordinary engineering choices.
+| Architecture area | Milestone mapping | Required acceptance obligation |
+| --- | --- | --- |
+| 1. Modules and modern names | M1 bounded seams; M2 shared architecture; M6 packaging | Introduce `pulsar-core`, `pulsar-protocol`, `pulsar-engine`, and `pulsar-clients` behind one executable's client/engine/worker roles. Core forbids unsafe code and GUI/runtime dependencies. GUI and CLI share engine APIs. Rename `FunGenApp` to `PulsarDesktop` while preserving attribution and completing the lineage audit; a rename is not evidence of clean-room origin. |
+| 2. Domain identities and units | M1 geometry/time association; M2 project identities; M4 multimodal/six-axis contracts | Distinguish source versions/placements, frames, tracks, targets, outputs, revisions, jobs, attempts, and physical devices. Use rational source time, checked integer-nanosecond project time, and separate monotonic deadlines. Identify coordinate spaces and observation status explicitly. First release has one neutral program per project with up to six axes. |
+| 3. Viewer and tracking | M1 actual observation rendering; M2 preview lifecycle; M4 projection coverage | Consume real observations only when source, frame, transforms, and seek/request generation match. Request lightweight analysis when absent; hide stale boxes and label user-defined regions separately. Test positive and absent detections, seeks, cuts, resizing, projections, and late delivery. Client previews remain independent of device playback. |
+| 4. Projects and persistence | M2 authority and durability; M6 portable snapshots/migrations | Bundle SQLite. Only the engine commits authorized, revision-checked, protected-region-aware transactions. Gestures commit atomically; actor-labelled undo/redo creates fresh revisions. Reject stale commits and require explicit rebase. Snapshot sources immutably using copy-on-write or copies; test recovery, consistent exports, and non-destructive migrations. |
+| 5. Engine, jobs, and resources | M2 lifecycle; M3 execution budgets; M5 live priority | One engine per OS user owns scheduling and devices. Jobs use immutable inputs; attempts identify exact dependencies. Resume only eligible validated checkpoints. Qualified automatic fallback creates a new attempt; explicit backend pins remain strict. Bound retries and aggregate CPU/RAM/VRAM/storage use; protect live/control deadlines and reject infeasible admission. |
+| 6. Local API and authority | M2 protocol/grants; M5 controller lifecycle | Version and bound length-framed JSON over secured local sockets/named pipes; separate control and bulk transfers. Specify typed errors, idempotency, revision checks, reconnect/resynchronization, pairing, scoped grants, and revocation. Revocation cancels solely authorized work; disconnection alone does not. Shared buffers are immutable and authorization-scoped; no arbitrary shell, SQL, or ambient device access. |
+| 7. Provenance, privacy, and disposal | M2 lineage/storage; M4 output association; M6 export behavior | Preserve compact lineage through opaque references; heavy traces are opt-in. Evict only eligible unpinned snapshots after active users release them, never committed motion, compact lineage, or original media as cache cleanup. Strip internal provenance from standard exports/device payloads while retaining local adaptation/export receipts. |
+| 8. Plugins, models, and runtimes | M2 grant enforcement; M3 execution contracts; M6 platform confinement | Use bounded Wasmtime/WASM processing/editing extensions and isolated native runtime/driver workers with manifests, exact artifact identities, brokered effects, validated buffers/tensors, and host-call deadlines. Mark custom unqualified models/backends clearly. Unsandboxed exceptions require exact-build approval; assistant invocation requires individual approval by default, with a separately user-controlled, explicitly risky standing grant. Changed bytes or revocation invalidate that grant; the assistant cannot authorize exceptions itself. |
+| 9. Device admission and qualification | M5 device/live evidence; M7 Preview classification; M8 Stable physical qualification | Separate neutral motion, profile adaptation, admission, encoding, and transport. Preserve timing while constraining amplitude; pin playback to an admitted revision and require controller authority/re-admission for changes. Accept official qualification records or explicit human acceptance after required local qualification. Headless use additionally requires a qualified stopping bound and per-configuration approval. Reconnect disarmed; a sent stop command is not proof of physical stopping. |
+| 10. Assurance | M1 regressions; M2 critical models/kernels; M3-M6 affected-surface evidence; M7/M8 release gates | Use Kani for bounded critical Rust kernels and TLA+/TLC for lifecycle models, plus implementation-correspondence tests. Cover authority, revisions, revocation/cancellation, ownership, replay, arithmetic, and frame/evidence association. Combine KAT, property/metamorphic/differential, fuzz, mutation, fault-injection, real-media, and hardware evidence. Critical formal gates apply before Preview; fast PR gates do not replace deeper release qualification. |
+| 11. Migration and compatibility | M1-M2 migration scope; M3-M6 adapters/packaging; M7-M8 compatibility qualification | Establish the final architecture in Phase A, moving supported behavior incrementally behind shared contracts rather than maintaining independent GUI/CLI/batch authority. Give transitional adapters explicit removal milestones. Preserve documented CLI syntax/aliases and non-destructive project imports through the first Stable major series; preserve standard funscript interoperability permanently, not historical bugs. Retain the agreed bundled offline and platform/vendor scope. |
+
+## M1 acceptance addendum: reproduce, repair, and establish real consumers
+
+M1 retains the baseline, bounding-box, tracking, and stroke-correctness scope, but no longer precedes architecture scaffolding. Phase A establishes the final four-library and shared-engine shape, fixing only migration-blocking correctness defects. The remaining M1 regression cases and acceptance obligations below stay open and carry into Phase B; Phase C supplies the corresponding hardening and qualification evidence. Do not discard historical defects, apply cached patches blindly, or mistake architecture migration for correctness closure.
+
+- Re-establish the selected upstream baseline without overwriting the preserved checkout, local roadmap/specification work, or unrelated changes. Identify the source revision associated with every new result.
+- Reproduce the 20 historically observed targeted regression failures against that selected baseline. The historical count and cached candidate patches are leads, not current acceptance evidence; disposition cases that no longer reproduce rather than applying old patches blindly.
+- Repair demonstrated detector tensor/shape, finite-value, extent, class, clipping, and coordinate faults; tracker identity, aging, cuts, and box propagation; point-tracker forward/backward-flow behavior; and equal-area frame-dimension changes. Bind each correction to the relevant public or internal contract.
+- Repair stroke extraction without inventing full-range movement or reversals. Preserve pauses, shallow relative amplitude, reversal timing, and plateau boundaries. Distinguish invalid input and missing evidence from a legitimate stationary result.
+- Connect actual tracking observations to GUI rendering. A fixed analysis region or script-derived cursor must not impersonate a detected box. Exercise a moving target and no detections, then seek/cut/resize/projection changes and late results, with explicit source/frame/transform/request freshness checks.
+- Record real-media detector/tracker behavior separately from synthetic/unit results. A moving synthetic box proves neither real detector quality nor physical device qualification. Do not close M1 solely because the existing test suite is green.
+
+## Resolved architecture and remaining implementation evidence
+
+Architecture choices are no longer an open-ended requirements interview. The selected module split, independent project timeline, engine authority, immutable job/source inputs, persistence approach, local protocol, plugin trust classes, and assurance tools are the implementation direction. Concrete schemas and code must realize those contracts; numerical, platform, model, and physical claims still require evidence.
+
+| Item | Contract already selected | Remaining implementation or qualification work |
+| --- | --- | --- |
+| Models, runtimes, and per-vendor backends | Typed runtime adapters, exact artifact/dependency identity, qualified equivalent fallback, strict explicit pins, and visibly unqualified custom execution | Compare exact models/runtime builds in M3; demonstrate per-vendor support, memory use, throughput, and quality on the agreed M6 platform matrix. No particular model is qualified by this document. |
+| Curated pilot and benchmark | Hand-curated/test-script benchmark direction and the five-hour initial annotation pilot remain binding | Acquire sources, annotations, statistical protocol, and any explicitly approved expanded data budget before tuning or release qualification. Preserve category-level gates and held-out evidence. |
+| Box, flow, time, and consumer correctness | Typed coordinate/time identities, explicit observation status, and frame/transform/request freshness | Reproduce M1 faults and demonstrate corrected producer-to-consumer behavior; complete M2 domain/protocol schemas and conversion checks. Historical inspection is not a current pass. |
+| Projects, jobs, recovery, and resources | Bundled SQLite, engine-only durable revision transactions, immutable snapshots, validated resumability, and bounded scheduling | Implement concrete schema/migrations, retention and recovery behavior, budget admission, checkpoint validation, and failure injection in M2/M3; prove consistent portable snapshots in M6. |
+| Six-axis semantics and physical reference | One neutral program with typed axes/coordinate spaces, explicit transforms, and separate device-profile adaptation | Complete canonical axis conversion/convention evidence in M4; select the physical reference device and obtain M5/M8 qualification. Preserve the specification's Preview experimental versus Stable physical-qualification distinction. |
+| Handy and other device integrations | Qualified admission, controller ownership, disarmed reconnect, explicit online/headless authorization, and human-owned local qualification acceptance | Demonstrate firmware/API/BLE coverage, stop bounds, external-player synchronization, and the approved device/configuration matrix in M5. Sending commands or passing transport tests alone is insufficient. |
+| Plugin confinement and assistant exceptions | WASM/native role separation, brokered effects, exact-build unsandboxed approval, and individually approved assistant exception calls unless a user grants explicitly risky standing scope | Implement and test each platform's confinement, revocation, changed-artifact invalidation, host-call deadlines, and failure boundaries in M2/M3/M6. A separate process alone does not establish a security sandbox. |
+| Assurance and release gates | Kani bounded kernels, TLA+/TLC lifecycle models, implementation correspondence, and layered KAT/property/fuzz/mutation/differential/fault-injection evidence | Define concrete harnesses and bounds, exercise the relevant implementations, disposition mutation survivors, and satisfy critical formal gates before M7 Preview. Neural quality, foreign runtimes, and physical safety remain separate evidence obligations. |
+| Portable packages and support matrix | Bundled offline core/runtimes/models; agreed launch platform/vendor scope remains unchanged | Establish core size, peak memory, minimum OS versions, signing, extraction/update/rollback feasibility, and qualified execution in M3/M6. Escalate conflicts rather than silently weakening portability. |
+| Other ARM64 and Intel Mac | Previously agreed priority and launch exclusions remain binding | Assign explicit later support milestones; do not silently expand or reduce launch scope. Platform qualification precedes a support claim. |
+
+Escalate genuine conflicts with confirmed requirements or missing human-owned resources/decisions. Ordinary engineering detail must implement the settled contracts, not reopen the interview or silently substitute a weaker design.
+
+### Consolidation status, 2026-09-11
+
+This revision is documentation-only architecture-first sequencing consolidation under ARCH-041. It does not implement the four-library split, fix the bounding box, run or pass tests, establish hardware/model/platform qualification, or imply a commit. Architecture discussion is complete; implementation and acceptance evidence remain outstanding. The architecture-first execution plan changes delivery order, not the software specification's scope or the M1-M8 acceptance obligations.
 
 ## Completion and reporting
 
@@ -116,3 +165,26 @@ Each milestone report must state: implemented scope, reproduced/fixed defects, e
 
 Roadmap approval is not permission to erase repository history, change licenses, publish releases, push to a protected branch, or claim target accuracy/performance without evidence.
 
+## Architecture Phase execution update (2026-09-11)
+
+A1-A6 structural integration is complete for the enabled Linux architecture path;
+Phase B starts with B1. See [Phase A completion record](PULSAR_PHASE_A_STATUS.md),
+[migration/capability ledger](PULSAR_PHASE_A_MIGRATION.md) and
+[implementation ADR](adr/0001-phase-a-boundaries.md) for exact evidence and limits.
+This is not Preview/Stable, full feature parity, portable release qualification,
+real-media accuracy or physical-device qualification. All M1-M8 product scope and
+remaining B/C obligations are retained. No commit or upstream publication is implied.
+
+
+## Good-phase implementation checkpoint: 2026-09-11
+
+Phase B remains **IN PROGRESS**. See [PULSAR_PHASE_B_STATUS.md](PULSAR_PHASE_B_STATUS.md) for the B1-B6 delivered/open crosswalk, current-source gate receipt, real GUI/CLI smoke evidence, research limitations, and next engineering priority. This checkpoint does not mark any whole B milestone complete, start Solid phase, reduce specification scope, or substitute synthetic fixtures for real-media/human/hardware qualification.
+
+Current increment: 209 Rust tests and architecture checks pass; 827 metric/artifact checks pass; the finite TLC lifecycle model and its negative mutation check pass. Kani was not run. GUI/CLI selected-axis export parity, fresh-revision undo/redo, and restored review visibility were exercised. Large program bulk transport, full inference/modalities/devices, portable project packaging, and human/real-media qualification remain open.
+
+
+## Large-motion and startup checkpoint: 2026-09-11
+
+See [PULSAR_PHASE_B_LARGE_MOTION_STATUS.md](PULSAR_PHASE_B_LARGE_MOTION_STATUS.md) and [ADR 0008](adr/0008-motion-artifacts-and-transfer-leases.md). Immutable motion transport, values-only edit proposals, durable request/replay fixes and bounded startup are implemented. Final local gate under a 1,024-descriptor limit passed 305 Rust tests plus bounded lifecycle/model mutation checks; final binary GUI reopen/export parity passed for a 180,001-action synthesized project. Source fingerprint: `8b12bd2343e9c10b16485f517bc8a28af33b0a2b323ce625bb45965bae05bc1f`.
+
+This replaces the earlier unimplemented large-motion blocker status only. Good Phase B remains IN PROGRESS; no whole B milestone, Preview/Stable, real-media quality, reference-hardware speed, physical stopping or full memory/control-latency qualification is implied. [Portable-project work](PULSAR_PORTABLE_PROJECT_IMPLEMENTATION_PLAN.md) is the next proposed B6 slice, not an implemented feature. The software specification remains authoritative.

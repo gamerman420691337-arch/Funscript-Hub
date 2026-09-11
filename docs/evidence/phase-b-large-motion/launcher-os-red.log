@@ -1,0 +1,2 @@
+PROBE_DIR=/tmp/pulsar-launcher-os-probe.WOvxG8
+{"saturation_proof": {"errno": 11, "name": "EAGAIN", "connected_fillers": 2}, "actual_cli_timed_out": true, "elapsed_seconds": 1.502, "returncode": -9, "stderr": "", "cleanup": "only owned CLI killed/reaped; retained fillers closed"}

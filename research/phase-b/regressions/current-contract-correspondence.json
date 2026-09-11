@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "source": "B2 agent report; no original legacy suite rerun",
+  "command": "cargo test -p pulsar-core --test perception --offline",
+  "reported_result": "31 tests PASS",
+  "pure_contract_cases": {
+    "M1-01": [
+      "detector_rejects_rank_count_and_negative_geometry"
+    ],
+    "M1-02": [
+      "detector_rejects_nonfinite_even_below_threshold"
+    ],
+    "M1-03": [
+      "detector_clips_endpoints_and_recomputes_center"
+    ],
+    "M1-04": [
+      "m1_unknown_class_does_not_panic"
+    ],
+    "M1-05": [
+      "detector_drops_fully_outside_and_validates_classes"
+    ],
+    "M1-06": [
+      "m1_direct_rejects_reversed_corners"
+    ],
+    "M1-07": [
+      "m1_direct_clips_corners_without_guessing_center_format"
+    ],
+    "M1-08": [
+      "m1_direct_rejects_nonfinite_score"
+    ],
+    "M1-09": [
+      "tracker_prediction_translates_box_not_only_center"
+    ],
+    "M1-10": [
+      "tracker_cut_retires_identity_even_for_same_geometry"
+    ],
+    "M1-11": [
+      "m1_confidence_change_does_not_replace_spatial_match"
+    ],
+    "M1-12": [
+      "tracker_prediction_translates_box_not_only_center",
+      "tracker_counts_skipped_frames_when_expiring"
+    ],
+    "M1-13": [
+      "m1_degenerate_boxes_do_not_seed_points"
+    ],
+    "M1-14": [
+      "m1_zero_requested_mask_points_do_not_panic"
+    ],
+    "M1-15": [
+      "flow_independent_reverse_pass_accepts_translation"
+    ],
+    "M1-20": [
+      "m1_equal_area_resize_updates_flow_geometry"
+    ]
+  },
+  "limitations": [
+    "No B1 rerun of reported core command",
+    "Flow-box case uses constant-velocity prediction, not the dense-flow adapter",
+    "Original cached legacy test bytes not compiled by this correspondence",
+    "Worker integration and real-media quality remain separate",
+    "M1-16 through M1-19 signal cases not covered by this report"
+  ]
+}

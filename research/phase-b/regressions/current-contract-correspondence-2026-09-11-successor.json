@@ -1,0 +1,99 @@
+{
+  "schema_version": 2,
+  "kind": "B1-successor-execution-record",
+  "evidence_source": "Transcribed observed tool execution; no original legacy suite rerun",
+  "previous_record": "regressions/current-contract-correspondence.json",
+  "historical_assertions": "historical-regressions.json",
+  "historical_inventory": "regressions/legacy-20.json",
+  "executed_command": "CARGO_TARGET_DIR=/tmp/pulsar-phase-a-target CARGO_BUILD_JOBS=2 cargo test -p pulsar-engine worker::good_tests --offline -- --test-threads=1",
+  "tool_session": 93860,
+  "exit_code": 0,
+  "passed": 13,
+  "failed": 0,
+  "ignored": 0,
+  "filtered_out": 49,
+  "test_seconds": 1.76,
+  "test_module": "crates/pulsar-engine/src/worker/good_tests.rs",
+  "production_dependency_binding": "Not captured for this individual invocation; use the parent task's candidate-bound full-workspace receipt for final qualification.",
+  "signal_correspondences": [
+    {
+      "id": "M1-16",
+      "current_test": "m1_worker_constant_displacement_never_invents_stroke",
+      "status": "CURRENT_WORKER_SYNTHETIC_REGRESSION_PASS",
+      "oracle": "Five identical textured decoded frames at displacement3 hold neutral0.5 throughout; initial/final anchors0/500ms."
+    },
+    {
+      "id": "M1-17",
+      "current_test": "m1_worker_monotonic_decreasing_motion_keeps_direction_and_shallow_travel",
+      "status": "CURRENT_WORKER_SYNTHETIC_REGRESSION_PASS",
+      "oracle": "Known frame shifts0,-1,-2,-3 yield exact0.5-index/64 at125ms intervals; no full-range stretching."
+    },
+    {
+      "id": "M1-18",
+      "current_test": "m1_worker_trailing_pause_does_not_add_reversal",
+      "status": "CURRENT_WORKER_SYNTHETIC_REGRESSION_PASS",
+      "oracle": "Frame shifts0,1,0,0,0 retain peak0.5+1/64 and neutral0.5 at250,375,500ms."
+    },
+    {
+      "id": "M1-19",
+      "current_test": "m1_worker_preserves_both_pause_boundaries_for_peak_and_trough",
+      "status": "CURRENT_WORKER_SYNTHETIC_REGRESSION_PASS",
+      "oracle": "Both positive/negative one-pixel plateaus retain independent125ms and375ms anchors and return0.5 at500ms."
+    }
+  ],
+  "audio_gap": {
+    "id": "B1-AUD-01",
+    "state": "NARROW_SUPPORTED_SCOPE_REPAIRED",
+    "test": "discontinuous_audio_pts_are_rejected_not_collapsed_into_earlier_motion",
+    "fixture": "Authored1920sample16kHzFloat32 audio; FFmpeg160sampleframes and asetpts insert1s after50ms; MatroskaPCM. Independent ffprobe confirms >0.5s sourcePTS jump.",
+    "before": {
+      "tool_session": 99763,
+      "exit_code": 101,
+      "passed": 12,
+      "failed": 1,
+      "result": "Worker generated a120ms candidate despite inserted1s source timestamp gap."
+    },
+    "after": {
+      "tool_session": 93860,
+      "result": "TypedUnsupported before candidate.json publication; independent fixturePTS proof passes."
+    },
+    "continuous_audio_test": "audio_only_decoder_preserves_absolute_rms_and_silent_boundaries",
+    "continuous_audio_oracle": "0.1-amplitude400Hz sine RMS0.1/sqrt2; neutral0.4+0.2*RMS, silence0.4. Receipt binds1920source/resampledsamples,16kHz,firstPTS0,timebase1/16000 and explicit origin normalization.",
+    "limitation": "Discontinuous audio is rejected, not repaired or faithfully synthesized with gaps. No physical sync or general audio/music quality qualification."
+  },
+  "readiness_open": {
+    "id": "B1-RDY-01",
+    "severity": "P1",
+    "state": "OPEN_CONFIRMED_SIZE_LIMIT",
+    "title": "Default framewise candidates do not fit the enabled inline publication/read path",
+    "evidence_source": "Parent task source inspection and synthetic serialization sizing; not a completed30-minute real-media run.",
+    "source_pointers": [
+      "crates/pulsar-engine/src/authority.rs: PROGRAM_LIMIT",
+      "crates/pulsar-engine/src/worker/mod.rs: framewise action production",
+      "crates/pulsar-protocol/src/lib.rs: bounded inline control framing"
+    ],
+    "limits": {
+      "publication_program_bytes": 524288,
+      "inline_control_frame_bytes": 1048576
+    },
+    "example": {
+      "duration_seconds": 1800,
+      "fps": 30,
+      "actions": 54000,
+      "serialized_program_bytes_lower_bound": 2480000
+    },
+    "consequence": "A nominal30-minute30fps framewise candidate exceeds512KiB publication and1MiB inline GetCandidate framing. Small synthetic tests cannot establish large-project readiness.",
+    "required_resolution": "Bounded authorized bulk candidate transfer/storage and client consumption, or explicitly proved lossless semantic reduction preserving timestamps, pauses, shallow motion and evidence. Do not silently discard actions or weaken guarantees.",
+    "owner": "Parent engine/protocol/client integration workstream",
+    "qualification": "OPEN; not fixed by B1 artifacts or worker13-test result"
+  },
+  "limitations": [
+    "Reconstructed current-contract correspondence is not execution of the original legacy20-test suite.",
+    "Global translation uses modelNone; it is not target-relative neural tracking.",
+    "The earlier box-prediction correspondence does not close historical dense-flow propagation by itself.",
+    "Real-media corpus0, independent human annotations0, recorded human effort0.",
+    "Full Good phase remains unfinished."
+  ],
+  "recorded_at": "2026-09-11T09:54:53.335Z",
+  "owned_test_module_sha256_of_bytes_written_before_cited_run": "6c0d853ac655d5897e3fffc3940b1bd6d2e4e7e37e529662f518d82dcde8bcb0"
+}

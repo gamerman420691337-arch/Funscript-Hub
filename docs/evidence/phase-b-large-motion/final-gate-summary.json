@@ -1,0 +1,10 @@
+{
+  "gate_exit": 0,
+  "source_sha256": "8b12bd2343e9c10b16485f517bc8a28af33b0a2b323ce625bb45965bae05bc1f",
+  "passed": 305,
+  "failed": 0,
+  "ignored": 0,
+  "groups": 25,
+  "log_bytes": 64010,
+  "tail": "es\": 852,\n      \"depth\": 13,\n      \"error\": null\n    },\n    {\n      \"name\": \"write-authorization\",\n      \"passed\": true,\n      \"exit_code\": 12,\n      \"expected_invariant_violation\": \"NoUnauthorizedEffects\",\n      \"generated_states\": 8,\n      \"distinct_states\": 8,\n      \"depth\": 3,\n      \"error\": null\n    },\n    {\n      \"name\": \"lease-epoch\",\n      \"passed\": true,\n      \"exit_code\": 12,\n      \"expected_invariant_violation\": \"NoStaleEpochEffects\",\n      \"generated_states\": 8,\n      \"distinct_states\": 8,\n      \"depth\": 3,\n      \"error\": null\n    },\n    {\n      \"name\": \"digest-publication\",\n      \"passed\": true,\n      \"exit_code\": 12,\n      \"expected_invariant_violation\": \"NoBadDigestPublication\",\n      \"generated_states\": 195,\n      \"distinct_states\": 116,\n      \"depth\": 6,\n      \"error\": null\n    },\n    {\n      \"name\": \"revision-commit\",\n      \"passed\": true,\n      \"exit_code\": 12,\n      \"expected_invariant_violation\": \"NoStaleCommit\",\n      \"generated_states\": 1057,\n      \"distinct_states\": 482,\n      \"depth\": 9,\n      \"error\": null\n    }\n  ],\n  \"limitations\": [\n    \"One transfer/project, bounded byte count/revisions/epochs; no fairness or real-time proof.\",\n    \"Digest verification, atomic durable publication and reservations are abstract predicates.\",\n    \"No Rust, operating-system, fsync, memory-accounting, download or cryptographic proof.\",\n    \"Lost acknowledgments and rejected requests are stuttering steps; concrete replay tests remain required.\"\n  ]\n}\nMotion transport structural/test/model checks passed; GUI, resource and phase qualification evidence remain separate.\n"
+}

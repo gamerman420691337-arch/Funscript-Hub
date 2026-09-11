@@ -1,0 +1,13 @@
+[sandbox] snapshot 20260928-100538-24927 captured — `lamu undo` to restore
+[sandbox: Bwrap] running ["node", "research/phase-b/artifact-tests.mjs"]
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "checks": 528,
+  "exhaustive_matching_cases": 512,
+  "matching_and_identity_boundaries": 4,
+  "artifact_pipeline_cases": 12,
+  "fixture_evidence_class": "synthetic",
+  "real_media_subjects": 0,
+  "release_qualified": false
+}

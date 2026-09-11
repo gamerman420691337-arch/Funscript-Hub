@@ -1,0 +1,21 @@
+{
+  "kind": "diagnostics",
+  "value": {
+    "project_id": "345ae570-d5e9-4a9a-ab6c-45340d9365ad",
+    "revision": 1,
+    "candidate_id": null,
+    "base_revision": null,
+    "protected_regions": [],
+    "issues": [
+      {
+        "code": "constrained_pattern_parser_not_local_ai",
+        "message": "Unresolved revision review: constrained_pattern_parser_not_local_ai (Synthesized).",
+        "axis": null,
+        "range": {
+          "start": 0,
+          "end": 2000000001
+        }
+      }
+    ]
+  }
+}

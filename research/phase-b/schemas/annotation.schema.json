@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pulsar B1 annotation artifact",
+  "description": "Runtime additionally checks signed-i64 time, positive durations, window containment, nonzero travel, unique IDs and reference/candidate role separation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject_id",
+    "window",
+    "strokes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "subject_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_ns",
+        "end_ns"
+      ],
+      "properties": {
+        "start_ns": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]*)$",
+          "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+        },
+        "end_ns": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]*)$",
+          "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+        }
+      }
+    },
+    "strokes": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "target_id",
+          "axis",
+          "start_ns",
+          "end_ns",
+          "start_position_ppm",
+          "end_position_ppm"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "target_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "axis": {
+            "enum": [
+              "stroke",
+              "sway",
+              "surge",
+              "roll",
+              "pitch",
+              "yaw"
+            ]
+          },
+          "start_ns": {
+            "type": "string",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+          },
+          "end_ns": {
+            "type": "string",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+          },
+          "start_position_ppm": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "end_position_ppm": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        }
+      }
+    },
+    "material_sections": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "start_ns",
+          "end_ns",
+          "reasons"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "start_ns": {
+            "type": "string",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+          },
+          "end_ns": {
+            "type": "string",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+          },
+          "reasons": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        }
+      }
+    },
+    "flags": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "start_ns",
+          "end_ns",
+          "reasons"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "start_ns": {
+            "type": "string",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+          },
+          "end_ns": {
+            "type": "string",
+            "pattern": "^-?(0|[1-9][0-9]*)$",
+            "description": "Canonical signed i64 nanoseconds; runtime enforces range and rejects -0."
+          },
+          "reasons": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        }
+      }
+    }
+  },
+  "not": {
+    "required": [
+      "material_sections",
+      "flags"
+    ]
+  }
+}

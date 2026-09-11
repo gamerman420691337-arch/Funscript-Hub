@@ -1,0 +1,57 @@
+# Cached actual successful process run; no rerun performed to create this artifact.
+# Working directory: /home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1
+# Command: CARGO_TARGET_DIR=/tmp/pulsar-phase-a-target CARGO_BUILD_JOBS=2 cargo test --test large_motion --offline -- --nocapture --test-threads=1
+# Tool execution session: 93601
+# Exit code: 0
+# Below: captured cargo process output, excluding the preceding lamu source-write wrapper output.
+
+   Compiling pulsar-engine v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1/crates/pulsar-engine)
+warning: fields `candidate_id` and `project_id` are never read
+    --> crates/pulsar-engine/src/authority.rs:1846:5
+     |
+1845 | struct CandidateState {
+     |        -------------- fields in this struct
+1846 |     candidate_id:CandidateId,project_id:ProjectId,base_revision:RevisionId,program:MotionProgram,review:Vec<ReviewFlag>,
+     |     ^^^^^^^^^^^^             ^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `import_canonical` is never used
+   --> crates/pulsar-engine/src/motion_artifacts.rs:393:16
+    |
+319 |     impl ProgramStore {
+    |     ----------------- method in this implementation
+...
+393 |         pub fn import_canonical(&self, bytes: &[u8]) -> Result<StoredProgram> {
+    |                ^^^^^^^^^^^^^^^^
+
+warning: `pulsar-engine` (lib) generated 2 warnings
+   Compiling pulsar v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1)
+    Finished `test` profile [optimized + debuginfo] target(s) in 1.60s
+     Running tests/large_motion.rs (/tmp/pulsar-phase-a-target/debug/deps/large_motion-5cd150c329d1c782)
+
+running 7 tests
+test large_six_axis_artifact_roundtrip_preserves_every_action ... large-motion 6 axes: two large staged candidates against one base
+large-motion 6 axes: protection and interpolation-aware scoped edits
+large-motion 6 axes: crash/reopen and independent full export oracle
+large-motion 6 axes PASS: 324000 actions, largest inspected control 869 bytes
+ok
+test large_stroke_artifact_roundtrip_rebase_history_restart_and_export ... large-motion 1 axes: two large staged candidates against one base
+large-motion 1 axes: protection and interpolation-aware scoped edits
+large-motion 1 axes: crash/reopen and independent full export oracle
+large-motion 1 axes PASS: 54000 actions, largest inspected control 613 bytes
+ok
+test large_transfer_authority_integrity_and_restart_fences ... large transfer: grants, project binding, raw offset/overlap and replay checks
+large transfer: truncation then disconnect/reconnect with exact prefix
+large transfer: actual read-only download and cross-project denial
+large transfer: wrong digest and forged authority fields publish no revision
+large transfer: revocation fences an authenticated active connection
+large transfer fences PASS: max control 832, max bulk chunk 262144 bytes
+ok
+test large_transfer_begin_request_id_cannot_be_reused_for_commit ... ok
+test large_transfer_begin_request_id_cannot_be_reused_for_finish ... ok
+test large_transfer_commit_request_id_cannot_be_reused_for_begin ... ok
+test large_transfer_create_request_id_cannot_be_reused_for_begin ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.07s
+

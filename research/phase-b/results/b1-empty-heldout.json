@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "policy_version": "B1.1",
+  "corpus_sha256": "feeb4f379cac97fb84cbfdc1baf197a556e9d5ea6f83980a156c957047e86119",
+  "split": "heldout",
+  "thresholds": {
+    "reversal_timing_ns": "100000000",
+    "neutral_stroke_travel_relative_error_percent": 20,
+    "preview_precision_recall_floor": 0.8,
+    "preview_target": 0.9,
+    "stable_precision_recall_floor": 0.95,
+    "material_flag_recall_floor": 0.95
+  },
+  "categories": {},
+  "clips": [],
+  "release_qualified": false,
+  "missing_release_gates": [
+    "Approved category taxonomy, stroke segmentation and plateau reversal policy",
+    "Approved material-section hit rule and false-alarm/review-burden policy",
+    "Permitted independent heldout corpus and sample-size/statistical decision rule",
+    "Candidate-bound model/runtime/hardware and full release qualification"
+  ]
+}

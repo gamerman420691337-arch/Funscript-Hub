@@ -1,0 +1,1075 @@
+{
+  "schema_version": 1,
+  "evidence_class": "synthetic",
+  "expected_results": "Hand-authored analytic expectations, not production-generated labels",
+  "cases": [
+    {
+      "id": "perfect",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 1,
+        "precision": 1,
+        "recall": 1,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "timing_exact_100ms_accepted",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "300000000",
+            "end_ns": "600000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 1,
+        "precision": 1,
+        "recall": 1,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "timing_100ms_plus_1ns_rejected",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "300000001",
+            "end_ns": "600000001",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 0,
+        "precision": 0,
+        "recall": 0,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "travel_exact_20_percent_accepted",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 800000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 1,
+        "precision": 1,
+        "recall": 1,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "travel_above_20_percent_rejected",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 800001
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 0,
+        "precision": 0,
+        "recall": 0,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "wrong_target_not_true_positive",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "wrong-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 0,
+        "precision": 0,
+        "recall": 0,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "opposite_direction_not_true_positive",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 700000,
+            "end_position_ppm": 200000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 0,
+        "precision": 0,
+        "recall": 0,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "wrong_axis_not_stroke_match",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "sway",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 0,
+        "precision": null,
+        "recall": 0,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "missed_shallow_stroke_not_tolerance",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 500000,
+            "end_position_ppm": 501000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "flags": []
+      },
+      "expected": {
+        "tp": 0,
+        "precision": null,
+        "recall": 0,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "extra_stroke_reduces_precision",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          },
+          {
+            "id": "p2",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "700000000",
+            "end_ns": "900000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 1,
+        "precision": 0.5,
+        "recall": 1,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "empty_denominators_unknown",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "flags": []
+      },
+      "expected": {
+        "tp": 0,
+        "precision": null,
+        "recall": null,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "extra_on_empty_reference_not_perfect",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 0,
+        "precision": 0,
+        "recall": null,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "one_prediction_cannot_cover_two_strokes",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          },
+          {
+            "id": "r2",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "220000000",
+            "end_ns": "520000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 1,
+        "precision": 1,
+        "recall": 0.5,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "augmenting_path_not_greedy",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "100000000",
+            "end_ns": "400000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          },
+          {
+            "id": "r2",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "200000000",
+            "end_ns": "500000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "100000000",
+            "end_ns": "400000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          },
+          {
+            "id": "p2",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "0",
+            "end_ns": "300000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 2,
+        "precision": 1,
+        "recall": 1,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "half_coverage_is_not_full_coverage",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "material_sections": [
+          {
+            "id": "m1",
+            "start_ns": "0",
+            "end_ns": "100000000",
+            "reasons": [
+              "missed-stroke"
+            ]
+          },
+          {
+            "id": "m2",
+            "start_ns": "200000000",
+            "end_ns": "300000000",
+            "reasons": [
+              "wrong-target"
+            ]
+          }
+        ]
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "flags": [
+          {
+            "id": "f1",
+            "start_ns": "0",
+            "end_ns": "50000000",
+            "reasons": [
+              "uncertain"
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "tp": 0,
+        "precision": null,
+        "recall": null,
+        "any": 0.5,
+        "half": 0.5,
+        "full": 0,
+        "flagged": 0.05
+      }
+    },
+    {
+      "id": "flag_everything_exposes_review_burden",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "material_sections": [
+          {
+            "id": "m1",
+            "start_ns": "0",
+            "end_ns": "100000000",
+            "reasons": [
+              "missed-stroke"
+            ]
+          },
+          {
+            "id": "m2",
+            "start_ns": "200000000",
+            "end_ns": "300000000",
+            "reasons": [
+              "wrong-target"
+            ]
+          }
+        ]
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "flags": [
+          {
+            "id": "f1",
+            "start_ns": "0",
+            "end_ns": "1000000000",
+            "reasons": [
+              "uncertain"
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "tp": 0,
+        "precision": null,
+        "recall": null,
+        "any": 1,
+        "half": 1,
+        "full": 1,
+        "flagged": 1
+      }
+    },
+    {
+      "id": "touching_section_boundary_is_not_hit",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "material_sections": [
+          {
+            "id": "m1",
+            "start_ns": "0",
+            "end_ns": "100000000",
+            "reasons": [
+              "missed-stroke"
+            ]
+          },
+          {
+            "id": "m2",
+            "start_ns": "200000000",
+            "end_ns": "300000000",
+            "reasons": [
+              "wrong-target"
+            ]
+          }
+        ]
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "flags": [
+          {
+            "id": "f1",
+            "start_ns": "100000000",
+            "end_ns": "200000000",
+            "reasons": [
+              "uncertain"
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "tp": 0,
+        "precision": null,
+        "recall": null,
+        "any": 0,
+        "half": 0,
+        "full": 0,
+        "flagged": 0.1
+      }
+    },
+    {
+      "id": "overlapping_flags_not_double_counted",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "material_sections": [
+          {
+            "id": "m1",
+            "start_ns": "0",
+            "end_ns": "100000000",
+            "reasons": [
+              "missed-stroke"
+            ]
+          },
+          {
+            "id": "m2",
+            "start_ns": "200000000",
+            "end_ns": "300000000",
+            "reasons": [
+              "wrong-target"
+            ]
+          }
+        ]
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "0",
+          "end_ns": "1000000000"
+        },
+        "strokes": [],
+        "flags": [
+          {
+            "id": "f1",
+            "start_ns": "0",
+            "end_ns": "75000000",
+            "reasons": [
+              "uncertain"
+            ]
+          },
+          {
+            "id": "f2",
+            "start_ns": "25000000",
+            "end_ns": "100000000",
+            "reasons": [
+              "uncertain"
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "tp": 0,
+        "precision": null,
+        "recall": null,
+        "any": 0.5,
+        "half": 0.5,
+        "full": 0.5,
+        "flagged": 0.1
+      }
+    },
+    {
+      "id": "large_exact_nanoseconds_do_not_round",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "9007199254740993",
+          "end_ns": "9007200254740993"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "9007199254740993",
+            "end_ns": "9007199554740993",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "9007199254740993",
+          "end_ns": "9007200254740993"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "9007199354740994",
+            "end_ns": "9007199654740994",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 0,
+        "precision": 0,
+        "recall": 0,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    },
+    {
+      "id": "signed_project_timeline",
+      "reference": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "-1000000000",
+          "end_ns": "0"
+        },
+        "strokes": [
+          {
+            "id": "r1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "-300000000",
+            "end_ns": "-100000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "material_sections": []
+      },
+      "candidate": {
+        "schema_version": 1,
+        "subject_id": "synthetic-kat",
+        "window": {
+          "start_ns": "-1000000000",
+          "end_ns": "0"
+        },
+        "strokes": [
+          {
+            "id": "p1",
+            "target_id": "neutral-target",
+            "axis": "stroke",
+            "start_ns": "-300000000",
+            "end_ns": "-100000000",
+            "start_position_ppm": 200000,
+            "end_position_ppm": 700000
+          }
+        ],
+        "flags": []
+      },
+      "expected": {
+        "tp": 1,
+        "precision": 1,
+        "recall": 1,
+        "any": null,
+        "half": null,
+        "full": null,
+        "flagged": 0
+      }
+    }
+  ]
+}

@@ -45,7 +45,19 @@ jobs:
           brew install ffmpeg
 
       - name: Check compilation
-        run: cargo check --verbose
+        run: cargo check --workspace --all-targets --locked --verbose
 
-      - name: Run test suite
-        run: cargo test --verbose
+      - name: Enforce architecture boundaries
+        if: runner.os == 'Linux'
+        run: node scripts/check-architecture.mjs
+
+      - name: Run portable contract and client tests
+        run: cargo test -p pulsar-core -p pulsar-protocol -p pulsar-clients --locked --verbose
+
+      - name: Run Linux engine and media contract tests
+        if: runner.os == 'Linux'
+        run: cargo test -p pulsar-engine --lib --locked --verbose
+
+      # The full subprocess gate additionally requires delegated cgroup v2 and
+      # bubblewrap. A hosted PR job is not evidence of worker confinement. Run
+      # scripts/qualify-architecture.sh on the identified qualification host.

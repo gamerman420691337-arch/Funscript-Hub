@@ -1,0 +1,15 @@
+[package]
+name = "pulsar-protocol"
+version = "0.8.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+description = "Bounded, versioned Pulsar client and worker contracts"
+
+[dependencies]
+pulsar-core = { path = "../pulsar-core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+interprocess = "2.4.4"
+
+[target.'cfg(unix)'.dev-dependencies]
+socket2 = "0.6.5"

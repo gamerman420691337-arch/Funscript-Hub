@@ -1,0 +1,312 @@
+{
+  "gate": "phase-a-structure",
+  "generated_at": "2026-09-11T07:47:19.942Z",
+  "source_sha256": "4e84e6c97dea136ed8e24dfb61e457604c61f05b490870920f07c953a964b2c2",
+  "checks": [
+    {
+      "name": "workspace:pulsar-core",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "workspace:pulsar-protocol",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "workspace:pulsar-engine",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "workspace:pulsar-clients",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "exactly-four-product-libraries",
+      "result": "PASS",
+      "detail": "pulsar-clients,pulsar-core,pulsar-engine,pulsar-protocol"
+    },
+    {
+      "name": "dependency-direction:pulsar-core",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "dependency-direction:pulsar-protocol",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "dependency-direction:pulsar-engine",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "dependency-direction:pulsar-clients",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-forbids-unsafe",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/authority.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/device.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/dsp.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/geometry.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/ids.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/jobs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/motion.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/project.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/proofs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/time.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "composition-no-legacy-modules",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/authority.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/device.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/dsp.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/geometry.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/ids.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/jobs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/motion.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/project.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/proofs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/time.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/framing.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/transport.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/worker.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/artifacts.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/authority.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/cgroup.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/launch.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/resources.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/artifacts.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/detector.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/integration_tests.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/media.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/mod.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/cli.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/cli.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/desktop.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/desktop.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/editor.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/editor.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/preview.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/preview.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/session.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/session.rs",
+      "result": "PASS",
+      "detail": ""
+    }
+  ],
+  "passed": true,
+  "limitations": [
+    "Static direct-dependency/source checks only; not proof of transitive runtime behavior.",
+    "No neural accuracy, OS/platform, sandbox or physical qualification claim."
+  ]
+}

@@ -1,0 +1,26 @@
+[package]
+name = "pulsar-engine"
+version = "0.8.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+
+[dependencies]
+pulsar-core = { path = "../pulsar-core" }
+pulsar-protocol = { path = "../pulsar-protocol" }
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rusqlite = { version = "0.32", features = ["bundled"] }
+uuid = { version = "1", features = ["v4"] }
+sha2 = "0.10"
+fs2 = "0.4"
+libc = "0.2"
+tempfile = "3"
+interprocess = "2.4.4"
+ndarray = "0.17"
+ort = { version = "2.0.0-rc.13", default-features = false, features = ["std", "ndarray", "load-dynamic", "api-24"] }
+
+[features]
+default = []
+cuda = ["ort/cuda"]
+tensorrt = ["ort/tensorrt", "cuda"]

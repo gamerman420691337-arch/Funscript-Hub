@@ -1,0 +1,48 @@
+[package]
+name = "pulsar"
+version = "0.8.0"
+edition = "2021"
+authors = ["Pulsar Developers"]
+description = "Pulsar: Neural Kinematic Workstation & Funscript Generator"
+license = "AGPL-3.0-only"
+default-run = "pulsar"
+
+[[bin]]
+name = "pulsar"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+clap_complete = "4.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rayon = "1.10"
+ndarray = "0.17"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+anyhow = "1.0"
+thiserror = "2.0"
+indicatif = "0.17"
+ort = { version = "2.0.0-rc.13", features = ["ndarray", "download-binaries"] }
+eframe = "0.31"
+rfd = "0.15"
+tungstenite = { version = "0.24", default-features = false, features = ["handshake"] }
+ureq = "3.4"
+serialport = "4.10"
+
+[features]
+default = []
+cuda = ["ort/cuda"]
+tensorrt = ["ort/tensorrt", "cuda"]
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.6"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 1

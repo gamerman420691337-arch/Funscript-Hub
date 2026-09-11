@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "evidence_class": "synthetic",
+  "kind": "analytic-stroke-definition",
+  "subject_id": "synthetic-metric-demo",
+  "window": {
+    "start_ns": "0",
+    "end_ns": "1000000000"
+  },
+  "strokes": [
+    {
+      "id": "r1",
+      "target_id": "neutral-target",
+      "axis": "stroke",
+      "start_ns": "200000000",
+      "end_ns": "500000000",
+      "start_position_ppm": 200000,
+      "end_position_ppm": 700000
+    }
+  ]
+}

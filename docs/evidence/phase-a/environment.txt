@@ -1,0 +1,16 @@
+2026-09-11T07:47:19Z
+rustc 1.97.1 (8bab26f4f 2026-07-14)
+binary: rustc
+commit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452
+commit-date: 2026-07-14
+host: x86_64-unknown-linux-gnu
+release: 1.97.1
+LLVM version: 22.1.6
+cargo 1.97.1 (c980f4866 2026-06-30)
+Linux 7.2.3-1-cachyos x86_64 GNU/Linux
+ffmpeg version n9.0.1 Copyright (c) 2000-2026 the FFmpeg developers
+3499a17007134ea4584c66bd97f497bf032fd61d578358a4e8e8cfc24dac1cf0  /tmp/pulsar-phase-a-target/debug/pulsar
+f3b24f58c4a8782ae9e9e3ebc5bf53996d8ea650fca8a83c2485501f2ec40a59  /tmp/pulsar-worker-diagnostic.KhCvSX/source.mkv
+5dc012422463299e76a248b1bb92317365ded42aa2cb90615f04bffb9e62faf0  /home/brianklam/Desktop/Funscripts/FunGen/fungen-data/cache/models/FunGen-12n-pov-1.1.0.onnx
+bc33abfd6154771fe4cb4268d8a8323ce86ab5ee3e110f87f36d26eb1126079c  /tmp/pulsar-phase-a-tools/onnxruntime-linux-x64-1.24.3/lib/libonnxruntime.so.1.24.3
+936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  /tmp/pulsar-phase-a-tools/tla2tools.jar

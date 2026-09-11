@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "cached_actual_local_secured_process_test",
+  "status": "passed",
+  "command": "CARGO_TARGET_DIR=/tmp/pulsar-phase-a-target CARGO_BUILD_JOBS=2 cargo test --test large_motion --offline -- --nocapture --test-threads=1",
+  "working_directory": "/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1",
+  "execution_session": 93601,
+  "exit_code": 0,
+  "results": {
+    "passed": 7,
+    "failed": 0,
+    "ignored": 0,
+    "measured": 0,
+    "filtered_out": 0,
+    "reported_test_seconds": 19.07
+  },
+  "source": {
+    "path": "tests/large_motion.rs",
+    "sha256": "18d8c55cecc51af342374d034e3f71c57afc860007e7fa8427079150a4c13de7",
+    "hash_basis": "Cached exact source string written before the successful run; not a new filesystem read.",
+    "production_source_identity": "Shared working tree at execution; no commit or full production-source hash is asserted."
+  },
+  "log": {
+    "path": "docs/evidence/phase-b-large-motion/large-motion-process.log",
+    "sha256": "4affaf12050133ca2c2054fdbe79f1ab71b95bd302d36c47b668c63ee7dc2a6c"
+  },
+  "measured_cases": [
+    {
+      "test": "large_six_axis_artifact_roundtrip_preserves_every_action",
+      "axes": 6,
+      "actions_per_axis": 54000,
+      "total_actions": 324000,
+      "largest_inspected_control_bytes": 869
+    },
+    {
+      "test": "large_stroke_artifact_roundtrip_rebase_history_restart_and_export",
+      "axes": 1,
+      "actions_per_axis": 54000,
+      "total_actions": 54000,
+      "largest_inspected_control_bytes": 613
+    },
+    {
+      "test": "large_transfer_authority_integrity_and_restart_fences",
+      "largest_inspected_control_bytes": 832,
+      "largest_observed_bulk_chunk_bytes": 262144
+    }
+  ],
+  "limits": {
+    "control_message_bytes": 1048576,
+    "bulk_chunk_bytes": 262144
+  },
+  "coverage": [
+    "Actual production engine subprocess with isolated secured per-user state; paired and scoped actors; shared SessionClient edit upload and hydrated queries.",
+    "Every action timestamp checked against independent integer nanosecond oracle; every value checked against independent shallow-ramp and plateau oracle.",
+    "Values-only uploads finalize uncommitted candidates, with no client-provided observed-evidence elevation.",
+    "Stale commit rejection, explicit rebase, fresh revisions, undo/redo, protected-edit rejection, distant unprotected edit success, and hard process restart/reopen.",
+    "All six explicit axis exports retain every action; ambiguous multi-axis export is rejected; standard exports omit internal authority and provenance fields.",
+    "Read-only upload rejection, cross-actor lease theft, wrong-project access, wrong offsets, overlapping chunks, conflicting retry bytes, and exact acknowledged retry.",
+    "Truncation, disconnect/resume, wrong advertised hash, four separately forged authority fields, revocation of an active bulk connection, and stale restart epochs.",
+    "Durable finalization and commit replay; all four cross-command request identity collision directions reject with RequestConflict."
+  ],
+  "red_to_green": [
+    {
+      "finding": "Authenticated authored edit outside a protected segment was incorrectly rejected by a coarse whole-track protection check.",
+      "red": {
+        "execution_session": 13641,
+        "test": "large_stroke_artifact_roundtrip_rebase_history_restart_and_export",
+        "error": "committing the distant unprotected proposal: Forbidden: edit intersects a protected region"
+      },
+      "ownership": "Engine owner repaired authored-candidate protected-segment admission; generated-replacement policy was not relaxed.",
+      "green_execution_session": 93601
+    },
+    {
+      "finding": "Upload request identities could be reused by ordinary commit or finalization with changed command payload.",
+      "red": {
+        "execution_session": 54745,
+        "passed": 2,
+        "failed": 2,
+        "observations": [
+          "large_transfer_begin_request_id_cannot_be_reused_for_commit advanced revision 0 to 1 instead of rejecting.",
+          "large_transfer_begin_request_id_cannot_be_reused_for_finish returned a successful candidate instead of rejecting.",
+          "CreateProject and CommitCandidate identities reused for BeginEditUpload already rejected correctly."
+        ]
+      },
+      "ownership": "Engine owner introduced the shared durable request-identity guard before effects and replay.",
+      "green_execution_session": 93601
+    }
+  ],
+  "oracle_correction": {
+    "failed_execution_session": 22635,
+    "observation": "The original export oracle expected floor(66.666666ms)=66ms, while the established exporter correctly produced 67ms.",
+    "correction": "Independent expected export time now uses nonnegative nearest-millisecond half-up rounding, with an explicit <=500000ns quantization bound.",
+    "production_change": false,
+    "master_timeline_requirement": "Exact integer nanoseconds remain mandatory and were checked before and after restart."
+  },
+  "limitations": [
+    "Synthetic authored motion only; no real-media detector, model inference, optical-flow accuracy, or corpus qualification claim.",
+    "The 19.07-second test-suite duration is not a 30-minute media generation throughput benchmark.",
+    "Observed control maxima cover the test fixture's inspected control exchanges, not a universal maximum across arbitrary workloads.",
+    "No physical device actuation, hardware stopping qualification, GPU benchmark, human annotation, or editing-effort measurement.",
+    "No timer-expiry wait, disk-full/fsync fault injection, exhaustive parser fuzzing, or cross-platform qualification is asserted by these seven process tests.",
+    "This receipt does not establish completion of the entire Good phase or qualify production changes made after the recorded run.",
+    "No rerun was performed when writing these artifacts; the parent-owned final gate will rerun against the integrated state."
+  ]
+}

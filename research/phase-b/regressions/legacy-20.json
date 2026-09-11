@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "Recovered historical regression assertions; not current execution",
+  "historical_baseline": "7a4f5671c14731b238b64c4827294ce029928dda",
+  "historical_assertions": "../historical-regressions.json",
+  "current_reproduction_status": "16_CURRENT_PURE_CONTRACT_CORRESPONDENCES_REPORTED; 4_SIGNAL_CASES_UNREPRODUCED; PRODUCTION_WIRING_SEPARATE",
+  "count": 20,
+  "cases": [
+    {
+      "id": "M1-01",
+      "legacy_test": "m1_reject_negative_box_extent",
+      "legacy_path": "legacy/pre-engine/src/neural/yolo.rs",
+      "invariant": "Negative width/height must not create a box.",
+      "owner": "B2 detector validation",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "detector_rejects_rank_count_and_negative_geometry"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-02",
+      "legacy_test": "m1_reject_nonfinite_geometry_and_scores",
+      "legacy_path": "legacy/pre-engine/src/neural/yolo.rs",
+      "invariant": "NaN geometry and infinite confidence must be rejected.",
+      "owner": "B2 detector validation",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "detector_rejects_nonfinite_even_below_threshold"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-03",
+      "legacy_test": "m1_clipped_box_center_matches_visible_bounds",
+      "legacy_path": "legacy/pre-engine/src/neural/yolo.rs",
+      "invariant": "Clipped box and center must describe the same geometry.",
+      "owner": "B2 coordinate propagation",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "detector_clips_endpoints_and_recomputes_center"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-04",
+      "legacy_test": "m1_unknown_class_does_not_panic",
+      "legacy_path": "legacy/pre-engine/src/neural/yolo.rs",
+      "invariant": "Unknown class must not index past class labels.",
+      "owner": "B2 detector schema",
+      "severity": "P2",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "m1_unknown_class_does_not_panic"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-05",
+      "legacy_test": "m1_zero_classes_cannot_create_detection",
+      "legacy_path": "legacy/pre-engine/src/neural/yolo.rs",
+      "invariant": "Zero classes cannot produce a detection.",
+      "owner": "B2 detector schema",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "detector_drops_fully_outside_and_validates_classes"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-06",
+      "legacy_test": "m1_direct_rejects_reversed_corners",
+      "legacy_path": "legacy/pre-engine/src/neural/yolo26.rs",
+      "invariant": "Declared corner decoder must reject reversed corners.",
+      "owner": "B2 detector validation",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "m1_direct_rejects_reversed_corners"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-07",
+      "legacy_test": "m1_direct_clips_corners_without_guessing_center_format",
+      "legacy_path": "legacy/pre-engine/src/neural/yolo26.rs",
+      "invariant": "Negative corner coordinates are clipped, not guessed as center format.",
+      "owner": "B2 decoder contract",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "m1_direct_clips_corners_without_guessing_center_format"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-08",
+      "legacy_test": "m1_direct_rejects_nonfinite_score",
+      "legacy_path": "legacy/pre-engine/src/neural/yolo26.rs",
+      "invariant": "NMS-free decoding must reject infinite confidence.",
+      "owner": "B2 detector validation",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "m1_direct_rejects_nonfinite_score"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-09",
+      "legacy_test": "m1_flow_advances_box_and_center_together",
+      "legacy_path": "legacy/pre-engine/src/neural/tracker.rs",
+      "invariant": "Flow must move visible box with tracked center.",
+      "owner": "B2 tracking/GUI",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "tracker_prediction_translates_box_not_only_center"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-10",
+      "legacy_test": "m1_scene_cut_clears_old_targets_and_points",
+      "legacy_path": "legacy/pre-engine/src/neural/tracker.rs",
+      "invariant": "Scene cuts must clear previous target, probe and point identities.",
+      "owner": "B2 tracking lifecycle",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "tracker_cut_retires_identity_even_for_same_geometry"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-11",
+      "legacy_test": "m1_confidence_change_does_not_replace_spatial_match",
+      "legacy_path": "legacy/pre-engine/src/neural/tracker.rs",
+      "invariant": "Higher confidence on another target must not silently replace spatial identity.",
+      "owner": "B2 target association",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "m1_confidence_change_does_not_replace_spatial_match"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-12",
+      "legacy_test": "m1_missing_detection_ages_without_flow",
+      "legacy_path": "legacy/pre-engine/src/neural/tracker.rs",
+      "invariant": "Missing detections age tracks even without an available flow field.",
+      "owner": "B2 track aging",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "tracker_prediction_translates_box_not_only_center",
+        "tracker_counts_skipped_frames_when_expiring"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-13",
+      "legacy_test": "m1_degenerate_boxes_do_not_seed_points",
+      "legacy_path": "legacy/pre-engine/src/neural/point_tracker.rs",
+      "invariant": "Reversed or zero-area regions must not seed tracking points.",
+      "owner": "B2 point seeding",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "m1_degenerate_boxes_do_not_seed_points"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-14",
+      "legacy_test": "m1_zero_requested_mask_points_do_not_panic",
+      "legacy_path": "legacy/pre-engine/src/neural/point_tracker.rs",
+      "invariant": "Zero requested mask points must return safely without points.",
+      "owner": "B2 point seeding",
+      "severity": "P2",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "m1_zero_requested_mask_points_do_not_panic"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-15",
+      "legacy_test": "m1_forward_flow_is_not_its_own_backward_flow",
+      "legacy_path": "legacy/pre-engine/src/neural/point_tracker.rs",
+      "invariant": "A forward field is not independent backward-flow evidence.",
+      "owner": "B2 flow evidence",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "flow_independent_reverse_pass_accepts_translation"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    },
+    {
+      "id": "M1-16",
+      "legacy_test": "m1_constant_displacement_never_invents_stroke",
+      "legacy_path": "legacy/pre-engine/src/signal.rs",
+      "invariant": "Constant displacement must not invent full-range movement.",
+      "owner": "B2 stroke extraction",
+      "severity": "P1",
+      "current_status": "UNREPRODUCED_CURRENT",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification."
+    },
+    {
+      "id": "M1-17",
+      "legacy_test": "m1_monotonic_decreasing_motion_keeps_direction",
+      "legacy_path": "legacy/pre-engine/src/signal.rs",
+      "invariant": "Decreasing displacement must preserve direction.",
+      "owner": "B2 stroke extraction",
+      "severity": "P1",
+      "current_status": "UNREPRODUCED_CURRENT",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification."
+    },
+    {
+      "id": "M1-18",
+      "legacy_test": "m1_trailing_pause_does_not_add_reversal",
+      "legacy_path": "legacy/pre-engine/src/signal.rs",
+      "invariant": "Trailing plateau must not add an invented reversal.",
+      "owner": "B2 stroke extraction",
+      "severity": "P1",
+      "current_status": "UNREPRODUCED_CURRENT",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification."
+    },
+    {
+      "id": "M1-19",
+      "legacy_test": "m1_keyframe_reduction_preserves_both_pause_boundaries",
+      "legacy_path": "legacy/pre-engine/src/signal.rs",
+      "invariant": "Simplification must retain both plateau boundaries.",
+      "owner": "B2 stroke extraction",
+      "severity": "P1",
+      "current_status": "UNREPRODUCED_CURRENT",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification."
+    },
+    {
+      "id": "M1-20",
+      "legacy_test": "m1_equal_area_resize_updates_flow_geometry",
+      "legacy_path": "legacy/pre-engine/src/tracking.rs",
+      "invariant": "Equal pixel count does not imply equal width/height layout.",
+      "owner": "B2 flow geometry",
+      "severity": "P1",
+      "current_status": "CONTRACT_PASS_REPORTED",
+      "acceptance": "Current production correspondence test plus independent oracle; exact source/runtime receipt required. Synthetic evidence remains distinct from real-media qualification.",
+      "correspondence_tests": [
+        "m1_equal_area_resize_updates_flow_geometry"
+      ],
+      "production_status": "NOT_VERIFIED_BY_B1"
+    }
+  ]
+}

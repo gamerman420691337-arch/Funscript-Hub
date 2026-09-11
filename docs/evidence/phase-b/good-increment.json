@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-11",
+  "phase": "B",
+  "phase_status": "IN_PROGRESS",
+  "release_qualified": false,
+  "subject": {
+    "gate_source_sha256": "350ae1e1f8e02cc2ddb42b2764b369dea125b8a0259cc75319ede20d841257cd",
+    "linux_debug_binary_sha256": "cf115884e571c0ecc0cc2ab4ada5c2b864e47c2db0d1543fa17554b9b7bf23d8"
+  },
+  "gates": {
+    "architecture": {
+      "exit_code": 0,
+      "rust_tests_passed": 209,
+      "ignored": 0,
+      "log": "gates-good-increment.log"
+    },
+    "tlc": {
+      "generated_states": 888,
+      "distinct_states": 273,
+      "depth": 9,
+      "invariant_violations": 0,
+      "negative_mutant_killed": true
+    },
+    "kani": {
+      "status": "NOT_RUN",
+      "reason": "cargo-kani unavailable"
+    },
+    "metrics": {
+      "metric_harness": {
+        "status": "PASS",
+        "checks": 299,
+        "golden_cases": 20,
+        "time_translation_property_cases": 256,
+        "invalid_annotation_cases": 9,
+        "invalid_corpus_cases": 7,
+        "mutations_killed": 5,
+        "real_media_subjects": 0,
+        "release_qualified": false
+      },
+      "artifact_harness": {
+        "status": "PASS",
+        "checks": 528,
+        "exhaustive_matching_cases": 512,
+        "matching_and_identity_boundaries": 4,
+        "artifact_pipeline_cases": 12,
+        "real_media_subjects": 0,
+        "release_qualified": false
+      }
+    }
+  },
+  "gui_smoke": {
+    "private_display": ":1",
+    "project_id": "7349f2a3-71d9-4a5f-be42-089cbcdd0fa9",
+    "source_kind": "GenerationInput",
+    "axis": "yaw",
+    "cli_revision": 1,
+    "undo_revision": 2,
+    "redo_revision": 3,
+    "automatic_diagnostics": true,
+    "unresolved_review_restored": true,
+    "nonmedia_preview_disabled": true,
+    "exports_identical": true,
+    "export_sha256": "bb05b459b324c78815a0cc9d7da847709ebdf02da65ba11a303151d5d45d7153",
+    "earlier_forbidden_entry": {
+      "confirmed_product_defect": false,
+      "exact_cause": "unproven; retry succeeded without source or process restart"
+    }
+  },
+  "real_media_subjects": 0,
+  "human_sessions": 0,
+  "physical_actuation": false,
+  "commit_made": false,
+  "artifact_sha256": {
+    "gates-good-increment.log": "5ac8a7a9bfe853817b09f384a42f1375fc55fef198ef689d0f1c37a95a88a3af",
+    "metric-checkpoint.json": "ce1867078f3c0995dfbceeb536505819ade9c3999b7a8bfeb5472a3f002c7eb6",
+    "artifact-metric-checkpoint.log": "b02fde68029b8c4f983298c12f3cd72fac1ffca9e87a963bb3dbda83e893c95e",
+    "gui-export-parity.log": "3a90664a3b20aeb3b3bdc1a424995cbd5f19f82c30dfe121111c381481974c9b",
+    "closeout-initial.png": "b37ffa4cfbc2182ffc3b59cc208c1836a79737fcf9afacae78eb58199fb4a252",
+    "closeout-review.png": "9703b2e5d692cf5aec16849ef9027bded0891abf31b35110e68767aa0889457f",
+    "closeout-open-retry.png": "b389465ca54ff1407c24968c7c495145bb9166669de4a9d73d0b7562f679bb6a",
+    "closeout-undo.png": "e29d64141eedaf5204cfdee600ae5c9730469c7a1bf4950263aa63a68cbac69f",
+    "closeout-redo.png": "1f558f2d053418e752544dcdb335b3813c2ee976d3f5a3ce8f724a36b733e304",
+    "closeout-doctor.png": "cba31f4a57a67dce735793371746e8efbfe4fd5134e99534bf141cbbaca6ba69",
+    "closeout-export.png": "d17376b0483d28ed563f939ba598d99a0e824a641f1869f2419b0546966cdf52",
+    "closeout-cli.out": "e9a7abacb92afba115554121b369fa20755cec40aa6f41f37799dff41d193f96",
+    "closeout-cli.err": "fdccb50b1861ec5780ba0728e085d1addc2f667907704b57a8960643a74b6487",
+    "closeout-yaw.funscript": "bb05b459b324c78815a0cc9d7da847709ebdf02da65ba11a303151d5d45d7153",
+    "closeout-gui-yaw.funscript": "bb05b459b324c78815a0cc9d7da847709ebdf02da65ba11a303151d5d45d7153"
+  }
+}
