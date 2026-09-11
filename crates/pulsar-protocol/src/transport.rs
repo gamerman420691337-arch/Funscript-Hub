@@ -22,6 +22,7 @@ pub fn endpoint_name(path: &Path) -> io::Result<LocalName<'_>> {
 pub struct LocalClient {
     stream: Option<LocalStream>,
     timeout: Duration,
+    deadline: Option<Instant>,
 }
 
 impl LocalClient {
@@ -35,7 +36,26 @@ impl LocalClient {
         Ok(Self {
             stream: Some(stream),
             timeout,
+            deadline: None,
         })
+    }
+
+    /// Bound subsequent RPCs by one caller-owned absolute deadline. This can
+    /// only shorten a prior bound; an expired bound poisons the connection.
+    /// Callers covering connection setup must pass its remaining budget to
+    /// connect(), then install the same absolute deadline before calling.
+    pub fn set_deadline(&mut self, deadline: Instant) -> Result<(), TransportError> {
+        let deadline = self
+            .deadline
+            .map_or(deadline, |previous| previous.min(deadline));
+        self.deadline = Some(deadline);
+        if deadline <= Instant::now() {
+            self.stream = None;
+            return Err(
+                io::Error::new(io::ErrorKind::TimedOut, "RPC absolute deadline expired").into(),
+            );
+        }
+        Ok(())
     }
 
     /// One in-flight call. A framing, timeout, or identity failure poisons the
@@ -50,6 +70,9 @@ impl LocalClient {
         let deadline = Instant::now()
             .checked_add(self.timeout)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "RPC timeout overflow"))?;
+        let deadline = self
+            .deadline
+            .map_or(deadline, |absolute| absolute.min(deadline));
         let mut io = DeadlineStream::new(&mut stream, deadline);
         write_message(&mut io, request)?;
         let response: Response = read_message(&mut io)?;

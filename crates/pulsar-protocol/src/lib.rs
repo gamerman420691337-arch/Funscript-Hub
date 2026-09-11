@@ -7,6 +7,8 @@ mod framing;
 mod generation;
 mod motion;
 mod project_package;
+mod project_package_download;
+mod project_package_operations;
 mod transport;
 mod worker;
 
@@ -15,6 +17,8 @@ pub use framing::*;
 pub use generation::*;
 pub use motion::*;
 pub use project_package::*;
+pub use project_package_download::*;
+pub use project_package_operations::*;
 pub use pulsar_core::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -70,6 +74,7 @@ impl Request {
     /// Structural validation is not authorization. The engine must authenticate
     /// the session and check grants again at the effect/commit boundary.
     pub fn validate(&self) -> Result<(), ProtocolError> {
+        project_package_operations::validate_request(self)?;
         if let Some(token) = &self.auth_token {
             bounded_text(token, 4096, "authentication token")?;
         }
@@ -301,6 +306,30 @@ pub enum Command {
         candidate_id: CandidateId,
     },
     GetSnapshot,
+    AllowProjectPackaging {
+        owner_proof: String,
+    },
+    StartProjectExport,
+    ProjectPackageStatus {
+        operation_id: PackageOperationId,
+    },
+    CancelProjectExport {
+        operation_id: PackageOperationId,
+    },
+    ReleaseProjectExport {
+        operation_id: PackageOperationId,
+    },
+    BeginProjectPackageDownload {
+        operation_id: PackageOperationId,
+        offset: u64,
+        byte_len: u64,
+    },
+    ProjectPackageDownloadStatus {
+        lease_id: PackageDownloadId,
+    },
+    AbandonProjectPackageDownload {
+        lease_id: PackageDownloadId,
+    },
     Capabilities,
     PreviewFrame {
         context: FrameContext,
@@ -377,6 +406,14 @@ impl std::fmt::Debug for Command {
             Self::CommitCandidate { .. } => "CommitCandidate",
             Self::RebaseCandidate { .. } => "RebaseCandidate",
             Self::GetSnapshot => "GetSnapshot",
+            Self::AllowProjectPackaging { .. } => "AllowProjectPackaging",
+            Self::StartProjectExport => "StartProjectExport",
+            Self::ProjectPackageStatus { .. } => "ProjectPackageStatus",
+            Self::CancelProjectExport { .. } => "CancelProjectExport",
+            Self::ReleaseProjectExport { .. } => "ReleaseProjectExport",
+            Self::BeginProjectPackageDownload { .. } => "BeginProjectPackageDownload",
+            Self::ProjectPackageDownloadStatus { .. } => "ProjectPackageDownloadStatus",
+            Self::AbandonProjectPackageDownload { .. } => "AbandonProjectPackageDownload",
             Self::Capabilities => "Capabilities",
             Self::PreviewFrame { .. } => "PreviewFrame",
             Self::Export { .. } => "Export",
@@ -394,6 +431,19 @@ impl std::fmt::Debug for Command {
 
 impl Command {
     pub fn requires_project(&self) -> bool {
+        if matches!(
+            self,
+            Self::AllowProjectPackaging { .. }
+                | Self::StartProjectExport
+                | Self::ProjectPackageStatus { .. }
+                | Self::CancelProjectExport { .. }
+                | Self::ReleaseProjectExport { .. }
+                | Self::BeginProjectPackageDownload { .. }
+                | Self::ProjectPackageDownloadStatus { .. }
+                | Self::AbandonProjectPackageDownload { .. }
+        ) {
+            return true;
+        }
         !matches!(
             self,
             Self::CreateProject { .. }
@@ -418,10 +468,23 @@ impl Command {
                 | Self::ImportFunscript { .. }
                 | Self::MergeCandidate { .. }
                 | Self::ExportAxis { .. }
+                | Self::StartProjectExport
         )
     }
 
     pub fn is_mutating(&self) -> bool {
+        match self {
+            Self::ProjectPackageStatus { .. } | Self::ProjectPackageDownloadStatus { .. } => {
+                return false
+            }
+            Self::AllowProjectPackaging { .. }
+            | Self::StartProjectExport
+            | Self::CancelProjectExport { .. }
+            | Self::ReleaseProjectExport { .. }
+            | Self::BeginProjectPackageDownload { .. }
+            | Self::AbandonProjectPackageDownload { .. } => return true,
+            _ => {}
+        }
         !matches!(
             self,
             Self::OpenProject { .. }
@@ -510,6 +573,12 @@ pub enum ResponseBody {
         session: SessionId,
         auth_token: String,
     },
+    PackageExport(PackageExportStatus),
+    PackageDownload(PackageDownloadLease),
+    PackageDownloadPending(PackageDownloadPending),
+    PackageDownloadAbandoned {
+        lease_id: PackageDownloadId,
+    },
     Ack,
 }
 
@@ -551,6 +620,16 @@ impl std::fmt::Debug for ResponseBody {
                 .debug_struct("Paired")
                 .field("session", session)
                 .field("auth_token", &"[REDACTED]")
+                .finish(),
+            Self::PackageExport(value) => f.debug_tuple("PackageExport").field(value).finish(),
+            Self::PackageDownload(value) => f.debug_tuple("PackageDownload").field(value).finish(),
+            Self::PackageDownloadPending(value) => f
+                .debug_tuple("PackageDownloadPending")
+                .field(value)
+                .finish(),
+            Self::PackageDownloadAbandoned { lease_id } => f
+                .debug_struct("PackageDownloadAbandoned")
+                .field("lease_id", lease_id)
                 .finish(),
             Self::Ack => f.write_str("Ack"),
         }

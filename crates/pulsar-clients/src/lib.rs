@@ -10,6 +10,7 @@ mod preview;
 pub mod motion;
 pub use motion::{ResponseBody, ProjectSnapshot, CandidateSnapshot};
 pub mod session;
+pub mod project_package;
 
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory, Parser};
@@ -94,6 +95,84 @@ pub fn run_cli(args: Vec<OsString>, endpoint: &Path, bootstrap: &Path) -> Result
             let project = get_snapshot(&mut client, &ProjectId::new(project)?)?;
             print_response(client.execute(Command::ExportAxis { path: absolute_path(&path)?, axis: modality::parse_axis(&axis)? },
                 Some(project.project_id), Some(project.revision))?)
+        }
+        Commands::AllowPackaging { project, acknowledge_unencrypted_private_data } => {
+            anyhow::ensure!(acknowledge_unencrypted_private_data, project_package::PACKAGE_PRIVACY_WARNING);
+            eprintln!("{}", project_package::PACKAGE_PRIVACY_WARNING);
+            let consent = project_package::PackagePrivacyConsent::acknowledge_unencrypted_private_data();
+            let mut client = SessionClient::connect(endpoint, bootstrap)?;
+            project_package::allow_packaging_local(&mut client, ProjectId::new(project)?, bootstrap, &consent)?;
+            println!("Packaging allowed for this authenticated owner session only.");
+            Ok(())
+        }
+        Commands::PackageExport { project, destination, acknowledge_unencrypted_private_data, revision, request_id } => {
+            anyhow::ensure!(acknowledge_unencrypted_private_data, project_package::PACKAGE_PRIVACY_WARNING);
+            eprintln!("{}", project_package::PACKAGE_PRIVACY_WARNING);
+            let consent = project_package::PackagePrivacyConsent::acknowledge_unencrypted_private_data();
+            let mut client = SessionClient::connect(endpoint, bootstrap)?;
+            let project = ProjectId::new(project)?;
+            let revision = match revision { Some(value) => RevisionId::new(value), None => client.project_package_revision(project.clone())? };
+            let request_id = match request_id { Some(id) => RequestId::new(id)?, None => session::new_request_id() };
+            eprintln!("Package Start request: {}", request_id);
+            std::io::Write::flush(&mut std::io::stderr())?;
+            let mut status = client.start_project_export_with_request_id(project.clone(), revision, &consent, request_id)?;
+            eprintln!("Package export operation: {}", status.operation_id);
+            eprintln!("Disconnect does not cancel. Use package-status, package-cancel, or package-download with this operation ID.");
+            std::io::Write::flush(&mut std::io::stderr())?;
+            let operation = status.operation_id.clone();
+            let start_request = status.request_id.clone();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30 * 60);
+            while !status.state.is_terminal() {
+                anyhow::ensure!(std::time::Instant::now() < deadline,
+                    "Package wait expired; operation {} is retained and was not cancelled", operation);
+                let remaining = deadline.checked_duration_since(std::time::Instant::now()).context("Package wait deadline expired")?;
+                std::thread::sleep(remaining.min(std::time::Duration::from_millis(100)));
+                status = client.project_package_status_until(project.clone(), operation.clone(), deadline)?;
+                anyhow::ensure!(status.request_id == start_request && status.requested_revision == revision,
+                    "Package status changed its original request/revision identity");
+            }
+            anyhow::ensure!(status.state == PackageExportOperationState::Ready,
+                "Package operation {} ended {:?}: {:?}", operation, status.state, status.error);
+            let begin_id = session::new_request_id();
+            eprintln!("Package download request: {}", begin_id);
+            std::io::Write::flush(&mut std::io::stderr())?;
+            let receipt = client.download_project_package_with_request_id(project, operation, &destination, &consent,
+                &project_package::PackageDownloadControl::default(), begin_id)?;
+            println!("{}", serde_json::to_string_pretty(&receipt)?);
+            Ok(())
+        }
+        Commands::PackageStatus { project, operation } => {
+            let mut client = SessionClient::connect(endpoint, bootstrap)?;
+            let status = client.project_package_status(ProjectId::new(project)?, PackageOperationId::new(operation)?)?;
+            println!("{}", serde_json::to_string_pretty(&status)?);
+            Ok(())
+        }
+        Commands::PackageCancel { project, operation } => {
+            let mut client = SessionClient::connect(endpoint, bootstrap)?;
+            let status = client.cancel_project_export(ProjectId::new(project)?, PackageOperationId::new(operation)?)?;
+            println!("{}", serde_json::to_string_pretty(&status)?);
+            Ok(())
+        }
+        Commands::PackageDownload { project, operation, destination, acknowledge_unencrypted_private_data, request_id } => {
+            anyhow::ensure!(acknowledge_unencrypted_private_data, project_package::PACKAGE_PRIVACY_WARNING);
+            eprintln!("{}", project_package::PACKAGE_PRIVACY_WARNING);
+            let mut client = SessionClient::connect(endpoint, bootstrap)?;
+            let consent = project_package::PackagePrivacyConsent::acknowledge_unencrypted_private_data();
+            let request_id = match request_id { Some(id) => RequestId::new(id)?, None => session::new_request_id() };
+            eprintln!("Package download request: {}", request_id);
+            std::io::Write::flush(&mut std::io::stderr())?;
+            let receipt = client.download_project_package_with_request_id(ProjectId::new(project)?, PackageOperationId::new(operation)?,
+                &destination, &consent, &project_package::PackageDownloadControl::default(), request_id)?;
+            println!("{}", serde_json::to_string_pretty(&receipt)?);
+            Ok(())
+        }
+        Commands::PackageRelease { project, operation, acknowledge_discarding_engine_copy } => {
+            anyhow::ensure!(acknowledge_discarding_engine_copy, "Explicit engine-copy disposal acknowledgement is required");
+            eprintln!("Deleting the retained engine package copy. This does not verify importability or modify a downloaded destination.");
+            let mut client = SessionClient::connect(endpoint, bootstrap)?;
+            let status = client.release_project_export(ProjectId::new(project)?, PackageOperationId::new(operation)?)?;
+            println!("{}", serde_json::to_string_pretty(&status)?);
+            Ok(())
         }
         Commands::Capabilities => {
             let mut client = SessionClient::connect(endpoint, bootstrap)?;

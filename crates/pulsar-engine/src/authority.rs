@@ -33,15 +33,17 @@ mod editing;
 mod lineage;
 #[path = "motion_state.rs"]
 mod motion_state;
+#[cfg(test)]
+#[path = "../tests/project_package_closure/mod.rs"]
+mod project_package_closure;
+#[path = "project_package_exports.rs"]
+mod project_package_exports;
+#[path = "project_packages.rs"]
+mod project_packages;
 #[path = "source_kinds.rs"]
 mod source_kinds;
 #[path = "transfers.rs"]
 mod transfers;
-#[path = "project_packages.rs"]
-mod project_packages;
-#[cfg(test)]
-#[path = "../tests/project_package_closure/mod.rs"]
-mod project_package_closure;
 
 fn internal(error: impl std::fmt::Display) -> ProtocolError {
     ProtocolError::new(ErrorCode::Internal, error.to_string())
@@ -75,6 +77,10 @@ pub struct Engine {
     motion_store: crate::motion_artifacts::ProgramStore,
     transfers: Mutex<transfers::TransferState>,
     engine_epoch: String,
+    package_owner_token: String,
+    package_store: crate::project_package_storage::PackageStore,
+    package_holds: crate::project_package_storage::HoldRegistry,
+    package_exports: Mutex<project_package_exports::PackageRuntime>,
 }
 
 impl Engine {
@@ -144,6 +150,11 @@ impl Engine {
         let pool = ResourcePool::new(config.max_ram_bytes, config.max_jobs);
         let motion_store =
             crate::motion_artifacts::ProgramStore::new(&config.state_dir.join("motion-objects"))?;
+        let package_owner_token = project_package_exports::owner_token(&config.state_dir)?;
+        let package_store = crate::project_package_storage::PackageStore::new(
+            &config.state_dir.join("project-packages"),
+        )?;
+        package_store.cleanup_pending()?;
         let mut db = Connection::open(config.state_dir.join("projects.sqlite3"))?;
         db.busy_timeout(std::time::Duration::from_secs(2))?;
         db.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA wal_autocheckpoint=100; PRAGMA journal_size_limit=8388608;")?;
@@ -203,6 +214,7 @@ impl Engine {
         lineage::initialize(&mut db)?;
         transfers::initialize(&db)?;
         source_kinds::initialize(&mut db)?;
+        project_package_exports::initialize(&db)?;
         db.execute("UPDATE jobs SET state='interrupted',error='engine restart; validated dependency restart required' WHERE state IN ('queued','running')", [])?;
         db.execute(
             "UPDATE attempts SET state='interrupted' WHERE state IN ('queued','running')",
@@ -238,8 +250,13 @@ impl Engine {
             motion_store,
             transfers: Mutex::new(transfers::TransferState::default()),
             engine_epoch: Uuid::new_v4().to_string(),
+            package_owner_token,
+            package_store,
+            package_holds: crate::project_package_storage::HoldRegistry::default(),
+            package_exports: Mutex::new(project_package_exports::PackageRuntime::default()),
         });
         transfers::start_sweeper(&engine);
+        project_package_exports::start_sweeper(&engine);
         engine.recover_interrupted();
         Ok(engine)
     }
@@ -274,11 +291,16 @@ impl Engine {
             let db = self.db.lock().map_err(internal)?;
             self.authorize(&db, request, session)?;
             check_request_identity(&db, session.as_str(), request, &fingerprint)?;
-            if request.command.is_mutating() {
+            if request.command.is_mutating()
+                && !project_package_exports::is_command(&request.command)
+            {
                 if let Some(body) = replay(&db, session.as_str(), request, &fingerprint)? {
                     return Ok(body);
                 }
             }
+        }
+        if project_package_exports::is_command(&request.command) {
+            return self.package_control(request, &fingerprint);
         }
         if matches!(
             &request.command,
@@ -530,6 +552,12 @@ impl Engine {
             }
             Command::EvictSource { source_version } => {
                 let source = self.source(&tx, project(request)?, source_version)?;
+                if self.package_holds.contains(&source.identity.sha256)? {
+                    return Err(ProtocolError::new(
+                        ErrorCode::Forbidden,
+                        "snapshot retained by an active project package export",
+                    ));
+                }
                 let protected:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM sources WHERE version=?1 AND pinned=1) OR EXISTS(SELECT 1 FROM jobs WHERE source=?1 AND state IN ('queued','running','interrupted'))",[source_version.as_str()],|r|r.get(0)).map_err(internal)?;
                 let preview_active = self.workers.lock().map_err(internal)?.keys().any(|key| {
                     key.starts_with("preview:")
@@ -817,6 +845,7 @@ impl Engine {
                 session: target,
                 project_id,
             } => {
+                project_package_exports::revoke(&tx, target, project_id)?;
                 tx.execute(
                     "DELETE FROM grants WHERE session=?1 AND project=?2",
                     params![target.as_str(), project_id.as_str()],
@@ -912,6 +941,7 @@ impl Engine {
                 .lock()
                 .map_err(internal)?
                 .revoke(target, project_id);
+            self.package_revoke(target, project_id);
         }
         if let Some((manifest, reservation, cancel)) = launch_work {
             let engine = self.clone();
@@ -1003,6 +1033,16 @@ impl Engine {
     fn authorize(&self, db: &Connection, request: &Request, session: &SessionId) -> PResult<()> {
         self.authenticate(db, session, request.auth_token.as_deref())?;
         let (project, scope) = match &request.command {
+            Command::AllowProjectPackaging { .. } => (project(request)?, Scope::ManageGrants),
+            Command::StartProjectExport
+            | Command::ProjectPackageStatus { .. }
+            | Command::CancelProjectExport { .. }
+            | Command::ReleaseProjectExport { .. }
+            | Command::BeginProjectPackageDownload { .. }
+            | Command::ProjectPackageDownloadStatus { .. }
+            | Command::AbandonProjectPackageDownload { .. } => {
+                (project(request)?, Scope::PackageProject)
+            }
             Command::CreateProject { .. }
             | Command::Capabilities
             | Command::TransferStatus { .. }
@@ -1058,6 +1098,14 @@ impl Engine {
             protocol_version: PROTOCOL_VERSION,
             operations: [
                 "create_project",
+                "allow_project_packaging",
+                "start_project_export",
+                "project_package_status",
+                "cancel_project_export",
+                "release_project_export",
+                "begin_project_package_download",
+                "project_package_download_status",
+                "abandon_project_package_download",
                 "open_project",
                 "import_source",
                 "import_funscript",

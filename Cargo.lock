@@ -2674,9 +2674,11 @@ dependencies = [
  "clap_complete",
  "eframe",
  "pulsar-protocol",
+ "rustix 1.1.4",
  "serde",
  "serde_json",
  "sha2",
+ "tempfile",
  "uuid",
 ]
 

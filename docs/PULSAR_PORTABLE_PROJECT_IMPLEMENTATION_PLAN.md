@@ -1,10 +1,12 @@
 # Portable-project implementation plan
 
-Status: **IN PROGRESS. P1a contracts, private capture, and codec are implemented and locally exercised. P1b-P1d remain unimplemented and unqualified.**
+Status: **IN PROGRESS. P1a foundation and P1b retained export/scoped download are implemented and locally exercised on Linux. P1c clone import and P1d complete user-facing/platform qualification remain unfinished.**
 
-See [P1a status and evidence](PULSAR_PORTABLE_PROJECT_P1A_STATUS.md) and
-[ADR 0009](adr/0009-portable-project-contracts.md). This does not claim a usable
-portable export/import workflow or completion of the Good phase.
+See [P1b status and evidence](PULSAR_PORTABLE_PROJECT_P1B_STATUS.md),
+[ADR 0010](adr/0010-portable-project-export-lifecycle.md), and the historical
+[P1a foundation](PULSAR_PORTABLE_PROJECT_P1A_STATUS.md).
+This does not claim a complete portable export/import workflow or completion
+of the Good phase.
 
 This is the next bounded B6 work package, not a replacement for the software
 specification, architecture decisions, or B1-B6 acceptance criteria. It does not

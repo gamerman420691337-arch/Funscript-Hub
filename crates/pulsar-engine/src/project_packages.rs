@@ -23,6 +23,7 @@ pub(super) struct ProjectCapturePlan {
     pub(super) manifest: PortableProjectManifest,
     pub(super) manifest_sha256: String,
     objects: BTreeMap<String, CapturedObject>,
+    _holds: Option<crate::project_package_storage::ArtifactHolds>,
     _memory: Reservation,
 }
 impl ProjectCapturePlan {
@@ -332,6 +333,7 @@ fn read_compact(
 
 /// Private capture seam only: no request replay, operation readiness or transfer
 /// authority is created. All record reads share one mutex-protected transaction.
+
 pub(super) fn capture(
     engine: &Engine,
     session: &SessionId,
@@ -339,7 +341,35 @@ pub(super) fn capture(
     project: &ProjectId,
     expected_revision: RevisionId,
 ) -> PResult<ProjectCapturePlan> {
+    capture_inner(engine, session, token, project, expected_revision, false)
+}
+/// Retains the captured closure before releasing the SQL snapshot. Full payload
+/// verification is deferred to bounded materialization, not claimed by capture.
+pub(super) fn capture_retained(
+    engine: &Engine,
+    session: &SessionId,
+    token: &str,
+    project: &ProjectId,
+    expected_revision: RevisionId,
+) -> PResult<ProjectCapturePlan> {
+    capture_inner(engine, session, token, project, expected_revision, true)
+}
+
+fn capture_inner(
+    engine: &Engine,
+    session: &SessionId,
+    token: &str,
+    project: &ProjectId,
+    expected_revision: RevisionId,
+    retained: bool,
+) -> PResult<ProjectCapturePlan> {
     let memory = engine.pool.reserve_memory(transfers::VALIDATION_MEMORY)?;
+    let gate = if retained {
+        Some(engine.artifact_gate.lock().map_err(internal)?)
+    } else {
+        None
+    };
+    let mut retained_holds = None;
     let root = &engine.config.state_dir;
     let (mut manifest, mut objects, legacy, authored, attempts) = {
         let mut db = engine.db.lock().map_err(internal)?;
@@ -455,10 +485,33 @@ pub(super) fn capture(
             export_receipts,
             objects: vec![],
         };
+        if retained {
+            let mut identities = objects
+                .values()
+                .map(|object| ArtifactIdentity {
+                    artifact_id: ArtifactId::new(format!(
+                        "package.hold.{}",
+                        object.descriptor.sha256
+                    ))
+                    .expect("digest identifier"),
+                    sha256: object.descriptor.sha256.clone(),
+                    byte_len: object.descriptor.byte_len,
+                })
+                .collect::<Vec<_>>();
+            identities.extend(
+                manifest
+                    .candidates
+                    .iter()
+                    .flat_map(|candidate| candidate.lineage.iter().cloned()),
+            );
+            retained_holds = Some(engine.package_holds.acquire(&identities)?);
+        }
         tx.commit().map_err(internal)?;
         (manifest, objects, legacy, authored, attempts)
     };
+    drop(gate);
     // No external object read or hash occurs while the authority mutex is held.
+    // Snapshot/source holds already exist; receipt/input/attempt files have no deletion path.
     for (owner, key, raw) in legacy {
         let owner = match owner.as_str() {
             "projects" => PackageLegacyOwner::Projects,
@@ -793,49 +846,70 @@ pub(super) fn capture(
             "P1a package byte admission exceeded",
         ));
     }
-    for object in objects.values() {
-        let mut reader = open_object(object)?;
-        let mut hash = Sha256::new();
-        let mut length = 0u64;
-        let mut buffer = [0u8; 64 * 1024];
-        loop {
-            let read = match reader.read(&mut buffer) {
-                Ok(read) => read,
-                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(_) => return Err(missing(&object.descriptor, "evidence read failed")),
-            };
-            if read == 0 {
-                break;
+    if let Some(holds) = retained_holds.as_mut() {
+        let _gate = engine.artifact_gate.lock().map_err(internal)?;
+        let identities = objects
+            .values()
+            .map(|object| ArtifactIdentity {
+                artifact_id: ArtifactId::new(format!("package.hold.{}", object.descriptor.sha256))
+                    .expect("digest identifier"),
+                sha256: object.descriptor.sha256.clone(),
+                byte_len: object.descriptor.byte_len,
+            })
+            .collect::<Vec<_>>();
+        holds.extend(&identities)?;
+    }
+    if !retained {
+        for object in objects.values() {
+            let mut reader = open_object(object)?;
+            let mut hash = Sha256::new();
+            let mut length = 0u64;
+            let mut buffer = [0u8; 64 * 1024];
+            loop {
+                let read = match reader.read(&mut buffer) {
+                    Ok(read) => read,
+                    Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                    Err(_) => return Err(missing(&object.descriptor, "evidence read failed")),
+                };
+                if read == 0 {
+                    break;
+                }
+                length = length
+                    .checked_add(read as u64)
+                    .ok_or_else(|| missing(&object.descriptor, "length overflow"))?;
+                if length > object.descriptor.byte_len {
+                    return Err(missing(
+                        &object.descriptor,
+                        "evidence exceeds declared length",
+                    ));
+                }
+                hash.update(&buffer[..read]);
             }
-            length = length
-                .checked_add(read as u64)
-                .ok_or_else(|| missing(&object.descriptor, "length overflow"))?;
-            if length > object.descriptor.byte_len {
+            if length != object.descriptor.byte_len
+                || format!("{:x}", hash.finalize()) != object.descriptor.sha256
+            {
                 return Err(missing(
                     &object.descriptor,
-                    "evidence exceeds declared length",
+                    "evidence digest or length mismatch",
                 ));
             }
-            hash.update(&buffer[..read]);
-        }
-        if length != object.descriptor.byte_len
-            || format!("{:x}", hash.finalize()) != object.descriptor.sha256
-        {
-            return Err(missing(
-                &object.descriptor,
-                "evidence digest or length mismatch",
-            ));
         }
     }
     {
         let db = engine.db.lock().map_err(internal)?;
-        authenticate_capture(engine, &db, session, token, project, expected_revision)?;
+        if retained {
+            engine.authenticate(&db, session, Some(token))?;
+            require_grant(&db, session, project, Scope::PackageProject)?;
+        } else {
+            authenticate_capture(engine, &db, session, token, project, expected_revision)?;
+        }
     }
     let manifest_sha256 = format!("{:x}", Sha256::digest(manifest.canonical_bytes()?));
     Ok(ProjectCapturePlan {
         manifest,
         manifest_sha256,
         objects,
+        _holds: retained_holds,
         _memory: memory,
     })
 }

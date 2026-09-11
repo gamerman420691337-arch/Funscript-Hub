@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "stage": "B6-P1b",
+  "status": "LOCAL_EXPORT_SLICE_EXERCISED_NOT_COMPLETE_PORTABLE_FEATURE",
+  "source_sha256": "59209395c4145c36cd5f5c4746063a4775d71d0937a56d49680f551f153249c0",
+  "binary_sha256": "df3f6c410b84c7d379414c73e93a82d1a2875ce3577744371ea4c75ff3d29798",
+  "final_gate": {
+    "exit": 0,
+    "log_bytes": 86703,
+    "groups": 30,
+    "passed": 420,
+    "failed": 0,
+    "ignored_in_default_runs": 3,
+    "source_sha256": [
+      "59209395c4145c36cd5f5c4746063a4775d71d0937a56d49680f551f153249c0"
+    ],
+    "binary_sha256": "df3f6c410b84c7d379414c73e93a82d1a2875ce3577744371ea4c75ff3d29798",
+    "large": "P1b LARGE: source_bytes=1074003968 package_bytes=1074012347 minimum_256k_chunks=4098 capture_plus_import_seconds=3.323 download_seconds=1.346 sampled_engine_rss_delta=1224704 sampled_client_rss_delta=913408 samples=284 temporary_disk=private_sparse_source+snapshot+uncompressed_engine_package+client_copy",
+    "control": [
+      "P1b CONTROL: phase=epoch_verification_pending get_snapshot_ms=0.251",
+      "P1b CONTROL: phase=streaming_concurrent_edit get_snapshot_ms=0.259",
+      "P1b CONTROL: phase=epoch_verification_pending get_snapshot_ms=0.206",
+      "P1b CONTROL: phase=large_streaming get_snapshot_ms=0.212"
+    ],
+    "package_models": [
+      {
+        "fault": "none",
+        "expected_invariant": null,
+        "passed": true,
+        "exit_code": 0,
+        "signal": null,
+        "error": null,
+        "violated_invariant": null,
+        "generated_states": "15885",
+        "distinct_states": "4088"
+      },
+      {
+        "fault": "capture",
+        "expected_invariant": "SnapshotExact",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "SnapshotExact",
+        "generated_states": "32",
+        "distinct_states": "23"
+      },
+      {
+        "fault": "source_hold",
+        "expected_invariant": "SourceRetention",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "SourceRetention",
+        "generated_states": "44",
+        "distinct_states": "30"
+      },
+      {
+        "fault": "publication",
+        "expected_invariant": "ReadyIsDurable",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "ReadyIsDurable",
+        "generated_states": "1092",
+        "distinct_states": "407"
+      },
+      {
+        "fault": "durability",
+        "expected_invariant": "ReadyIsDurable",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "ReadyIsDurable",
+        "generated_states": "354",
+        "distinct_states": "176"
+      },
+      {
+        "fault": "reservation",
+        "expected_invariant": "SourceRetention",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "SourceRetention",
+        "generated_states": "38",
+        "distinct_states": "30"
+      },
+      {
+        "fault": "epoch",
+        "expected_invariant": "AuthorizedAdmission",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "AuthorizedAdmission",
+        "generated_states": "2429",
+        "distinct_states": "823"
+      },
+      {
+        "fault": "completion",
+        "expected_invariant": "LeaseIsVerified",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "LeaseIsVerified",
+        "generated_states": "2230",
+        "distinct_states": "759"
+      },
+      {
+        "fault": "chunk",
+        "expected_invariant": "AuthorizedAdmission",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "AuthorizedAdmission",
+        "generated_states": "2272",
+        "distinct_states": "773"
+      },
+      {
+        "fault": "authority_generation",
+        "expected_invariant": "AuthorizedAdmission",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "AuthorizedAdmission",
+        "generated_states": "2809",
+        "distinct_states": "940"
+      },
+      {
+        "fault": "verification_generation",
+        "expected_invariant": "NoStaleVerification",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "NoStaleVerification",
+        "generated_states": "2783",
+        "distinct_states": "932"
+      },
+      {
+        "fault": "bundle_hold",
+        "expected_invariant": "ReadRetainsBundle",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "ReadRetainsBundle",
+        "generated_states": "2247",
+        "distinct_states": "763"
+      },
+      {
+        "fault": "replay",
+        "expected_invariant": "NoReplayResurrection",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "NoReplayResurrection",
+        "generated_states": "50",
+        "distinct_states": "39"
+      }
+    ],
+    "existing_models": [
+      "Model checking completed. No error has been found.",
+      "888 states generated, 273 distinct states found, 0 states left on queue.",
+      "18 states generated, 18 distinct states found, 13 states left on queue.",
+      "PASS: authorization-negative mutant killed by NoUnauthorizedCommit.",
+      "Model checking completed. No error has been found.",
+      "2268 states generated, 852 distinct states found, 0 states left on queue.",
+      "8 states generated, 8 distinct states found, 5 states left on queue.",
+      "8 states generated, 8 distinct states found, 5 states left on queue.",
+      "195 states generated, 116 distinct states found, 62 states left on queue.",
+      "1057 states generated, 482 distinct states found, 141 states left on queue."
+    ],
+    "log": "p1b-final-gate.log"
+  },
+  "test_accounting": "420 successful Rust test executions across30 result groups. The five ordinary package process cases run twice. Three ignored occurrences represent two distinct fixtures: large transfer (reported twice) and actual-worker capture. Both were explicitly run and passed; included in420.",
+  "command": "ulimit -n 1024\nexport CARGO_TARGET_DIR=/tmp/pulsar-phase-a-target\nexport CARGO_BUILD_JOBS=2\nexport CARGO_INCREMENTAL=0\nexport CARGO_NET_OFFLINE=true\nexport TMPDIR=/home/brianklam/.p1b-jlqpxr\nexport TLA2TOOLS_JAR=/tmp/pulsar-phase-a-tools/tla2tools.jar\nexport PULSAR_RUN_LARGE_PACKAGE_TEST=1\n{\n  bash scripts/qualify-project-packages.sh &&\n  PULSAR_PACKAGE_TEST_WORKER=/tmp/pulsar-phase-a-target/debug/pulsar cargo test -p pulsar-engine --lib authority::project_package_closure::project_closure_captures_actual_generated_input_and_inert_job_origin --offline --locked -- --ignored --exact --nocapture &&\n  sha256sum /tmp/pulsar-phase-a-target/debug/pulsar\n} > /tmp/pulsar-p1b-final-gate.log 2>&1\nresult=$?\ntail -n 65 /tmp/pulsar-p1b-final-gate.log\nexit \"$result\"",
+  "environment": {
+    "platform": "Linux",
+    "cargo_offline": true,
+    "cargo_build_jobs": 2,
+    "cargo_incremental": false,
+    "fd_limit": 1024,
+    "physical_actuation": false,
+    "shared_gpu_work": false,
+    "large_fixture": "generated marker data, not real media",
+    "temporary_directory": "short private disk-backed TMPDIR"
+  },
+  "large": {
+    "source_bytes": 1074003968,
+    "package_bytes": 1074012347,
+    "minimum_256k_chunks": 4098,
+    "capture_plus_import_seconds": 3.323,
+    "download_seconds": 1.346,
+    "test_seconds": 6.78,
+    "sampled_engine_rss_delta_bytes": 1224704,
+    "sampled_client_rss_delta_bytes": 913408,
+    "samples": 284,
+    "rss_delta_tripwire_bytes": 268435456,
+    "control_get_snapshot_ms": [
+      0.251,
+      0.259,
+      0.206,
+      0.212
+    ],
+    "meaning": "Host observation and regression tripwire, not peak-allocation proof or reference-hardware throughput qualification."
+  },
+  "limits": {
+    "active_exports_and_verifiers": 2,
+    "operation_deadline_seconds": 3600,
+    "operation_rows": 10000,
+    "download_begin_rows": 100000,
+    "lease_seconds": 1800,
+    "leases_global": 8,
+    "leases_per_operation": 2,
+    "chunk_bytes": 262144,
+    "package_store_default_bytes": 34359738368,
+    "codec_default_bytes": 68719476736,
+    "pending_accounting": "Conservative charge for all private pending bytes, including live staging alongside reservations."
+  },
+  "review": {
+    "record": "p1b-independent-review.md",
+    "status": "SCOPED_FIRST_READ_FINDINGS_OWNER_VERIFIED_AND_REPAIRED_NO_INDEPENDENT_FINAL_SOURCE_REREAD",
+    "model_review_red": "p1b-model-review-red.log",
+    "model_redundant_mutant_campaign": "p1b-model-redundant-mutant.log",
+    "external_commit_review": "No new commit. Earlier required review attempts returned Transport closed; no external PASS."
+  },
+  "infrastructure": {
+    "failure": "Shared32GiB /tmp exhausted; linkerSIGBUS and ResourceExhausted. These runs were failures.",
+    "recovery": "After compilers stopped, removed only6.5GiB of task-owned regenerable incremental cache; preserved source/dependencies/evidence, disabled Cargo incremental and used private disk-backed generated-data fixtures."
+  },
+  "limitations": [
+    "P1c clone import, recovery/publication mapping, P1d GUI parity and relocated editable-project roundtrip remain unfinished.",
+    "Linux local debug evidence only. Windows/macOS publication, media quality, reference-hardware speed and physical devices unqualified.",
+    "Filesystem syscalls/fsync and bounded compact serde parsing are not hard wall-clock interruptible; cancellation acknowledgement precedes worker/hold teardown.",
+    "Completed receipts are historical, not current availability assertions. Release preserves tombstones; speculative orphan GC and long-term tombstone compaction remain open.",
+    "Finite model is one operation, bounded revisions/epochs/admissions; no complete Rust/SQLite/OS or global resource proof. Kani and package fuzz/mutation campaigns not run.",
+    "Package native-model/runtime installation is not implemented by this export slice.",
+    "Existing dead-code warnings remain; no clean lint claim.",
+    "No commit or push in this turn. Good phase incomplete."
+  ]
+}

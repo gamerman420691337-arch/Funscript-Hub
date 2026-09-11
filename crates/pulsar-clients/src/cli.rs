@@ -19,6 +19,38 @@ pub struct Cli {
 pub enum Commands {
     /// Open Pulsar Desktop. GUI and CLI use the same engine interface.
     Gui,
+    /// Explicitly permit this local owner session to package private project data.
+    AllowPackaging {
+        project: String,
+        #[arg(long, required = true)] acknowledge_unencrypted_private_data: bool,
+    },
+    /// Export an UNENCRYPTED portable package containing media, prompts and lineage.
+    PackageExport {
+        project: String,
+        destination: PathBuf,
+        #[arg(long, required = true)] acknowledge_unencrypted_private_data: bool,
+        /// Explicit current revision for callers with PackageProject but no Read scope.
+        #[arg(long)] revision: Option<u64>,
+        /// Stable Start identity for recovery after a lost acknowledgement.
+        #[arg(long)] request_id: Option<String>,
+    },
+    /// Inspect a retained package operation without cancelling or downloading it.
+    PackageStatus { project: String, operation: String },
+    /// Explicitly cancel active packaging; disconnect alone never cancels it.
+    PackageCancel { project: String, operation: String },
+    /// Retry download of an existing Ready operation into a NEW destination.
+    PackageDownload {
+        project: String, operation: String, destination: PathBuf,
+        /// Reuse a Begin identity only after a lost lease acknowledgement, before chunks.
+        #[arg(long)] request_id: Option<String>,
+        #[arg(long, required = true)] acknowledge_unencrypted_private_data: bool,
+    },
+    /// Delete the retained engine package copy, not any client destination file.
+    PackageRelease {
+        project: String, operation: String,
+        #[arg(long, required = true)] acknowledge_discarding_engine_copy: bool,
+    },
+
     /// Export exactly one selected neutral axis from a committed project.
     ExportAxis {
         project: String,

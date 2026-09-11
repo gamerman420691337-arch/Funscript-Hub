@@ -32,6 +32,10 @@ pub struct CandidateSnapshot {
 #[derive(Clone, Serialize)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum ResponseBody {
+    PackageExport(PackageExportStatus),
+    PackageDownload(PackageDownloadLease),
+    PackageDownloadPending(PackageDownloadPending),
+    PackageDownloadAbandoned { lease_id: PackageDownloadId },
     Project(ProjectSnapshot),
     Job(JobSnapshot),
     Candidate(CandidateSnapshot),
@@ -57,6 +61,10 @@ impl std::fmt::Debug for ResponseBody {
             Self::Preview(_) => "Preview", Self::Capabilities(_) => "Capabilities",
             Self::Events(_) => "Events", Self::Paired { .. } => "Paired { credentials: [REDACTED] }",
             Self::Ack => "Ack",
+            Self::PackageExport(_) => "PackageExport",
+            Self::PackageDownload(_) => "PackageDownload",
+            Self::PackageDownloadPending(_) => "PackageDownloadPending",
+            Self::PackageDownloadAbandoned { .. } => "PackageDownloadAbandoned",
         })
     }
 }
@@ -117,6 +125,10 @@ impl MotionCache {
                     base_revision: snapshot.base_revision, job_id: snapshot.job_id, review: snapshot.review,
                     motion: snapshot.motion, program })
             }
+            wire::ResponseBody::PackageExport(value) => ResponseBody::PackageExport(value),
+            wire::ResponseBody::PackageDownload(value) => ResponseBody::PackageDownload(value),
+            wire::ResponseBody::PackageDownloadPending(value) => ResponseBody::PackageDownloadPending(value),
+            wire::ResponseBody::PackageDownloadAbandoned { lease_id } => ResponseBody::PackageDownloadAbandoned { lease_id },
             wire::ResponseBody::Job(value) => ResponseBody::Job(value),
             wire::ResponseBody::Diagnostics(value) => ResponseBody::Diagnostics(value),
             wire::ResponseBody::Transfer(value) => ResponseBody::Transfer(value),

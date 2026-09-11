@@ -339,3 +339,52 @@ mod tests {
         assert!(!format!("{request:?}").contains("private-auth-token"));
     }
 }
+
+
+impl SessionClient {
+    pub(crate) fn package_request(&self, request_id: RequestId, command: Command,
+        project: ProjectId, revision: Option<RevisionId>) -> Result<pulsar_protocol::ResponseBody> {
+        self.package_request_until(request_id, command, project, revision,
+            std::time::Instant::now() + Duration::from_secs(10))
+    }
+
+    pub(crate) fn package_request_until(&self, request_id: RequestId, command: Command,
+        project: ProjectId, revision: Option<RevisionId>, deadline: std::time::Instant) -> Result<pulsar_protocol::ResponseBody> {
+        let deadline = deadline.min(std::time::Instant::now() + Duration::from_secs(10));
+        let remaining = deadline.checked_duration_since(std::time::Instant::now())
+            .context("Package control absolute deadline expired before connection")?;
+        let request = build_request(self.credentials.session.clone(), self.credentials.auth_token.clone(),
+            request_id, command, Some(project), revision);
+        let mut transport = LocalClient::connect(&self.endpoint, remaining)?;
+        transport.set_deadline(deadline)?;
+        let response = transport.call(&request)?;
+        if response.version != request.version || response.request_id != request.request_id {
+            bail!("Package response identity mismatch; request outcome is unknown and was not replayed");
+        }
+        response.result.map_err(anyhow::Error::from)
+    }
+
+    pub(crate) fn package_bulk_endpoint(&self) -> Result<PathBuf> {
+        Ok(self.endpoint.parent().context("Engine endpoint has no private parent")?.join("bulk.sock"))
+    }
+
+    pub(crate) fn open_package_bulk(&self, lease: &PackageDownloadLease,
+        deadline: std::time::Instant, range: PackageChunkRange) -> Result<PackageBulkClient> {
+        let endpoint = self.package_bulk_endpoint()?;
+        if lease.bulk_endpoint != endpoint {
+            bail!("Package bulk endpoint redirect rejected before authentication");
+        }
+        let remaining = deadline.checked_duration_since(std::time::Instant::now())
+            .context("Package lease expired before connection")?;
+        let mut bulk = PackageBulkClient::connect(&endpoint, remaining.min(Duration::from_secs(10)))?;
+        bulk.set_deadline(deadline)?;
+        let actual = bulk.handshake(&PackageBulkHandshake {
+            version: PROTOCOL_VERSION, channel: PackageBulkChannel::ProjectPackageDownload,
+            session: self.credentials.session.clone(), auth_token: self.credentials.auth_token.clone(),
+            lease_id: lease.lease_id.clone(), engine_epoch: lease.engine_epoch.clone(),
+            operation_id: lease.operation_id.clone(), artifact_sha256: lease.artifact.sha256.clone(),
+        })?;
+        crate::project_package::validate_package_handshake(lease, &actual, range)?;
+        Ok(bulk)
+    }
+}

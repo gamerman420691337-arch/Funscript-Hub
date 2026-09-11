@@ -1,0 +1,39 @@
+{"fault":"none","expected_invariant":null,"passed":true,"exit_code":0,"signal":null,"error":null,"violated_invariant":null,"generated_states":"15021","distinct_states":"3872"}
+{"fault":"capture","expected_invariant":"SnapshotExact","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"SnapshotExact","generated_states":"32","distinct_states":"23"}
+{"fault":"source_hold","expected_invariant":"SourceRetention","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"SourceRetention","generated_states":"44","distinct_states":"30"}
+{"fault":"publication","expected_invariant":"ReadyIsDurable","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"ReadyIsDurable","generated_states":"1092","distinct_states":"407"}
+{"fault":"durability","expected_invariant":"ReadyIsDurable","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"ReadyIsDurable","generated_states":"354","distinct_states":"176"}
+{"fault":"reservation","expected_invariant":"SourceRetention","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"SourceRetention","generated_states":"38","distinct_states":"30"}
+{"fault":"epoch","expected_invariant":"LeaseIsVerified","passed":false,"exit_code":0,"signal":null,"error":null,"violated_invariant":null,"generated_states":"15261","distinct_states":"3872"}
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 111 and seed -147808372279944440 with 1 worker on 20 cores with 683MB heap and 64MB offheap memory [pid: 3643800] (Linux 7.2.3-1-cachyos amd64, Arch Linux 26.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/pulsar-package-model-cHn4lF/PulsarPackageExport.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/Integers.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Parsing file /tmp/FiniteSets.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module PulsarPackageExport
+Starting... (2026-09-11 16:45:12)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-11 16:45:12.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 2.4E-12
+15261 states generated, 3872 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 23.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 6 and the 95th percentile is 3).
+Finished in 00s at (2026-09-11 16:45:13)
+
+{"fault":"completion","expected_invariant":"LeaseIsVerified","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"LeaseIsVerified","generated_states":"2229","distinct_states":"758"}
+{"fault":"chunk","expected_invariant":"AuthorizedAdmission","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"AuthorizedAdmission","generated_states":"2271","distinct_states":"772"}
+{"fault":"authority_generation","expected_invariant":"AuthorizedAdmission","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"AuthorizedAdmission","generated_states":"2801","distinct_states":"935"}
+{"fault":"verification_generation","expected_invariant":"NoStaleVerification","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"NoStaleVerification","generated_states":"2775","distinct_states":"927"}
+{"fault":"bundle_hold","expected_invariant":"ReadRetainsBundle","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"ReadRetainsBundle","generated_states":"2246","distinct_states":"762"}
+{"fault":"replay","expected_invariant":"NoReplayResurrection","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"NoReplayResurrection","generated_states":"50","distinct_states":"39"}
