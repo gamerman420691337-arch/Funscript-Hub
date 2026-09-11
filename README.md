@@ -10,6 +10,10 @@
 
 Pulsar is a high-performance workstation and CLI suite for automated visual and acoustic motion tracking, robotic kinematic synthesis (OSR2, SR6, DIY T-Code, Buttplug.io, The Handy), and interactive funscript authoring.
 
+## Product specification and major roadmap
+
+The [software specification](docs/PULSAR_SOFTWARE_SPECIFICATION.md) records the agreed product contract and chat decision sources. The [major roadmap](docs/PULSAR_MAJOR_ROADMAP.md) defines staged implementation, beginning with bounding-box, tracking, and stroke correctness. These documents distinguish requirements from measured capabilities; feature descriptions below are not release-qualification evidence.
+
 ---
 
 ## 🚀 Key Features
