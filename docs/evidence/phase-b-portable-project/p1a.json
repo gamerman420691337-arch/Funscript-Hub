@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "stage": "B6-P1a",
+  "status": "LOCAL_FOUNDATION_EXERCISED_NOT_COMPLETE_PORTABLE_FEATURE",
+  "preceding_checkpoint": "f24dfca9dd6cd42d3c805d8609b61c06b5d89e20",
+  "source_sha256": "4b3f30457e82aedc5de50ea211ac1d3089ba143009f791c34b228d57828215a4",
+  "binary_sha256": "631a4e3ade22aa0d1e2d106af209fefdbb34b3f95f5543cd7494b73459a02e88",
+  "final_gate": {
+    "log": "final-gate.log",
+    "exit": 0,
+    "log_bytes": 84984,
+    "source_sha256": "4b3f30457e82aedc5de50ea211ac1d3089ba143009f791c34b228d57828215a4",
+    "groups": 26,
+    "passed": 343,
+    "failed": 0,
+    "ignored_in_default_passes": 1,
+    "model_evidence": [
+      "Model checking completed. No error has been found.",
+      "888 states generated, 273 distinct states found, 0 states left on queue.",
+      "18 states generated, 18 distinct states found, 13 states left on queue.",
+      "PASS: authorization-negative mutant killed by NoUnauthorizedCommit.",
+      "Model checking completed. No error has been found.",
+      "2268 states generated, 852 distinct states found, 0 states left on queue.",
+      "8 states generated, 8 distinct states found, 5 states left on queue.",
+      "8 states generated, 8 distinct states found, 5 states left on queue.",
+      "195 states generated, 116 distinct states found, 62 states left on queue.",
+      "1057 states generated, 482 distinct states found, 141 states left on queue."
+    ]
+  },
+  "test_accounting": "343 successful Rust test executions across 26 result groups. One real-worker test is explicitly ignored in default runs and was separately invoked successfully with the freshly built root binary; it is included in 343, not an unexecuted acceptance gate.",
+  "environment": {
+    "platform": "Linux",
+    "file_descriptor_limit": 1024,
+    "cargo_build_jobs": 2,
+    "cargo_offline": true,
+    "physical_actuation": false,
+    "shared_gpu_work": false
+  },
+  "golden": {
+    "file": "p1a-golden-vector.json",
+    "manifest_bytes": 1587,
+    "package_bytes": 1652,
+    "package_sha256": "1e9f93581dd9e32be46d2dc982f776b803eb2f83d560036ec2e82b083a6508a8"
+  },
+  "historical_gate": {
+    "log": "pre-capture-review-gate.log",
+    "exit": 0,
+    "log_bytes": 83593,
+    "source_sha256": "d3410869f107010352a8c91a71a5ac1841288f8b53382e6f7689db212ea64275",
+    "groups": 26,
+    "passed": 339,
+    "failed": 0,
+    "ignored_in_default_passes": 1,
+    "status": "PASS_ON_OLDER_SOURCE_NOT_FINAL_QUALIFICATION"
+  },
+  "limits": {
+    "manifest_bytes": 16777216,
+    "total_entries": 100000,
+    "default_package_bytes": 68719476736,
+    "private_capture_metadata_bytes": 268435456,
+    "capture_memory_reservation_bytes": 1073741824,
+    "meaning": "Explicit engineering bounds/accounting. No measured peak-memory or wall-clock guarantee."
+  },
+  "review": {
+    "protocol": {
+      "source_findings": 6,
+      "reproduced_regressions": 6,
+      "status": "Owner RED-to-GREEN; final protocol suite passed 81 tests. Independent reviewer did not reread repaired source.",
+      "findings": [
+        "legacy recovery after branch truncation and quadratic legacy lookup",
+        "retained history motion/protection correspondence",
+        "head equals maximum persisted revision",
+        "required generated receipt evidence",
+        "candidate commit and lineage consistency",
+        "contiguous retained history positions"
+      ]
+    },
+    "integration": {
+      "finding": "raw original generated program absent from typed object-role closure",
+      "status": "Actual confined worker RED-to-GREEN; explicit original-program identity added without weakening role checks."
+    },
+    "capture": {
+      "source_findings": 3,
+      "behavioral_red_to_green": 2,
+      "scale_fixture": {
+        "candidates": 10000,
+        "revisions": 10000,
+        "job_buckets": 128,
+        "claim": "membership/order correctness, not timing performance"
+      },
+      "status": "Repairs exercised by focused regressions and final 343-pass combined gate. No independent reread of repaired capture source."
+    },
+    "fixture_correction": {
+      "description": "Provenance receipt counts describe coalesced intervals, not action knots. Independent fixture expectations corrected to the established interval semantics; not a product fix."
+    },
+    "historical_gate": {
+      "log": "/tmp/pulsar-portable-p1a-final-gate.iDyxbL.log",
+      "exit": 0,
+      "log_bytes": 83593,
+      "source_sha256": "d3410869f107010352a8c91a71a5ac1841288f8b53382e6f7689db212ea64275",
+      "groups": 26,
+      "passed": 339,
+      "failed": 0,
+      "ignored_in_default_passes": 1,
+      "tail": [
+        "",
+        "warning: function `capture` is never used",
+        "   --> crates/pulsar-engine/src/project_packages.rs:296:15",
+        "    |",
+        "296 | pub(super) fn capture(",
+        "    |               ^^^^^^^",
+        "",
+        "warning: method `import_canonical` is never used",
+        "   --> crates/pulsar-engine/src/motion_artifacts.rs:393:16",
+        "    |",
+        "319 |     impl ProgramStore {",
+        "    |     ----------------- method in this implementation",
+        "...",
+        "393 |         pub fn import_canonical(&self, bytes: &[u8]) -> Result<StoredProgram> {",
+        "    |                ^^^^^^^^^^^^^^^^",
+        "",
+        "warning: `pulsar-engine` (lib) generated 27 warnings",
+        "    Finished `dev` profile [optimized + debuginfo] target(s) in 0.21s",
+        "",
+        "=== P1a explicitly qualified generated-origin closure ===",
+        "warning: fields `candidate_id` and `project_id` are never read",
+        "    --> crates/pulsar-engine/src/authority.rs:2003:5",
+        "     |",
+        "2002 | struct CandidateState {",
+        "     |        -------------- fields in this struct",
+        "2003 |     candidate_id: CandidateId,",
+        "     |     ^^^^^^^^^^^^",
+        "2004 |     project_id: ProjectId,",
+        "     |     ^^^^^^^^^^",
+        "     |",
+        "     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default",
+        "",
+        "warning: `pulsar-engine` (lib test) generated 1 warning",
+        "    Finished `test` profile [optimized + debuginfo] target(s) in 0.13s",
+        "     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_engine-f60be89a3f131327)",
+        "",
+        "running 1 test",
+        "test authority::project_package_closure::project_closure_captures_actual_generated_input_and_inert_job_origin ... ok",
+        "",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 1.06s",
+        "",
+        "",
+        "=== P1a binary identity ===",
+        "631a4e3ade22aa0d1e2d106af209fefdbb34b3f95f5543cd7494b73459a02e88  /tmp/pulsar-phase-a-target/debug/pulsar",
+        ""
+      ]
+    },
+    "external_review": "No external commit-review pass: f24dfca review tool returned Transport closed."
+  },
+  "limitations": [
+    "No external commit-review pass; checkpoint review tool returned Transport closed.",
+    "Private capture and generic codec only; no package command, export/import operation, provisional destination, authority lifecycle, or user-facing package feature.",
+    "No durable artifact retention holds; capture is NeedsMaterialization, not guaranteed self-contained availability.",
+    "No relocated editable round-trip, multi-GiB memory/throughput, crash-publication, package fuzz/mutation campaign, cross-platform, neural, or physical qualification.",
+    "Existing finite lifecycle/transfer model results do not prove package lifecycle or implementation correspondence beyond their recorded scopes.",
+    "Kani not run. Private unconnected capture code produces dead-code warnings; warnings are not hidden or reported as a clean lint gate."
+  ]
+}

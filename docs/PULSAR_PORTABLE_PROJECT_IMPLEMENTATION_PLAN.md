@@ -1,6 +1,10 @@
-# Proposed portable-project implementation plan
+# Portable-project implementation plan
 
-Status: **PROPOSED. Not implemented, tested, qualified, or phase-complete.**
+Status: **IN PROGRESS. P1a contracts, private capture, and codec are implemented and locally exercised. P1b-P1d remain unimplemented and unqualified.**
+
+See [P1a status and evidence](PULSAR_PORTABLE_PROJECT_P1A_STATUS.md) and
+[ADR 0009](adr/0009-portable-project-contracts.md). This does not claim a usable
+portable export/import workflow or completion of the Good phase.
 
 This is the next bounded B6 work package, not a replacement for the software
 specification, architecture decisions, or B1-B6 acceptance criteria. It does not

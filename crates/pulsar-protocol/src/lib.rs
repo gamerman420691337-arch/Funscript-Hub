@@ -6,6 +6,7 @@ mod bulk;
 mod framing;
 mod generation;
 mod motion;
+mod project_package;
 mod transport;
 mod worker;
 
@@ -13,6 +14,7 @@ pub use bulk::*;
 pub use framing::*;
 pub use generation::*;
 pub use motion::*;
+pub use project_package::*;
 pub use pulsar_core::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -444,6 +446,8 @@ pub enum Scope {
     ManageGrants,
     ManageProtection,
     ImportSource,
+    /// Full editable-project capture, distinct from neutral motion export.
+    PackageProject,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

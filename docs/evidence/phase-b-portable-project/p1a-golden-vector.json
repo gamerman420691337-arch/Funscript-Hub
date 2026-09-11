@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "oracle": "Handwritten manifest expanded by literal string substitution; Node crypto and explicit little-endian framing, independent of Pulsar serialization and codec",
+  "manifest_utf8": "{\"format_version\":1,\"origin_project_id\":\"p\",\"captured_revision\":0,\"captured_event_cursor\":0,\"completeness\":{\"logical_closure\":\"captured\",\"source_bytes\":\"needs_materialization\",\"generation_dependencies\":\"identities_only\"},\"counts\":{\"revisions\":1,\"edit_states\":1,\"revision_lineage\":0,\"candidates\":0,\"authored_lineage\":0,\"sources\":0,\"legacy_cells\":0,\"generated_origins\":0,\"export_receipts\":0,\"objects\":1},\"head\":{\"name\":\"P\",\"revision\":0,\"history_cursor\":0,\"motion\":{\"artifact_id\":\"motion.ac11c4570c1e4918245c0ca34c2b951091b867a5aef252556ae323d06df61cf8\",\"sha256\":\"ac11c4570c1e4918245c0ca34c2b951091b867a5aef252556ae323d06df61cf8\",\"byte_len\":13,\"codec\":\"motion_program_json_v1\",\"axes\":[]},\"protected\":[]},\"revisions\":[{\"revision\":0,\"actor\":\"actor\",\"kind\":\"create\",\"label\":\"\",\"motion\":{\"artifact_id\":\"motion.ac11c4570c1e4918245c0ca34c2b951091b867a5aef252556ae323d06df61cf8\",\"sha256\":\"ac11c4570c1e4918245c0ca34c2b951091b867a5aef252556ae323d06df61cf8\",\"byte_len\":13,\"codec\":\"motion_program_json_v1\",\"axes\":[]},\"protected\":[]}],\"edit_states\":[{\"position\":0,\"motion\":{\"artifact_id\":\"motion.ac11c4570c1e4918245c0ca34c2b951091b867a5aef252556ae323d06df61cf8\",\"sha256\":\"ac11c4570c1e4918245c0ca34c2b951091b867a5aef252556ae323d06df61cf8\",\"byte_len\":13,\"codec\":\"motion_program_json_v1\",\"axes\":[]},\"protected\":[],\"source_revision\":null}],\"revision_lineage\":[],\"candidates\":[],\"authored_lineage\":[],\"sources\":[],\"legacy_cells\":[],\"generated_origins\":[],\"export_receipts\":[],\"objects\":[{\"sha256\":\"ac11c4570c1e4918245c0ca34c2b951091b867a5aef252556ae323d06df61cf8\",\"byte_len\":13,\"roles\":[\"motion_program\"]}]}",
+  "object_utf8": "{\"tracks\":[]}",
+  "manifest_byte_len": 1587,
+  "manifest_sha256": "ce4f3273baf8b2bfb457e878ab78322b8c6cae3e9f2625f2c699ca0883fc4ac6",
+  "object_byte_len": 13,
+  "object_sha256": "ac11c4570c1e4918245c0ca34c2b951091b867a5aef252556ae323d06df61cf8",
+  "header_hex": "50554c53504b4700010000003306000000000000ce4f3273baf8b2bfb457e878ab78322b8c6cae3e9f2625f2c699ca0883fc4ac6",
+  "package_byte_len": 1652,
+  "package_sha256": "1e9f93581dd9e32be46d2dc982f776b803eb2f83d560036ec2e82b083a6508a8"
+}

@@ -37,6 +37,11 @@ mod motion_state;
 mod source_kinds;
 #[path = "transfers.rs"]
 mod transfers;
+#[path = "project_packages.rs"]
+mod project_packages;
+#[cfg(test)]
+#[path = "../tests/project_package_closure/mod.rs"]
+mod project_package_closure;
 
 fn internal(error: impl std::fmt::Display) -> ProtocolError {
     ProtocolError::new(ErrorCode::Internal, error.to_string())
@@ -415,6 +420,7 @@ impl Engine {
                     Scope::ManageGrants,
                     Scope::ManageProtection,
                     Scope::ImportSource,
+                    Scope::PackageProject,
                 ] {
                     tx.execute(
                         "INSERT INTO grants VALUES(?1,?2,?3)",

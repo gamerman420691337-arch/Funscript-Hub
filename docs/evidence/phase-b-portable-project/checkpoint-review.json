@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "checkpoint": "f24dfca9dd6cd42d3c805d8609b61c06b5d89e20",
+  "review_tool": "mcp__local_llm__review_commit",
+  "target": "HEAD at checkpoint creation",
+  "status": "UNAVAILABLE",
+  "error": "tool call error: tool call failed for `local-llm/review_commit`\n\nCaused by:\n    Transport closed",
+  "meaning": "No external verdict or review pass was produced. Local gate evidence is not a substitute for the required external commit review.",
+  "next_work": "Portable-project P1a contracts, private snapshot closure, and bounded streaming codec. No complete import/export or Good-phase completion is claimed."
+}

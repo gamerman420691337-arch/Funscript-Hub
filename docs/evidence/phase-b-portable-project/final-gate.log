@@ -1,0 +1,2177 @@
+{
+  "gate": "phase-a-structure",
+  "generated_at": "2026-09-11T18:46:33.945Z",
+  "source_sha256": "4b3f30457e82aedc5de50ea211ac1d3089ba143009f791c34b228d57828215a4",
+  "checks": [
+    {
+      "name": "workspace:pulsar-core",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "workspace:pulsar-protocol",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "workspace:pulsar-engine",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "workspace:pulsar-clients",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "exactly-four-product-libraries",
+      "result": "PASS",
+      "detail": "pulsar-clients,pulsar-core,pulsar-engine,pulsar-protocol"
+    },
+    {
+      "name": "dependency-direction:pulsar-core",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "dependency-direction:pulsar-protocol",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "dependency-direction:pulsar-engine",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "dependency-direction:pulsar-clients",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-forbids-unsafe",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/authority.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/device.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/dsp.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/edit_values.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/editing.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/geometry.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/ids.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/jobs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/motion.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/perception.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/project.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/proofs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/synthesis.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "core-no-effects:crates/pulsar-core/src/time.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "composition-no-legacy-modules",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/authority.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/device.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/dsp.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/edit_values.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/editing.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/geometry.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/ids.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/jobs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/motion.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/perception.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/project.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/proofs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/synthesis.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-core/src/time.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/bulk.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/framing.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/generation.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/motion.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/project_package.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/transport.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-protocol/src/worker.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/artifacts.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/authority.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/bulk.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/cgroup.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/editing.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/instance.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/launch.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/lineage.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/motion_artifacts.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/motion_state.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/project_package_format.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/project_packages.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/resources.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/source_kinds.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/transfers.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/artifacts.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/audio.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/detector.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/good_tests.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/inputs.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/integration_tests.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/media.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/mod.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-engine/src/worker/tracking.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/cli.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/cli.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/desktop.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/desktop.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/editor.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/editor.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/lib.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/modality.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/modality.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/motion.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/motion.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/preview.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/preview.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-legacy-path-import:crates/pulsar-clients/src/session.rs",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "name": "no-client-native-runtime:crates/pulsar-clients/src/session.rs",
+      "result": "PASS",
+      "detail": ""
+    }
+  ],
+  "passed": true,
+  "limitations": [
+    "Static direct-dependency/source checks only; not proof of transitive runtime behavior.",
+    "No neural accuracy, OS/platform, sandbox or physical qualification claim."
+  ]
+}
+    Checking pulsar-engine v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1/crates/pulsar-engine)
+warning: fields `candidate_id` and `project_id` are never read
+    --> crates/pulsar-engine/src/authority.rs:2003:5
+     |
+2002 | struct CandidateState {
+     |        -------------- fields in this struct
+2003 |     candidate_id: CandidateId,
+     |     ^^^^^^^^^^^^
+2004 |     project_id: ProjectId,
+     |     ^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `MAX_CAPTURE_METADATA` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:6:7
+  |
+6 | const MAX_CAPTURE_METADATA: usize = 256 * 1024 * 1024;
+  |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_CAPTURE_ROWS` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:7:7
+  |
+7 | const MAX_CAPTURE_ROWS: usize = 100_000;
+  |       ^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_COMPACT_EVIDENCE` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:8:7
+  |
+8 | const MAX_COMPACT_EVIDENCE: u64 = 128 * 1024 * 1024;
+  |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_PACKAGE_BYTES` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:9:7
+  |
+9 | const MAX_PACKAGE_BYTES: u64 = 64 * 1024 * 1024 * 1024;
+  |       ^^^^^^^^^^^^^^^^^
+
+warning: enum `ObjectLocation` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:11:6
+   |
+11 | enum ObjectLocation {
+   |      ^^^^^^^^^^^^^^
+
+warning: struct `CapturedObject` is never constructed
+  --> crates/pulsar-engine/src/project_packages.rs:15:8
+   |
+15 | struct CapturedObject {
+   |        ^^^^^^^^^^^^^^
+
+warning: struct `ProjectCapturePlan` is never constructed
+  --> crates/pulsar-engine/src/project_packages.rs:22:19
+   |
+22 | pub(super) struct ProjectCapturePlan {
+   |                   ^^^^^^^^^^^^^^^^^^
+
+warning: method `open_object` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:29:19
+   |
+28 | impl ProjectCapturePlan {
+   | ----------------------- method in this implementation
+29 |     pub(super) fn open_object(
+   |                   ^^^^^^^^^^^
+
+warning: function `missing` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:42:4
+   |
+42 | fn missing(object: &PackageObjectDescriptor, detail: &str) -> ProtocolError {
+   |    ^^^^^^^
+
+warning: function `open_object` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:51:4
+   |
+51 | fn open_object(object: &CapturedObject) -> PResult<Box<dyn Read>> {
+   |    ^^^^^^^^^^^
+
+warning: function `add_object` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:59:4
+   |
+59 | fn add_object(
+   |    ^^^^^^^^^^
+
+warning: function `object_ref` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:102:4
+    |
+102 | fn object_ref(identity: &ArtifactIdentity) -> PackageObjectRef {
+    |    ^^^^^^^^^^
+
+warning: function `inline_object` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:108:4
+    |
+108 | fn inline_object(
+    |    ^^^^^^^^^^^^^
+
+warning: function `motion` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:125:4
+    |
+125 | fn motion(
+    |    ^^^^^^
+
+warning: function `unsigned` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:143:4
+    |
+143 | fn unsigned(value: i64) -> PResult<u64> {
+    |    ^^^^^^^^
+
+warning: function `revision` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:146:4
+    |
+146 | fn revision(value: i64) -> PResult<RevisionId> {
+    |    ^^^^^^^^
+
+warning: function `optional_revision` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:149:4
+    |
+149 | fn optional_revision(value: Option<i64>) -> PResult<Option<RevisionId>> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `review` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:152:4
+    |
+152 | fn review(raw: &str) -> PResult<PackageReviewState> {
+    |    ^^^^^^
+
+warning: struct `CaptureIndexes` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:161:8
+    |
+161 | struct CaptureIndexes<'a> {
+    |        ^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:168:8
+    |
+167 | impl<'a> CaptureIndexes<'a> {
+    | --------------------------- associated function in this implementation
+168 |     fn new(
+    |        ^^^
+
+warning: struct `SnapshotBudget` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:201:8
+    |
+201 | struct SnapshotBudget {
+    |        ^^^^^^^^^^^^^^
+
+warning: function `rows` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:205:4
+    |
+205 | fn rows<T>(
+    |    ^^^^
+
+warning: function `authenticate_capture` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:242:4
+    |
+242 | fn authenticate_capture(
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `EditReceipt` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:273:8
+    |
+273 | struct EditReceipt {
+    |        ^^^^^^^^^^^
+
+warning: struct `WorkerReceiptEnvelope` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:291:8
+    |
+291 | struct WorkerReceiptEnvelope {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `read_compact` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:303:4
+    |
+303 | fn read_compact(
+    |    ^^^^^^^^^^^^
+
+warning: function `capture` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:335:15
+    |
+335 | pub(super) fn capture(
+    |               ^^^^^^^
+
+warning: method `import_canonical` is never used
+   --> crates/pulsar-engine/src/motion_artifacts.rs:393:16
+    |
+319 |     impl ProgramStore {
+    |     ----------------- method in this implementation
+...
+393 |         pub fn import_canonical(&self, bytes: &[u8]) -> Result<StoredProgram> {
+    |                ^^^^^^^^^^^^^^^^
+
+warning: `pulsar-engine` (lib) generated 29 warnings
+    Checking pulsar v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1)
+warning: `pulsar-engine` (lib test) generated 1 warning (1 duplicate)
+    Finished `dev` profile [optimized + debuginfo] target(s) in 0.64s
+   Compiling pulsar-engine v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1/crates/pulsar-engine)
+warning: fields `candidate_id` and `project_id` are never read
+    --> crates/pulsar-engine/src/authority.rs:2003:5
+     |
+2002 | struct CandidateState {
+     |        -------------- fields in this struct
+2003 |     candidate_id: CandidateId,
+     |     ^^^^^^^^^^^^
+2004 |     project_id: ProjectId,
+     |     ^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `MAX_CAPTURE_METADATA` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:6:7
+  |
+6 | const MAX_CAPTURE_METADATA: usize = 256 * 1024 * 1024;
+  |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_CAPTURE_ROWS` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:7:7
+  |
+7 | const MAX_CAPTURE_ROWS: usize = 100_000;
+  |       ^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_COMPACT_EVIDENCE` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:8:7
+  |
+8 | const MAX_COMPACT_EVIDENCE: u64 = 128 * 1024 * 1024;
+  |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_PACKAGE_BYTES` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:9:7
+  |
+9 | const MAX_PACKAGE_BYTES: u64 = 64 * 1024 * 1024 * 1024;
+  |       ^^^^^^^^^^^^^^^^^
+
+warning: enum `ObjectLocation` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:11:6
+   |
+11 | enum ObjectLocation {
+   |      ^^^^^^^^^^^^^^
+
+warning: struct `CapturedObject` is never constructed
+  --> crates/pulsar-engine/src/project_packages.rs:15:8
+   |
+15 | struct CapturedObject {
+   |        ^^^^^^^^^^^^^^
+
+warning: struct `ProjectCapturePlan` is never constructed
+  --> crates/pulsar-engine/src/project_packages.rs:22:19
+   |
+22 | pub(super) struct ProjectCapturePlan {
+   |                   ^^^^^^^^^^^^^^^^^^
+
+warning: method `open_object` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:29:19
+   |
+28 | impl ProjectCapturePlan {
+   | ----------------------- method in this implementation
+29 |     pub(super) fn open_object(
+   |                   ^^^^^^^^^^^
+
+warning: function `missing` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:42:4
+   |
+42 | fn missing(object: &PackageObjectDescriptor, detail: &str) -> ProtocolError {
+   |    ^^^^^^^
+
+warning: function `open_object` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:51:4
+   |
+51 | fn open_object(object: &CapturedObject) -> PResult<Box<dyn Read>> {
+   |    ^^^^^^^^^^^
+
+warning: function `add_object` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:59:4
+   |
+59 | fn add_object(
+   |    ^^^^^^^^^^
+
+warning: function `object_ref` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:102:4
+    |
+102 | fn object_ref(identity: &ArtifactIdentity) -> PackageObjectRef {
+    |    ^^^^^^^^^^
+
+warning: function `inline_object` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:108:4
+    |
+108 | fn inline_object(
+    |    ^^^^^^^^^^^^^
+
+warning: function `motion` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:125:4
+    |
+125 | fn motion(
+    |    ^^^^^^
+
+warning: function `unsigned` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:143:4
+    |
+143 | fn unsigned(value: i64) -> PResult<u64> {
+    |    ^^^^^^^^
+
+warning: function `revision` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:146:4
+    |
+146 | fn revision(value: i64) -> PResult<RevisionId> {
+    |    ^^^^^^^^
+
+warning: function `optional_revision` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:149:4
+    |
+149 | fn optional_revision(value: Option<i64>) -> PResult<Option<RevisionId>> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `review` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:152:4
+    |
+152 | fn review(raw: &str) -> PResult<PackageReviewState> {
+    |    ^^^^^^
+
+warning: struct `CaptureIndexes` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:161:8
+    |
+161 | struct CaptureIndexes<'a> {
+    |        ^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:168:8
+    |
+167 | impl<'a> CaptureIndexes<'a> {
+    | --------------------------- associated function in this implementation
+168 |     fn new(
+    |        ^^^
+
+warning: struct `SnapshotBudget` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:201:8
+    |
+201 | struct SnapshotBudget {
+    |        ^^^^^^^^^^^^^^
+
+warning: function `rows` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:205:4
+    |
+205 | fn rows<T>(
+    |    ^^^^
+
+warning: function `authenticate_capture` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:242:4
+    |
+242 | fn authenticate_capture(
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `EditReceipt` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:273:8
+    |
+273 | struct EditReceipt {
+    |        ^^^^^^^^^^^
+
+warning: struct `WorkerReceiptEnvelope` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:291:8
+    |
+291 | struct WorkerReceiptEnvelope {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `read_compact` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:303:4
+    |
+303 | fn read_compact(
+    |    ^^^^^^^^^^^^
+
+warning: function `capture` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:335:15
+    |
+335 | pub(super) fn capture(
+    |               ^^^^^^^
+
+warning: method `import_canonical` is never used
+   --> crates/pulsar-engine/src/motion_artifacts.rs:393:16
+    |
+319 |     impl ProgramStore {
+    |     ----------------- method in this implementation
+...
+393 |         pub fn import_canonical(&self, bytes: &[u8]) -> Result<StoredProgram> {
+    |                ^^^^^^^^^^^^^^^^
+
+warning: `pulsar-engine` (lib) generated 29 warnings
+   Compiling pulsar v0.8.0 (/home/brianklam/Desktop/Funscripts/pulsar-roadmap-m1)
+warning: `pulsar-engine` (lib test) generated 1 warning (1 duplicate)
+    Finished `test` profile [optimized + debuginfo] target(s) in 12.85s
+     Running unittests src/main.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar-14ca8d20116d0b6a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/large_motion.rs (/tmp/pulsar-phase-a-target/debug/deps/large_motion-35f9e231e5d33414)
+
+running 7 tests
+test large_transfer_commit_request_id_cannot_be_reused_for_begin ... ok
+test large_transfer_begin_request_id_cannot_be_reused_for_commit ... ok
+test large_transfer_create_request_id_cannot_be_reused_for_begin ... ok
+test large_transfer_begin_request_id_cannot_be_reused_for_finish ... ok
+test large_transfer_authority_integrity_and_restart_fences ... ok
+test large_stroke_artifact_roundtrip_rebase_history_restart_and_export ... ok
+test large_six_axis_artifact_roundtrip_preserves_every_action ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.83s
+
+     Running tests/launcher_connect_deadline.rs (/tmp/pulsar-phase-a-target/debug/deps/launcher_connect_deadline-71461492ecc90027)
+
+running 2 tests
+test capabilities_cli_rejects_busy_engine_without_replacing_it_or_hanging ... ok
+test launcher_waits_for_a_known_owner_before_its_listener_appears ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests/phase_a_integration.rs (/tmp/pulsar-phase-a-target/debug/deps/phase_a_integration-7e559a3d8f645aab)
+
+running 1 test
+test actual_clients_worker_and_durable_authority_cross_process ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.38s
+
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_clients-8a36d1c8ffb257d7)
+
+running 37 tests
+test desktop::diagnostics_freshness_tests::late_old_project_and_revision_reports_do_not_replace_current_diagnostics ... ok
+test desktop::diagnostics_freshness_tests::candidate_diagnostics_require_the_visible_candidate_identity ... ok
+test desktop::diagnostics_freshness_tests::diagnostics_for_an_unopened_project_are_never_accepted ... ok
+test desktop::source_kind_tests::media_selection_skips_nonmedia_and_preserves_an_existing_media_choice ... ok
+test desktop::edit_transport_tests::gui_draft_uses_shared_upload_then_normal_pinned_candidate_commit ... ok
+test desktop::source_kind_tests::removed_or_reclassified_media_is_not_retained_after_snapshot_refresh ... ok
+test desktop::edit_transport_tests::stale_gui_commit_retains_candidate_identity_and_is_never_replayed ... ok
+test desktop::source_kind_tests::synthetic_and_script_sources_never_become_media_from_their_labels ... ok
+test editor::gap_tests::multiple_and_endpoint_gaps_never_bridge_or_extrapolate ... ok
+test editor::gap_tests::single_gap_clips_only_unavailable_interval_with_interpolated_boundaries ... ok
+test editor::tests::duplicate_gesture_timestamps_are_not_silently_sanitized ... ok
+test editor::tests::gesture_stays_draft_and_commits_against_original_revision ... ok
+test cli::tests::legacy_aliases_remain_parseable ... ok
+test editor::tests::selecting_secondary_axis_preserves_other_tracks ... ok
+test cli::tests::complete_legacy_generate_grammar_is_preserved ... ok
+test editor::unordered_gap_tests::transient_crossing_or_duplicate_knots_never_render_continuous_gap_motion ... ok
+test modality::tests::merge_arguments_preserve_checked_units_and_reject_ambiguous_ranges ... ok
+test motion::transfer_tests::bad_upload_ack_never_finalizes_and_wire_values_contain_no_evidence ... ok
+test motion::transfer_tests::bad_hash_truncated_data_and_false_summaries_are_never_cached ... ok
+test motion::transfer_tests::complete_digest_verified_program_is_cached_and_reused ... ok
+test motion::transfer_tests::descriptor_wrong_authority_rejects_before_transfer_or_cache_lookup ... ok
+test motion::transfer_tests::cache_has_an_entry_count_bound_even_for_tiny_programs ... ok
+test motion::transfer_tests::handshake_cannot_change_grant_binding_epoch_or_expiry ... ok
+test motion::transfer_tests::redirected_bulk_endpoint_never_receives_authentication ... ok
+test preview::tests::absent_detections_clear_previous_observations ... ok
+test motion::transfer_tests::successful_shared_edit_upload_returns_candidate_without_a_commit ... ok
+test preview::tests::moving_boxes_and_actual_decoder_frame_replace_previous_evidence ... ok
+test preview::tests::seek_source_transform_and_request_changes_reject_late_results ... ok
+test session::tests::cli_and_gui_share_identical_authority_and_revision_envelopes ... ok
+test preview::tests::raw_artifact_hash_is_checked_before_display ... ok
+test session::tests::request_authentication_is_distinct_and_redacted_in_debug ... ok
+test session::tests::session_identity_alone_is_not_a_client_credential ... ok
+test tests::cli_and_batch_generation_use_engine_commits_and_pin_candidate_revision ... ok
+test tests::unsupported_legacy_capability_keeps_typed_failure ... ok
+test editor::gap_tests::large_gap_clipping_visits_full_detail_without_bridging ... ok
+test tests::informational_commands_do_not_start_engine ... ok
+test editor::gap_tests::edit_draft_preserves_explicit_gaps_and_full_large_action_detail ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_core-e04cf556434899a0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/contracts-52c9fb9ac6e45577)
+
+running 17 tests
+test box_clipping_preserves_center_and_rejects_bad_geometry ... ok
+test cancellation_fences_late_attempts_and_results ... ok
+test device_configuration_and_stopping_qualification_fail_closed ... ok
+test every_frame_identity_dimension_fences_stale_observations ... ok
+test explicit_gaps_survive_wire_and_reject_interpolated_observations ... ok
+test headless_disconnect_differs_from_revocation_and_reconnect_is_disarmed ... ok
+test identifiers_reject_empty_path_unicode_and_wire_bypass ... ok
+test malformed_motion_cannot_cross_constructor_or_serde ... ok
+test motion_keeps_shallow_plateaus_without_range_expansion ... ok
+test numeric_domains_do_not_wrap_or_accept_nonfinite ... ok
+test overflow_rejects_whole_project_transition ... ok
+test project_edits_are_atomic_revision_checked_and_undo_creates_new_revision ... ok
+test project_scope_and_stale_candidate_do_not_leak_authority ... ok
+test protection_and_revocation_are_rechecked_for_edits_and_undo ... ok
+test rational_timestamps_preserve_quantization_and_negative_direction ... ok
+test reconnect_preserves_stop_uncertainty_and_blocks_rearm ... ok
+test stop_request_does_not_prove_physical_stopping ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dsp.rs (/tmp/pulsar-phase-a-target/debug/deps/dsp-d56344edab825e99)
+
+running 3 tests
+test dimensions_and_resource_bounds_are_checked_before_access ... ok
+test static_texture_is_zero_motion_but_flat_frames_are_missing_evidence ... ok
+test translation_matches_vertical_motion_without_range_stretch ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/edit_values.rs (/tmp/pulsar-phase-a-target/debug/deps/edit_values-11bec22591296e4c)
+
+running 15 tests
+test axis_identity_is_not_transferred_and_deletion_is_recorded ... ok
+test changed_and_deleted_knots_cover_interpolation_but_do_not_forge_evidence ... ok
+test collinear_added_knot_is_conservatively_authored_not_inherited_segment_proof ... ok
+test gap_addition_removal_and_gap_only_support_are_explicit_authored_changes ... ok
+test gaps_are_required_and_unknown_duplicate_fields_fail ... ok
+test checked_values_times_order_axes_and_gaps_cannot_be_bypassed_by_serde ... ok
+test known_answer_wire_contains_values_only_and_round_trips ... ok
+test hostile_authority_fields_rejected_at_every_object_boundary ... ok
+test singleton_insertion_marks_both_adjacent_ramps_not_unchanged_anchors ... ok
+test six_axis_order_is_canonical_and_values_are_not_stretched ... ok
+test terminal_integer_boundary_is_checked_without_panics ... ok
+test unchanged_program_preserves_evidence_names_gaps_and_span_ancestry ... ok
+test generated_mutations_cover_every_changed_sample_and_inherited_ranges_are_disjoint ... ok
+test aggregate_action_cap_is_checked_across_axes ... ok
+test six_axis_full_detail_324000_actions_reconcile_without_thinning ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/editing.rs (/tmp/pulsar-phase-a-target/debug/deps/editing-9e6cc58cc4b5d465)
+
+running 10 tests
+test crossing_segment_and_neighbor_anchors_are_protected ... ok
+test contribution_envelopes_exclude_protected_anchors_and_omitted_axes ... ok
+test exact_protection_start_needs_no_predecessor_but_between_knots_does ... ok
+test empty_protected_axis_cannot_gain_interpolated_motion ... ok
+test empty_incoming_candidate_envelope_covers_removed_interior_motion ... ok
+test exact_selection_anchors_allow_an_interior_candidate_action ... ok
+test malformed_selection_and_endpoint_overflow_reject ... ok
+test protected_gaps_and_half_open_boundary_remain_exact ... ok
+test range_and_axis_selection_preserve_outside_segments ... ok
+test singleton_candidate_envelopes_cover_interpolation_and_writable_gaps ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/perception.rs (/tmp/pulsar-phase-a-target/debug/deps/perception-16cb55413912823a)
+
+running 32 tests
+test detector_clips_endpoints_and_recomputes_center ... ok
+test detector_drops_fully_outside_and_validates_classes ... ok
+test detector_nms_is_class_aware_and_deterministic ... ok
+test detector_inverts_explicit_letterbox ... ok
+test detector_rejects_rank_count_and_negative_geometry ... ok
+test detector_rejects_nonfinite_even_below_threshold ... ok
+test detector_rows_contract_rejects_fractional_class_and_bad_shape ... ok
+test flow_budgets_and_config_are_checked ... ok
+test distinct_attempt_namespaces_never_share_track_identity ... ok
+test flow_rejects_shape_mismatch_and_nonfinite_points ... ok
+test flow_zero_texture_is_missing_not_observed_pause ... ok
+test flow_occlusion_rejects_instead_of_clamping_point_to_edge ... ok
+test m1_confidence_change_does_not_replace_spatial_match ... ok
+test m1_direct_clips_corners_without_guessing_center_format ... ok
+test m1_degenerate_boxes_do_not_seed_points ... ok
+test m1_direct_rejects_nonfinite_score ... ok
+test m1_direct_rejects_reversed_corners ... ok
+test m1_unknown_class_does_not_panic ... ok
+test m1_zero_requested_mask_points_do_not_panic ... ok
+test sampled_frame_stride_is_not_an_observed_absence ... ok
+test flow_independent_reverse_pass_accepts_translation ... ok
+test tracker_ambiguous_association_flags_review_instead_of_arbitrary_identity ... ok
+test flow_stationary_texture_is_valid_zero ... ok
+test tracker_counts_skipped_frames_when_expiring ... ok
+test tracker_cut_retires_identity_even_for_same_geometry ... ok
+test tracker_prediction_translates_box_not_only_center ... ok
+test tracker_keeps_identity_with_permuted_detections_and_moves_boxes ... ok
+test tracker_rejects_out_of_order_without_mutating_state ... ok
+test tracker_seek_and_transform_reset_identity ... ok
+test m1_equal_area_resize_updates_flow_geometry ... ok
+test flow_translation_reversal_is_metamorphic ... ok
+test relative_motion_requires_background_evidence ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/synthesis.rs (/tmp/pulsar-phase-a-target/debug/deps/synthesis-2be4ae4a32cca6cc)
+
+running 16 tests
+test audio_sample_time_is_integer_quantized_and_final_endpoint_exact ... ok
+test beats_preserve_peak_times_pauses_and_shallow_amplitude ... ok
+test empty_beat_sequence_is_an_explicit_stationary_hold ... ok
+test checked_deserialization_cannot_bypass_numeric_or_action_budgets ... ok
+test envelope_mapping_known_answer_and_amplitude_scaling_metamorphism ... ok
+test hold_has_no_invented_full_range_or_dense_allocation ... ok
+test exact_duration_and_phase_are_preserved ... ok
+test malformed_pcm_and_feature_resource_inputs_fail_closed ... ok
+test pulse_preserves_high_and_low_plateaus ... ok
+test quiet_pcm_and_amplitude_scaling_do_not_invent_full_range_motion ... ok
+test rms_features_and_onset_threshold_have_known_answers ... ok
+test bounded_parameter_sweep_preserves_amplitude_and_monotonic_time ... ok
+test six_axes_share_duration_without_implicit_missing_axis_defaults ... ok
+test triangle_and_sine_quadrature_known_answers ... ok
+test strict_prompt_rejects_unknown_intent_duplicates_units_and_numeric_aliases ... ok
+test unavailable_audio_prefix_remains_gap_and_unordered_features_fail ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_engine-7967bc4ab75a7383)
+
+running 122 tests
+test authority::editing::tests::axis_export_rejects_absent_empty_gapped_and_quantization_collisions ... ok
+test artifacts::tests::refuses_snapshot_budget ... ok
+test artifacts::tests::immutable_copy_and_non_destructive_export ... ok
+test authority::project_package_closure::project_closure_captures_actual_generated_input_and_inert_job_origin ... ignored, requires PULSAR_PACKAGE_TEST_WORKER and qualified Linux worker confinement
+test authority::editing::tests::explicit_axis_export_is_correct_revision_bound_and_has_axis_receipt ... ok
+test authority::editing::tests::funscript_import_is_revision_bound_durable_candidate_and_diagnostics_are_read_only ... ok
+test authority::editing::tests::import_rejects_missing_scope_stale_revision_and_malformed_signal ... ok
+test authority::editing::tests::partial_merge_review_excludes_protected_and_omitted_axes ... ok
+test authority::editing::tests::selective_merge_preserves_protection_and_supports_undo_redo ... ok
+test authority::editing::tests::singleton_merge_review_covers_retained_anchor_interpolation ... ok
+test authority::tests::explicit_gaps_block_standard_export ... ok
+test authority::editing::tests::committed_reviews_and_explicit_history_edges_survive_restart_and_replay ... ok
+test authority::editing::tests::legacy_history_is_explicitly_unknown_instead_of_inferred ... ok
+test authority::editing::tests::candidate_review_survives_rebase_and_revocation_denies_replay ... ok
+test authority::editing::tests::branching_history_retains_immutable_restoration_edges ... ok
+test authority::editing::tests::source_kind_prevents_funscript_preview_before_worker_admission ... ok
+test authority::project_packages::capture_review_tests::absent_executable_dependency_bytes_remain_identity_only ... ok
+test authority::editing::tests::review_snapshot_overflow_rolls_back_revision_history_and_candidate_commit ... ok
+test authority::editing::tests::synthetic_source_kind_backfills_from_trusted_job_and_media_stays_media ... ok
+test authority::project_package_closure::project_closure_requires_distinct_package_scope_and_expected_revision ... ok
+test authority::project_package_closure::project_closure_exact_durable_history_candidates_sources_and_protection ... ok
+test authority::project_packages::capture_review_tests::capture_indexes_preserve_large_graph_membership_without_reordering_records ... ok
+test authority::project_package_closure::project_closure_rejects_missing_required_edit_receipt_without_mutating_head ... ok
+test authority::project_package_closure::project_closure_preserves_exact_legacy_cells_and_explicit_unknown_review ... ok
+test authority::project_package_closure::project_closure_keeps_redo_restoration_edges_after_branch_truncation ... ok
+test authority::project_packages::capture_review_tests::primary_source_identity_must_match_the_captured_source_catalog ... ok
+test authority::tests::active_model_bytes_cannot_be_evicted_through_source_alias ... ok
+test authority::tests::cancelled_and_revoked_work_cannot_publish_late_candidates ... ok
+test authority::tests::full_durability_is_selected ... ok
+test authority::tests::imported_snapshot_pin_and_evict_are_scoped ... ok
+test authority::tests::export_has_no_provenance_and_replays_without_overwrite ... ok
+test authority::tests::independently_paired_client_has_no_existing_project_authority ... ok
+test authority::tests::physical_effects_fail_closed ... ok
+test authority::tests::invalid_credentials_never_create_session ... ok
+test instance::tests::absent_state_and_lock_are_not_created ... ok
+test instance::tests::held_and_unheld_probes_preserve_file_and_release_only_their_own_lock ... ok
+test instance::tests::nonregular_fifo_probe_never_waits_for_a_writer ... ok
+test instance::tests::unsafe_lock_symlink_type_and_permissions_are_rejected ... ok
+test instance::tests::unsafe_state_symlink_type_and_permissions_are_errors_not_absence ... ok
+test motion_artifacts::tests::caller_paths_symlinks_and_nonregular_objects_are_rejected ... ok
+test motion_artifacts::tests::canonical_import_returns_digest_of_canonical_bytes_not_input_format ... ok
+test motion_artifacts::tests::corrupted_digest_length_or_metadata_never_reads_as_valid ... ok
+test authority::tests::duplicate_edit_is_durable_replay_not_second_revision ... ok
+test motion_artifacts::tests::empty_initial_project_has_stable_valid_content_descriptor ... ok
+test authority::tests::ordinary_edit_grant_does_not_authorize_filesystem_import ... ok
+test motion_artifacts::tests::failure_before_publication_leaves_no_reachable_partial_object ... ok
+test motion_artifacts::tests::crash_after_final_link_before_pending_unlink_remains_recoverable ... ok
+test motion_artifacts::tests::malformed_field_names_cannot_expand_control_errors_without_bound ... ok
+test motion_artifacts::tests::idempotent_publication_preserves_inode_and_roundtrips ... ok
+test motion_artifacts::tests::oversized_sparse_file_and_fifo_are_rejected_before_buffer_allocation ... ok
+test motion_artifacts::tests::refuses_public_store_and_writable_objects ... ok
+test motion_artifacts::tests::unreferenced_complete_object_survives_restart_without_database_commit ... ok
+test project_package_format::tests::complete_package_budget_is_checked_before_object_effects ... ok
+test project_package_format::tests::duplicate_and_unreferenced_objects_are_rejected_before_object_open ... ok
+test project_package_format::tests::encoder_rejects_short_long_and_changed_source_objects ... ok
+test project_package_format::tests::every_prefix_truncation_is_rejected ... ok
+test authority::tests::public_session_identity_is_not_a_bearer_credential ... ok
+test project_package_format::tests::late_failure_leaves_only_provisional_bytes_and_no_decoded_package ... ok
+test project_package_format::tests::large_exact_legacy_bytes_stream_with_fixed_object_buffer ... ok
+test project_package_format::tests::manifest_and_object_corruption_cannot_return_success ... ok
+test project_package_format::tests::minimal_project_roundtrip_preserves_exact_object_once ... ok
+test project_package_format::tests::output_or_staging_write_and_flush_failures_never_succeed ... ok
+test project_package_format::tests::noncanonical_json_and_unknown_authority_or_path_fields_fail_before_staging ... ok
+test project_package_format::tests::oversized_declared_metadata_is_rejected_before_payload_read_or_staging ... ok
+test project_package_format::tests::short_and_interrupted_io_preserves_the_known_package ... ok
+test project_package_format::tests::trailing_bytes_unknown_version_flags_and_magic_are_rejected ... ok
+test resources::tests::aggregate_limits_and_release ... ok
+test worker::artifacts::tests::artifact_writer_refuses_path_escape_before_open ... ok
+test resources::tests::storage_reservations_are_aggregate_and_release ... ok
+test worker::audio::tests::audio_internal_gap_overlap_and_coarse_clock_reject_before_decode ... ok
+test worker::audio::tests::audio_origin_and_integer_sample_clock_remain_explicit ... ok
+test worker::audio::tests::audio_tick_rounding_is_bounded_cumulatively_not_per_packet ... ok
+test worker::detector::tests::clipping_remains_normalized_and_absence_is_empty ... ok
+test worker::detector::tests::decoder_rejects_shape_guessing_nonfinite_and_reversed_boxes ... ok
+test authority::tests::protected_regions_cover_replacement_and_undo ... ok
+test authority::tests::queries_do_not_accumulate_durable_request_rows ... ok
+test authority::tests::stale_revision_and_reused_request_identity_reject ... ok
+test authority::tests::revocation_denies_cached_queries_and_undo_preserves_fresh_revisions ... ok
+test authority::transfers::tests::aggregate_upload_reservations_expiry_and_remaining_lifetime_are_bounded ... ok
+test authority::transfers::tests::abandon_replays_after_sweep_and_restart_without_releasing_a_running_validator_early ... ok
+test worker::good_tests::semantically_equal_but_reencoded_synthetic_source_is_not_exact_binding ... ok
+test authority::transfers::tests::completed_finalization_replays_durably_but_unfinished_epoch_does_not ... ok
+test worker::good_tests::still_without_prompt_is_rejected_before_native_tool_execution ... ok
+test worker::good_tests::synthetic_operation_must_match_exact_immutable_serialized_source ... ok
+test authority::transfers::tests::completed_upload_alias_claims_request_identity_and_replays_after_restart ... ok
+test worker::good_tests::typed_patterns_generate_six_axes_without_video_probe ... ok
+test authority::transfers::tests::failed_receipt_io_and_sql_publication_never_publish_partial_authority ... ok
+test worker::good_tests::typed_text_never_invokes_video_probe_and_retains_synthetic_evidence ... ok
+test authority::transfers::tests::upload_chunks_are_authenticated_exact_replay_and_sequential ... ok
+test authority::transfers::tests::restart_removes_unfinished_private_staging_bytes ... ok
+test worker::media::tests::frame_bounds_reject_overflow_and_empty ... ok
+test authority::transfers::tests::upload_edit_grant_is_not_read_or_generate_and_revocation_fences_chunks ... ok
+test worker::media::tests::preview_preserves_aspect_ratio ... ok
+test worker::tests::grayscale_and_cut_are_real_pixel_functions ... ok
+test worker::tests::rational_source_pts_and_project_origin_stay_distinct ... ok
+test worker::tracking::tests::absent_detection_cannot_generate_motion_or_decorative_box ... ok
+test worker::integration_tests::source_byte_replacement_rejected_before_native_execution ... ok
+test worker::tracking::tests::cut_and_absence_never_reuse_stale_observations_as_motion ... ok
+test worker::tracking::tests::full_length_attempt_ids_have_valid_namespaces ... ok
+test worker::tracking::tests::low_texture_requires_review_not_measured_pause ... ok
+test worker::tracking::tests::malformed_gray_or_box_is_rejected_before_state_advance ... ok
+test worker::tracking::tests::neutral_anchor_is_synthesized_not_observed ... ok
+test authority::transfers::tests::legacy_inline_cells_migrate_to_objects_while_original_json_is_retained ... ok
+test worker::tracking::tests::camera_translation_does_not_invent_relative_stroke ... ok
+test worker::tracking::tests::intentional_stride_does_not_expire_a_present_target ... ok
+test authority::transfers::tests::forged_edit_authority_and_digest_mismatch_publish_nothing ... ok
+test worker::tracking::tests::target_only_motion_is_small_relative_displacement_and_reverses ... ok
+test motion_artifacts::tests::malformed_program_and_byte_or_action_excess_are_rejected ... ok
+test worker::good_tests::image_modality_cannot_relabel_a_multiframe_video_as_one_still ... ok
+test worker::integration_tests::artifact_budget_failure_is_typed_resource_exhaustion ... ok
+test worker::good_tests::audio_only_decoder_preserves_absolute_rms_and_silent_boundaries ... ok
+test worker::good_tests::m1_worker_constant_displacement_never_invents_stroke ... ok
+test worker::integration_tests::actual_decode_preview_binds_frame_pts_and_reports_missing_model ... ok
+test worker::good_tests::m1_worker_monotonic_decreasing_motion_keeps_direction_and_shallow_travel ... ok
+test worker::integration_tests::actual_pixel_generation_returns_checked_candidate_and_lineage ... ok
+test worker::good_tests::m1_worker_trailing_pause_does_not_add_reversal ... ok
+test authority::project_packages::capture_review_tests::unrelated_nested_project_recovery_does_not_consume_capture_admission ... ok
+test worker::good_tests::still_plus_prompt_decodes_image_but_does_not_claim_semantic_conditioning ... ok
+test worker::good_tests::discontinuous_audio_pts_are_rejected_not_collapsed_into_earlier_motion ... ok
+test motion_artifacts::tests::production_sized_stroke_and_six_axes_fit_beyond_control_message_limits ... ok
+test worker::good_tests::m1_worker_preserves_both_pause_boundaries_for_peak_and_trough ... ok
+test authority::transfers::tests::expired_idle_upload_releases_admission_without_another_transfer_call ... ok
+
+test result: ok. 121 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_protocol-409cfb8a7c412b8f)
+
+running 27 tests
+test framing::tests::oversized_and_zero_header_rejected_without_body ... ok
+test framing::tests::control_round_trip_and_adjacent_frames ... ok
+test framing::tests::partial_reads_and_writes_supported ... ok
+test framing::tests::truncated_invalid_utf8_and_trailing_json_rejected ... ok
+test project_package::tests::broken_edges_fail_but_truncated_restoration_position_is_historical ... ok
+test project_package::tests::candidate_commit_and_present_revision_lineage_must_agree ... ok
+test project_package::tests::current_head_must_not_have_future_persisted_revisions ... ok
+test project_package::tests::duplicate_object_and_mismatched_roles_fail ... ok
+test project_package::tests::exact_legacy_cell_reference_is_required_and_scoped ... ok
+test project_package::tests::manifest_json_is_bounded_before_growing_past_limit ... ok
+test project_package::tests::authority_and_paths_are_not_manifest_fields ... ok
+test project_package::tests::missing_authored_evidence_is_not_an_identity_only_dependency ... ok
+test project_package::tests::missing_declared_record_or_required_object_fails ... ok
+test project_package::tests::generated_candidate_cannot_drop_its_exact_worker_receipt ... ok
+test project_package::tests::retained_history_positions_cannot_have_holes ... ok
+test project_package::tests::retained_history_cannot_claim_unrelated_revision_content ... ok
+test framing::tests::bulk_limit_is_independent ... ok
+test transport::endpoint_tests::windows_endpoint_accepts_only_canonical_local_pipe_names ... ok
+test project_package::tests::sparse_legacy_closure_and_exact_canonical_roundtrip ... ok
+test worker::tests::invalid_frame_layout_rejected ... ok
+test project_package::tests::unknown_version_and_false_readiness_fail ... ok
+test worker::tests::malformed_digests_rejected ... ok
+test project_package::tests::truncated_recovery_retains_exact_colon_underscore_project_ownership ... ok
+test worker::tests::tensor_overflow_zero_and_out_of_bounds_rejected ... ok
+test worker::tests::transfer_cannot_escape_artifact_or_budget ... ok
+test worker::tests::zero_budget_and_stride_rejected ... ok
+test framing::tests::sender_rejects_oversized_without_writing_header ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/axis_export_contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/axis_export_contracts-44aa6fd33a76d74b)
+
+running 5 tests
+test axis_export_paths_reject_empty_nul_and_oversized_wire_values ... ok
+test every_axis_export_requires_scope_and_pinned_revision ... ok
+test selected_axis_is_part_of_the_idempotency_fingerprint ... ok
+test axis_receipt_roundtrips_without_changing_legacy_export_wire_shape ... ok
+test unknown_axis_rejected_and_private_export_path_hidden_from_debug ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bulk_transport.rs (/tmp/pulsar-phase-a-target/debug/deps/bulk_transport-ac8b6a86722ed7d5)
+
+running 12 tests
+test handshake_debug_redacts_authentication_secret ... ok
+test truncated_bulk_headers_and_bodies_and_invalid_json_fail ... ok
+test invalid_bulk_lengths_reject_before_reading_or_writing_body ... ok
+test bulk_codecs_round_trip_exact_limits_and_adjacent_frames ... ok
+test unix::download_round_trip_supports_nonzero_lease_offset_and_retries ... ok
+test unix::upload_round_trip_and_acknowledged_retries_preserve_exact_prefix ... ok
+test unix::invalid_or_truncated_handshake_frame_poisons_connection ... ok
+test unix::wrong_handshake_lease_epoch_or_reply_poisons_connection ... ok
+test unix::oversized_or_truncated_download_chunk_poisons_connection ... ok
+test unix::wrong_upload_acknowledgement_or_reply_poisons_connection ... ok
+test unix::wrong_download_offset_length_or_reply_poisons_connection ... ok
+test unix::slow_header_cannot_extend_whole_handshake_or_download_deadline ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+
+     Running tests/connect_deadline.rs (/tmp/pulsar-phase-a-target/debug/deps/connect_deadline-dd3a82da08a577fb)
+
+running 6 tests
+test missing_endpoint_fails_immediately_for_local_and_bulk_clients ... ok
+test successful_bulk_connect_supports_an_authenticated_handshake ... ok
+test successful_local_connect_supports_a_capability_roundtrip ... ok
+test freeing_backlog_capacity_allows_local_and_bulk_connect_before_deadline ... ok
+test bulk_absolute_deadline_survives_handshake_and_cannot_be_extended ... ok
+test full_linux_backlog_bounds_local_and_bulk_connect_deadlines ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests/contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/contracts-9712063dea8836eb)
+
+running 9 tests
+test conflicting_project_scope_and_protocol_versions_rejected ... ok
+test diagnostic_formatting_redacts_pairing_and_authentication_secrets ... ok
+test fingerprints_ignore_request_id_but_not_content_or_session ... ok
+test error_serialization_keeps_unknown_outcomes_explicit ... ok
+test mutations_require_scope_and_expected_revision ... ok
+test preview_adopts_actual_frame_but_rejects_stale_seek_or_transform ... ok
+test local::mismatched_response_poisoned_not_reused ... ok
+test wire_rejects_unknown_command_fields_and_unchecked_ids ... ok
+test local::whole_rpc_deadline_resists_slow_header ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/generation_contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/generation_contracts-c29e6af205dab912)
+
+running 9 tests
+test additive_mutations_require_project_and_revision ... ok
+test all_six_checked_pattern_axes_are_admitted_once ... ok
+test diagnostics_do_not_admit_unbounded_or_ambiguous_reports ... ok
+test candidate_descriptor_payload_defaults_review_without_inline_program ... ok
+test modality_unknown_fields_and_missing_image_prompt_fail_closed ... ok
+test prompt_bytes_are_redacted_from_debug_and_preserved_on_wire ... ok
+test prompts_and_axes_are_bounded_and_unambiguous ... ok
+test review_spans_reject_invalid_codes_times_and_calibration_claims ... ok
+test diagnostics_total_json_escaping_cannot_overrun_control_budget ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/large_motion_contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/large_motion_contracts-cf9c51dfcffa50f8)
+
+running 9 tests
+test all_transfers_are_project_scoped_and_upload_pins_a_revision ... ok
+test descriptors_reject_duplicate_axes_bad_hashes_and_overflowed_counts ... ok
+test current_structural_rejection_preserves_request_identity ... ok
+test lease_and_range_bounds_do_not_wrap_or_launder_partial_uploads ... ok
+test metadata_fits_control_without_scaling_with_motion_actions ... ok
+test replay_fingerprint_binds_content_lease_and_project ... ok
+test duplicate_snapshot_identity_is_not_a_trusted_binding ... ok
+test v1_removed_commands_get_typed_upgrade_before_command_parsing ... ok
+test upload_control_cannot_smuggle_motion_or_provenance ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/source_kind_contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/source_kind_contracts-93fc0df714a410d1)
+
+running 4 tests
+test legacy_source_summary_defaults_only_to_media_import_purpose ... ok
+test callers_cannot_choose_source_kind_through_import_commands ... ok
+test source_kind_roundtrips_independently_of_filename_or_label ... ok
+test unknown_source_kind_is_not_silently_treated_as_previewable_media ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pulsar_clients
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pulsar_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pulsar_engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests pulsar_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Warning: Please run the Java VM which executes TLC with a throughput optimized garbage collector by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 63 and seed 3650467757924064959 with 1 worker on 20 cores with 16016MB heap and 64MB offheap memory [pid: 3442774] (Linux 7.2.3-1-cachyos amd64, Arch Linux 26.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.9Ju9kpJiga/PulsarLifecycle.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module PulsarLifecycle
+Starting... (2026-09-11 14:47:05)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-11 14:47:05.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 9.1E-15
+888 states generated, 273 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 9.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 6 and the 95th percentile is 4).
+Finished in 00s at (2026-09-11 14:47:05)
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Warning: Please run the Java VM which executes TLC with a throughput optimized garbage collector by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 94 and seed -6183739860076828538 with 1 worker on 20 cores with 16016MB heap and 64MB offheap memory [pid: 3442830] (Linux 7.2.3-1-cachyos amd64, Arch Linux 26.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.9Ju9kpJiga/PulsarLifecycle.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module PulsarLifecycle
+Starting... (2026-09-11 14:47:05)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-11 14:47:05.
+Error: Invariant NoUnauthorizedCommit is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ revision = 0
+/\ durableRevision = 0
+/\ unauthorizedCommits = 0
+/\ deviceArmed = FALSE
+/\ candidateBase = 0
+/\ authorized = TRUE
+/\ controller = FALSE
+/\ sessionEpoch = 0
+/\ committedCount = 0
+/\ job = "Idle"
+
+State 2: <Revoke line 52, col 3 to line 57, col 51 of module PulsarLifecycle>
+/\ revision = 0
+/\ durableRevision = 0
+/\ unauthorizedCommits = 0
+/\ deviceArmed = FALSE
+/\ candidateBase = 0
+/\ authorized = FALSE
+/\ controller = FALSE
+/\ sessionEpoch = 0
+/\ committedCount = 0
+/\ job = "Idle"
+
+State 3: <Edit line 32, col 3 to line 37, col 54 of module PulsarLifecycle>
+/\ revision = 1
+/\ durableRevision = 1
+/\ unauthorizedCommits = 1
+/\ deviceArmed = FALSE
+/\ candidateBase = 0
+/\ authorized = FALSE
+/\ controller = FALSE
+/\ sessionEpoch = 0
+/\ committedCount = 1
+/\ job = "Idle"
+
+18 states generated, 18 distinct states found, 13 states left on queue.
+The depth of the complete state graph search is 3.
+The average outdegree of the complete state graph is 5 (minimum is 5, the maximum 6 and the 95th percentile is 6).
+Finished in 00s at (2026-09-11 14:47:05)
+PASS: authorization-negative mutant killed by NoUnauthorizedCommit.
+Architecture checks passed. GUI evidence and capability ledger still require review.
+=== baseline ===
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 37 and seed -6658698560236050308 with 1 worker on 20 cores with 455MB heap and 64MB offheap memory [pid: 3442921] (Linux 7.2.3-1-cachyos amd64, Arch Linux 26.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/pulsar-transfer-model-UnAiHC/baseline/PulsarTransfers.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module PulsarTransfers
+Starting... (2026-09-11 14:47:06)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-11 14:47:06.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 6.5E-14
+2268 states generated, 852 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 13.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 7 and the 95th percentile is 4).
+Finished in 00s at (2026-09-11 14:47:06)
+=== write-authorization ===
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 58 and seed -7903570562996919467 with 1 worker on 20 cores with 455MB heap and 64MB offheap memory [pid: 3442966] (Linux 7.2.3-1-cachyos amd64, Arch Linux 26.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/pulsar-transfer-model-UnAiHC/write-authorization/PulsarTransfers.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module PulsarTransfers
+Starting... (2026-09-11 14:47:06)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-11 14:47:07.
+Error: Invariant NoUnauthorizedEffects is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Idle"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = FALSE
+/\ received = 0
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 2: <Begin line 23, col 3 to line 29, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Receiving"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 0
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 3: <AppendChunk line 31, col 3 to line 42, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Receiving"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 1
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 1
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+8 states generated, 8 distinct states found, 5 states left on queue.
+The depth of the complete state graph search is 3.
+The average outdegree of the complete state graph is 5 (minimum is 5, the maximum 5 and the 95th percentile is 5).
+Finished in 00s at (2026-09-11 14:47:07)
+=== lease-epoch ===
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 17 and seed -3644290181426605750 with 1 worker on 20 cores with 455MB heap and 64MB offheap memory [pid: 3443009] (Linux 7.2.3-1-cachyos amd64, Arch Linux 26.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/pulsar-transfer-model-UnAiHC/lease-epoch/PulsarTransfers.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module PulsarTransfers
+Starting... (2026-09-11 14:47:07)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-11 14:47:07.
+Error: Invariant NoStaleEpochEffects is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Idle"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = FALSE
+/\ received = 0
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 2: <Begin line 23, col 3 to line 29, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Receiving"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 0
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 3: <AppendChunk line 31, col 3 to line 42, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 1
+/\ durableRevision = 0
+/\ state = "Receiving"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 1
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+8 states generated, 8 distinct states found, 5 states left on queue.
+The depth of the complete state graph search is 3.
+The average outdegree of the complete state graph is 5 (minimum is 5, the maximum 5 and the 95th percentile is 5).
+Finished in 00s at (2026-09-11 14:47:07)
+=== digest-publication ===
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 121 and seed 360785382049598586 with 1 worker on 20 cores with 455MB heap and 64MB offheap memory [pid: 3443065] (Linux 7.2.3-1-cachyos amd64, Arch Linux 26.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/pulsar-transfer-model-UnAiHC/digest-publication/PulsarTransfers.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module PulsarTransfers
+Starting... (2026-09-11 14:47:08)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-11 14:47:08.
+Error: Invariant NoBadDigestPublication is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Idle"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = FALSE
+/\ received = 0
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 2: <Begin line 23, col 3 to line 29, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Receiving"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 0
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 3: <AppendChunk line 31, col 3 to line 42, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Receiving"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 1
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 4: <AppendChunk line 31, col 3 to line 42, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Receiving"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 2
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 5: <AppendChunk line 31, col 3 to line 42, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Received"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 3
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 6: <Finalize line 51, col 3 to line 59, col 72 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Candidate"
+/\ staleCommits = 0
+/\ badDigestPublications = 1
+/\ digest = "Unchecked"
+/\ reserved = FALSE
+/\ received = 3
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+195 states generated, 116 distinct states found, 62 states left on queue.
+The depth of the complete state graph search is 6.
+The average outdegree of the complete state graph is 2 (minimum is 0, the maximum 6 and the 95th percentile is 6).
+Finished in 00s at (2026-09-11 14:47:08)
+=== revision-commit ===
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 6 and seed -5447064991470533355 with 1 worker on 20 cores with 455MB heap and 64MB offheap memory [pid: 3443104] (Linux 7.2.3-1-cachyos amd64, Arch Linux 26.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/pulsar-transfer-model-UnAiHC/revision-commit/PulsarTransfers.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module PulsarTransfers
+Starting... (2026-09-11 14:47:08)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-11 14:47:08.
+Error: Invariant NoStaleCommit is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Idle"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = FALSE
+/\ received = 0
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 2: <Begin line 23, col 3 to line 29, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Receiving"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 0
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 3: <AppendChunk line 31, col 3 to line 42, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Receiving"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 1
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 4: <AppendChunk line 31, col 3 to line 42, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Receiving"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 2
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 5: <AppendChunk line 31, col 3 to line 42, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Received"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Unchecked"
+/\ reserved = TRUE
+/\ received = 3
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 6: <VerifyDigest line 44, col 3 to line 49, col 55 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Received"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Valid"
+/\ reserved = TRUE
+/\ received = 3
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 7: <Finalize line 51, col 3 to line 59, col 72 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 0
+/\ state = "Candidate"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Valid"
+/\ reserved = FALSE
+/\ received = 3
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 0
+/\ connected = TRUE
+
+State 8: <ConcurrentEdit line 72, col 3 to line 76, col 74 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 1
+/\ state = "Candidate"
+/\ staleCommits = 0
+/\ badDigestPublications = 0
+/\ digest = "Valid"
+/\ reserved = FALSE
+/\ received = 3
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 1
+/\ connected = TRUE
+
+State 9: <Commit line 61, col 3 to line 70, col 60 of module PulsarTransfers>
+/\ epoch = 0
+/\ authorized = TRUE
+/\ staleEpochEffects = 0
+/\ durableRevision = 2
+/\ state = "Committed"
+/\ staleCommits = 1
+/\ badDigestPublications = 0
+/\ digest = "Valid"
+/\ reserved = FALSE
+/\ received = 3
+/\ leaseEpoch = 0
+/\ unauthorizedEffects = 0
+/\ baseRevision = 0
+/\ revision = 2
+/\ connected = TRUE
+
+1057 states generated, 482 distinct states found, 141 states left on queue.
+The depth of the complete state graph search is 9.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 7 and the 95th percentile is 5).
+Finished in 00s at (2026-09-11 14:47:08)
+{
+  "gate": "motion-transfer-lifecycle",
+  "passed": true,
+  "model_sha256": "00caebfd6c1c0e13d9cb5329b3a23ccc4068d5b8db571b4f5b44652de3018c7f",
+  "config_sha256": "6ee539ee7dbf1356949041575843c912c764edae5d7f6e78378e717d10fb840b",
+  "tlc_jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+  "checks": [
+    {
+      "name": "baseline",
+      "passed": true,
+      "exit_code": 0,
+      "expected_invariant_violation": null,
+      "generated_states": 2268,
+      "distinct_states": 852,
+      "depth": 13,
+      "error": null
+    },
+    {
+      "name": "write-authorization",
+      "passed": true,
+      "exit_code": 12,
+      "expected_invariant_violation": "NoUnauthorizedEffects",
+      "generated_states": 8,
+      "distinct_states": 8,
+      "depth": 3,
+      "error": null
+    },
+    {
+      "name": "lease-epoch",
+      "passed": true,
+      "exit_code": 12,
+      "expected_invariant_violation": "NoStaleEpochEffects",
+      "generated_states": 8,
+      "distinct_states": 8,
+      "depth": 3,
+      "error": null
+    },
+    {
+      "name": "digest-publication",
+      "passed": true,
+      "exit_code": 12,
+      "expected_invariant_violation": "NoBadDigestPublication",
+      "generated_states": 195,
+      "distinct_states": 116,
+      "depth": 6,
+      "error": null
+    },
+    {
+      "name": "revision-commit",
+      "passed": true,
+      "exit_code": 12,
+      "expected_invariant_violation": "NoStaleCommit",
+      "generated_states": 1057,
+      "distinct_states": 482,
+      "depth": 9,
+      "error": null
+    }
+  ],
+  "limitations": [
+    "One transfer/project, bounded byte count/revisions/epochs; no fairness or real-time proof.",
+    "Digest verification, atomic durable publication and reservations are abstract predicates.",
+    "No Rust, operating-system, fsync, memory-accounting, download or cryptographic proof.",
+    "Lost acknowledgments and rejected requests are stuttering steps; concrete replay tests remain required."
+  ]
+}
+Motion transport structural/test/model checks passed; GUI, resource and phase qualification evidence remain separate.
+
+=== P1a current worker binary build ===
+warning: fields `candidate_id` and `project_id` are never read
+    --> crates/pulsar-engine/src/authority.rs:2003:5
+     |
+2002 | struct CandidateState {
+     |        -------------- fields in this struct
+2003 |     candidate_id: CandidateId,
+     |     ^^^^^^^^^^^^
+2004 |     project_id: ProjectId,
+     |     ^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `MAX_CAPTURE_METADATA` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:6:7
+  |
+6 | const MAX_CAPTURE_METADATA: usize = 256 * 1024 * 1024;
+  |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_CAPTURE_ROWS` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:7:7
+  |
+7 | const MAX_CAPTURE_ROWS: usize = 100_000;
+  |       ^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_COMPACT_EVIDENCE` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:8:7
+  |
+8 | const MAX_COMPACT_EVIDENCE: u64 = 128 * 1024 * 1024;
+  |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_PACKAGE_BYTES` is never used
+ --> crates/pulsar-engine/src/project_packages.rs:9:7
+  |
+9 | const MAX_PACKAGE_BYTES: u64 = 64 * 1024 * 1024 * 1024;
+  |       ^^^^^^^^^^^^^^^^^
+
+warning: enum `ObjectLocation` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:11:6
+   |
+11 | enum ObjectLocation {
+   |      ^^^^^^^^^^^^^^
+
+warning: struct `CapturedObject` is never constructed
+  --> crates/pulsar-engine/src/project_packages.rs:15:8
+   |
+15 | struct CapturedObject {
+   |        ^^^^^^^^^^^^^^
+
+warning: struct `ProjectCapturePlan` is never constructed
+  --> crates/pulsar-engine/src/project_packages.rs:22:19
+   |
+22 | pub(super) struct ProjectCapturePlan {
+   |                   ^^^^^^^^^^^^^^^^^^
+
+warning: method `open_object` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:29:19
+   |
+28 | impl ProjectCapturePlan {
+   | ----------------------- method in this implementation
+29 |     pub(super) fn open_object(
+   |                   ^^^^^^^^^^^
+
+warning: function `missing` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:42:4
+   |
+42 | fn missing(object: &PackageObjectDescriptor, detail: &str) -> ProtocolError {
+   |    ^^^^^^^
+
+warning: function `open_object` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:51:4
+   |
+51 | fn open_object(object: &CapturedObject) -> PResult<Box<dyn Read>> {
+   |    ^^^^^^^^^^^
+
+warning: function `add_object` is never used
+  --> crates/pulsar-engine/src/project_packages.rs:59:4
+   |
+59 | fn add_object(
+   |    ^^^^^^^^^^
+
+warning: function `object_ref` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:102:4
+    |
+102 | fn object_ref(identity: &ArtifactIdentity) -> PackageObjectRef {
+    |    ^^^^^^^^^^
+
+warning: function `inline_object` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:108:4
+    |
+108 | fn inline_object(
+    |    ^^^^^^^^^^^^^
+
+warning: function `motion` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:125:4
+    |
+125 | fn motion(
+    |    ^^^^^^
+
+warning: function `unsigned` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:143:4
+    |
+143 | fn unsigned(value: i64) -> PResult<u64> {
+    |    ^^^^^^^^
+
+warning: function `revision` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:146:4
+    |
+146 | fn revision(value: i64) -> PResult<RevisionId> {
+    |    ^^^^^^^^
+
+warning: function `optional_revision` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:149:4
+    |
+149 | fn optional_revision(value: Option<i64>) -> PResult<Option<RevisionId>> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `review` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:152:4
+    |
+152 | fn review(raw: &str) -> PResult<PackageReviewState> {
+    |    ^^^^^^
+
+warning: struct `CaptureIndexes` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:161:8
+    |
+161 | struct CaptureIndexes<'a> {
+    |        ^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:168:8
+    |
+167 | impl<'a> CaptureIndexes<'a> {
+    | --------------------------- associated function in this implementation
+168 |     fn new(
+    |        ^^^
+
+warning: struct `SnapshotBudget` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:201:8
+    |
+201 | struct SnapshotBudget {
+    |        ^^^^^^^^^^^^^^
+
+warning: function `rows` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:205:4
+    |
+205 | fn rows<T>(
+    |    ^^^^
+
+warning: function `authenticate_capture` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:242:4
+    |
+242 | fn authenticate_capture(
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `EditReceipt` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:273:8
+    |
+273 | struct EditReceipt {
+    |        ^^^^^^^^^^^
+
+warning: struct `WorkerReceiptEnvelope` is never constructed
+   --> crates/pulsar-engine/src/project_packages.rs:291:8
+    |
+291 | struct WorkerReceiptEnvelope {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `read_compact` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:303:4
+    |
+303 | fn read_compact(
+    |    ^^^^^^^^^^^^
+
+warning: function `capture` is never used
+   --> crates/pulsar-engine/src/project_packages.rs:335:15
+    |
+335 | pub(super) fn capture(
+    |               ^^^^^^^
+
+warning: method `import_canonical` is never used
+   --> crates/pulsar-engine/src/motion_artifacts.rs:393:16
+    |
+319 |     impl ProgramStore {
+    |     ----------------- method in this implementation
+...
+393 |         pub fn import_canonical(&self, bytes: &[u8]) -> Result<StoredProgram> {
+    |                ^^^^^^^^^^^^^^^^
+
+warning: `pulsar-engine` (lib) generated 29 warnings
+    Finished `dev` profile [optimized + debuginfo] target(s) in 0.11s
+
+=== P1a explicitly qualified generated-origin closure ===
+warning: fields `candidate_id` and `project_id` are never read
+    --> crates/pulsar-engine/src/authority.rs:2003:5
+     |
+2002 | struct CandidateState {
+     |        -------------- fields in this struct
+2003 |     candidate_id: CandidateId,
+     |     ^^^^^^^^^^^^
+2004 |     project_id: ProjectId,
+     |     ^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `pulsar-engine` (lib test) generated 1 warning
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.05s
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_engine-f60be89a3f131327)
+
+running 1 test
+test authority::project_package_closure::project_closure_captures_actual_generated_input_and_inert_job_origin ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 121 filtered out; finished in 0.88s
+
+
+=== P1a binary identity ===
+631a4e3ade22aa0d1e2d106af209fefdbb34b3f95f5543cd7494b73459a02e88  /tmp/pulsar-phase-a-target/debug/pulsar

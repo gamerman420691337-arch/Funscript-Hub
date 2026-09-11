@@ -7,6 +7,7 @@ mod cgroup;
 mod instance;
 mod launch;
 mod motion_artifacts;
+pub mod project_package_format;
 pub mod resources;
 pub mod worker;
 use anyhow::{bail, Context, Result};
