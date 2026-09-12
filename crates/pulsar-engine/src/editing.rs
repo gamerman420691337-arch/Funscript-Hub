@@ -259,9 +259,11 @@ impl Engine {
         };
         let protected = protected_regions(tx, &snapshot.project_id)?;
         let mut issues = Vec::new();
+        let imported = if let Some(id)=candidate_id { project_package_imports::candidate_review(tx,id)?.is_some() } else { project_package_imports::imported_revision(tx,&snapshot.project_id,snapshot.revision)? };
+        if imported { issues.push(DiagnosticIssue{code:"imported_origin_unverified".into(),message:"Original archive review and evidence are retained exactly; imported provenance is not locally verified human resolution or authored-edit authority.".into(),axis:None,range:None}); }
         if review_state.as_ref().is_some_and(|state| state.unknown) {
             issues.push(DiagnosticIssue { code: "review_history_unknown".into(),
-                message: "Legacy review ancestry is explicitly unknown; missing links are not inferred and no human resolution is claimed.".into(),
+                message: "Review ancestry is explicitly unknown; missing links are not inferred and no human resolution is claimed.".into(),
                 axis: None, range: None });
         }
         if let Some(id) = candidate_id {

@@ -1,0 +1,16 @@
+{
+  "commit": "b4c038a",
+  "tool": "mcp__local_llm__review_commit",
+  "status": "NO_REVIEW_VERDICT",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "tool call error: tool call failed for `local-llm/review_commit`\n\nCaused by:\n    Transport closed"
+      }
+    ],
+    "isError": true
+  },
+  "local_qualification": "P1b420 successful test executions; not external approval",
+  "next": "P1c implementation proceeds with this review gap explicit."
+}

@@ -15,6 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write};
 
 pub const PROJECT_PACKAGE_FORMAT_VERSION: u16 = 1;
+pub const PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS: u16 = 2;
 pub const MAX_PROJECT_PACKAGE_MANIFEST_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_PROJECT_PACKAGE_ENTRIES: usize = 100_000;
 pub const DEFAULT_MAX_PROJECT_PACKAGE_BYTES: u64 = 64 * 1024 * 1024 * 1024;
@@ -31,6 +32,7 @@ pub enum PackageObjectRole {
     LegacyMotionBytes,
     DependencyEvidence,
     ExportReceipt,
+    ImportedManifest,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -109,6 +111,12 @@ pub struct PackageRecordCounts {
     pub generated_origins: u32,
     pub export_receipts: u32,
     pub objects: u32,
+    #[serde(default, skip_serializing_if = "package_origin_count_is_zero")]
+    pub imported_origins: u32,
+}
+
+fn package_origin_count_is_zero(value: &u32) -> bool {
+    *value == 0
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -281,6 +289,8 @@ pub struct PortableProjectManifest {
     pub export_receipts: Vec<PackageExportReceipt>,
     /// SHA-256 order, one payload per digest even if it serves several roles.
     pub objects: Vec<PackageObjectDescriptor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub imported_origins: Vec<crate::PackageArchiveOrigin>,
 }
 
 impl PortableProjectManifest {
@@ -297,6 +307,7 @@ impl PortableProjectManifest {
             self.generated_origins.len(),
             self.export_receipts.len(),
             self.objects.len(),
+            self.imported_origins.len(),
         ];
         let total = lengths
             .iter()
@@ -318,6 +329,7 @@ impl PortableProjectManifest {
             generated_origins: lengths[7] as u32,
             export_receipts: lengths[8] as u32,
             objects: lengths[9] as u32,
+            imported_origins: lengths[10] as u32,
         })
     }
 
@@ -334,7 +346,12 @@ impl PortableProjectManifest {
     }
 
     fn validate_structure(&self) -> Result<(), ProtocolError> {
-        if self.format_version != PROJECT_PACKAGE_FORMAT_VERSION {
+        let required_version = if self.imported_origins.is_empty() {
+            PROJECT_PACKAGE_FORMAT_VERSION
+        } else {
+            PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS
+        };
+        if self.format_version != required_version {
             return Err(ProtocolError::unsupported(
                 "unsupported portable project format",
             ));
@@ -423,7 +440,22 @@ impl PortableProjectManifest {
         {
             return invalid("package head disagrees with its revision or retained history state");
         }
+        crate::validate_imported_origin_shapes(self)?;
         let mut required = RequiredObjects::default();
+        for origin in &self.imported_origins {
+            required.reference(&origin.manifest, PackageObjectRole::ImportedManifest)?;
+            for object in &origin.objects {
+                for role in &object.roles {
+                    required.reference(
+                        &PackageObjectRef {
+                            sha256: object.sha256.clone(),
+                            byte_len: object.byte_len,
+                        },
+                        *role,
+                    )?;
+                }
+            }
+        }
         required.motion(&self.head.motion)?;
         protection(&self.head.protected)?;
         for revision in &self.revisions {
@@ -745,6 +777,7 @@ mod tests {
             axes: vec![],
         };
         let mut m = PortableProjectManifest {
+            imported_origins: vec![],
             format_version: 1,
             origin_project_id: ProjectId::new("p").unwrap(),
             captured_revision: RevisionId::new(0),

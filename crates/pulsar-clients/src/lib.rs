@@ -4,13 +4,14 @@
 
 pub mod cli;
 mod desktop;
-mod modality;
 mod editor;
-mod preview;
+mod modality;
 pub mod motion;
-pub use motion::{ResponseBody, ProjectSnapshot, CandidateSnapshot};
-pub mod session;
+mod preview;
+pub use motion::{CandidateSnapshot, ProjectSnapshot, ResponseBody};
 pub mod project_package;
+pub mod project_package_import;
+pub mod session;
 
 use anyhow::{bail, Context, Result};
 use clap::{CommandFactory, Parser};
@@ -172,6 +173,55 @@ pub fn run_cli(args: Vec<OsString>, endpoint: &Path, bootstrap: &Path) -> Result
             let mut client = SessionClient::connect(endpoint, bootstrap)?;
             let status = client.release_project_export(ProjectId::new(project)?, PackageOperationId::new(operation)?)?;
             println!("{}", serde_json::to_string_pretty(&status)?);
+            Ok(())
+        }
+        Commands::PackageImport { source, request_id, begin_request_id, seal_request_id } => {
+            eprintln!("{}", project_package_import::PACKAGE_IMPORT_NOTICE);
+            let start_id = match request_id { Some(id) => RequestId::new(id)?, None => session::new_request_id() };
+            let begin_id = match begin_request_id { Some(id) => RequestId::new(id)?, None => session::new_request_id() };
+            let seal_id = match seal_request_id { Some(id) => RequestId::new(id)?, None => session::new_request_id() };
+            eprintln!("Import Start request: {start_id}\nImport Begin request: {begin_id}\nImport Seal request: {seal_id}");
+            std::io::Write::flush(&mut std::io::stderr())?;
+            let control = project_package_import::PackageImportControl::default();
+            let mut prepared = project_package_import::PreparedPackageImport::open(&source, &control)?;
+            let mut client = SessionClient::connect(endpoint, bootstrap)?;
+            let status = client.start_project_import(&prepared, start_id)?;
+            eprintln!("Project import operation: {}", status.operation_id);
+            eprintln!("Disconnect does not cancel. Use package-import-status or package-import-cancel with this operation ID.");
+            std::io::Write::flush(&mut std::io::stderr())?;
+            let status = client.continue_project_import(&mut prepared, status.operation_id, begin_id, seal_id, &control)?;
+            println!("{}", serde_json::to_string_pretty(&status)?);
+            anyhow::ensure!(status.state == pulsar_protocol::PackageImportOperationState::Completed,
+                "Import ended {:?}; no completed clone is claimed", status.state);
+            Ok(())
+        }
+        Commands::PackageImportStatus { operation } => {
+            let mut client = SessionClient::connect(endpoint, bootstrap)?;
+            let status = client.project_import_status(pulsar_protocol::PackageImportOperationId::new(operation)?)?;
+            println!("{}", serde_json::to_string_pretty(&status)?);
+            Ok(())
+        }
+        Commands::PackageImportCancel { operation } => {
+            eprintln!("Requesting engine cancellation. Already completed publication is not undone.");
+            let mut client = SessionClient::connect(endpoint, bootstrap)?;
+            let status = client.cancel_project_import(pulsar_protocol::PackageImportOperationId::new(operation)?)?;
+            println!("{}", serde_json::to_string_pretty(&status)?);
+            Ok(())
+        }
+        Commands::PackageImportResume { operation, source, begin_request_id, seal_request_id } => {
+            eprintln!("{}", project_package_import::PACKAGE_IMPORT_NOTICE);
+            let begin_id = match begin_request_id { Some(id) => RequestId::new(id)?, None => session::new_request_id() };
+            let seal_id = match seal_request_id { Some(id) => RequestId::new(id)?, None => session::new_request_id() };
+            eprintln!("Import Begin request: {begin_id}\nImport Seal request: {seal_id}");
+            std::io::Write::flush(&mut std::io::stderr())?;
+            let control = project_package_import::PackageImportControl::default();
+            let mut prepared = project_package_import::PreparedPackageImport::open(&source, &control)?;
+            let mut client = SessionClient::connect(endpoint, bootstrap)?;
+            let status = client.continue_project_import(&mut prepared, pulsar_protocol::PackageImportOperationId::new(operation)?,
+                begin_id, seal_id, &control)?;
+            println!("{}", serde_json::to_string_pretty(&status)?);
+            anyhow::ensure!(status.state == pulsar_protocol::PackageImportOperationState::Completed,
+                "Import ended {:?}; no completed clone is claimed", status.state);
             Ok(())
         }
         Commands::Capabilities => {
@@ -490,8 +540,13 @@ mod tests {
             project_id: project_id.clone(),
             revision: RevisionId::new(revision),
             name: "fixture".into(),
-            motion: crate::motion::fixture_descriptor(&MotionProgram::default(),
-                MotionBinding::ProjectRevision { project_id: project_id.clone(), revision: RevisionId::new(revision) }),
+            motion: crate::motion::fixture_descriptor(
+                &MotionProgram::default(),
+                MotionBinding::ProjectRevision {
+                    project_id: project_id.clone(),
+                    revision: RevisionId::new(revision),
+                },
+            ),
             program: MotionProgram::default().into(),
             sources: vec![],
         };
@@ -515,13 +570,20 @@ mod tests {
                     error: None,
                 }),
                 ResponseBody::Candidate(CandidateSnapshot {
-                    candidate_id: CandidateId::new("candidate").unwrap(), project_id: project_id.clone(),
+                    candidate_id: CandidateId::new("candidate").unwrap(),
+                    project_id: project_id.clone(),
                     base_revision: RevisionId::new(1),
-                    motion: crate::motion::fixture_descriptor(&MotionProgram::default(), MotionBinding::Candidate {
-                        project_id: project_id.clone(), candidate_id: CandidateId::new("candidate").unwrap(),
-                        base_revision: RevisionId::new(1) }),
+                    motion: crate::motion::fixture_descriptor(
+                        &MotionProgram::default(),
+                        MotionBinding::Candidate {
+                            project_id: project_id.clone(),
+                            candidate_id: CandidateId::new("candidate").unwrap(),
+                            base_revision: RevisionId::new(1),
+                        },
+                    ),
                     program: MotionProgram::default().into(),
-                    job_id: Some(JobId::new("job").unwrap()), review: vec![],
+                    job_id: Some(JobId::new("job").unwrap()),
+                    review: vec![],
                 }),
                 ResponseBody::Project(snapshot(2)),
                 ResponseBody::AxisExported {
@@ -550,7 +612,13 @@ mod tests {
             Command::CommitCandidate { .. }
         ));
         assert_eq!(fake.requests[5].2.unwrap().value(), 1);
-        assert!(matches!(fake.requests[6].0, Command::ExportAxis { axis: Axis::Stroke, .. }));
+        assert!(matches!(
+            fake.requests[6].0,
+            Command::ExportAxis {
+                axis: Axis::Stroke,
+                ..
+            }
+        ));
         assert_eq!(fake.requests[6].2.unwrap().value(), 2);
     }
 }

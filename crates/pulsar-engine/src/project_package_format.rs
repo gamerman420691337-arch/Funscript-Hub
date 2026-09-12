@@ -4,7 +4,7 @@
 //! executes historical records, or imports project authority. Decode sinks must
 //! be provisional staging; a later error invalidates every earlier sink.
 //!
-//! Format v1: magic[8], version:u16 LE, flags:u16 LE (zero), manifest length:u64
+//! Formats v1/v2: magic[8], version:u16 LE, flags:u16 LE (zero), manifest length:u64
 //! LE, SHA-256(manifest)[32], canonical manifest JSON, then exact object bytes
 //! in the manifest's digest order. There are no entry paths or executable hooks.
 //!
@@ -15,7 +15,7 @@
 use pulsar_protocol::{
     ErrorCode, PackageObjectDescriptor, PortableProjectManifest, ProtocolError,
     DEFAULT_MAX_PROJECT_PACKAGE_BYTES, MAX_PROJECT_PACKAGE_MANIFEST_BYTES,
-    PROJECT_PACKAGE_FORMAT_VERSION,
+    PROJECT_PACKAGE_FORMAT_VERSION, PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS,
 };
 use sha2::{Digest, Sha256};
 use std::io::{self, Read, Write};
@@ -215,7 +215,7 @@ where
     let expected = total_length(manifest, bytes.len(), limits)?;
     let mut header = [0u8; PACKAGE_HEADER_BYTES];
     header[..8].copy_from_slice(&PACKAGE_MAGIC);
-    header[8..10].copy_from_slice(&PROJECT_PACKAGE_FORMAT_VERSION.to_le_bytes());
+    header[8..10].copy_from_slice(&manifest.format_version.to_le_bytes());
     header[12..20].copy_from_slice(&(bytes.len() as u64).to_le_bytes());
     header[20..52].copy_from_slice(&Sha256::digest(&bytes));
     let mut output = HashWriter {
@@ -267,7 +267,7 @@ where
         return Err(ProtocolError::invalid("invalid package magic"));
     }
     let version = u16::from_le_bytes([header[8], header[9]]);
-    if version != PROJECT_PACKAGE_FORMAT_VERSION {
+    if !matches!(version, PROJECT_PACKAGE_FORMAT_VERSION | PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS) {
         return Err(ProtocolError::unsupported("portable project format version"));
     }
     if header[10..12] != [0u8; 2] {
@@ -292,6 +292,9 @@ where
     }
     let manifest: PortableProjectManifest = serde_json::from_slice(&bytes)
         .map_err(|_| ProtocolError::invalid("invalid typed package manifest"))?;
+    if manifest.format_version != version {
+        return Err(mismatch("package header version differs from manifest"));
+    }
     let canonical = manifest.canonical_bytes()?;
     if canonical != bytes {
         return Err(ProtocolError::invalid("package manifest JSON is not canonical"));
@@ -339,6 +342,7 @@ mod tests {
             edit_states: vec![PackageEditState { position: 0, motion, protected: vec![], source_revision: None }],
             revision_lineage: vec![], candidates: vec![], authored_lineage: vec![],
             sources: vec![], legacy_cells: vec![], generated_origins: vec![], export_receipts: vec![],
+            imported_origins: vec![],
             objects: vec![PackageObjectDescriptor { sha256: EMPTY_SHA.into(), byte_len: 13,
                 roles: vec![PackageObjectRole::MotionProgram] }],
         };
@@ -462,7 +466,7 @@ mod tests {
     fn trailing_bytes_unknown_version_flags_and_magic_are_rejected() {
         let mut bytes = encoded(); bytes.push(0);
         assert!(decode_discard(&bytes).is_err());
-        let mut bytes = encoded(); bytes[8] = 2;
+        let mut bytes = encoded(); bytes[8] = 3;
         assert_eq!(decode_discard(&bytes).unwrap_err().code, ErrorCode::Unsupported);
         let mut bytes = encoded(); bytes[10] = 1;
         assert_eq!(decode_discard(&bytes).unwrap_err().code, ErrorCode::Unsupported);
@@ -635,6 +639,154 @@ mod tests {
             PackageCodecLimits::default()).unwrap();
         assert_eq!(decoded.digest, written);
         assert_eq!(*saved.0.lock().unwrap(), raw, "archival whitespace is exact evidence");
+    }
+
+
+    fn fixture_with_imported_origin() -> (PortableProjectManifest, Vec<u8>) {
+        let original = fixture();
+        let raw = original.canonical_bytes().unwrap();
+        let archived = PackageObjectRef {
+            sha256: format!("{:x}", Sha256::digest(&raw)),
+            byte_len: raw.len() as u64,
+        };
+        let mut manifest = original.clone();
+        manifest.format_version = PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS;
+        manifest.origin_project_id = ProjectId::new("imported").unwrap();
+        manifest.revisions[0].actor = "imported-actor".into();
+        manifest.imported_origins = vec![PackageArchiveOrigin {
+            manifest: archived.clone(),
+            container: PackageArtifactDescriptor {
+                format_version: PROJECT_PACKAGE_FORMAT_VERSION,
+                sha256: "1e9f93581dd9e32be46d2dc982f776b803eb2f83d560036ec2e82b083a6508a8".into(),
+                byte_len: 1652,
+                manifest_sha256: archived.sha256.clone(),
+                project_id: original.origin_project_id,
+                captured_revision: original.captured_revision,
+                captured_event_cursor: original.captured_event_cursor,
+                object_count: original.objects.len() as u32,
+                verification: PackageReadyVerification::AllDeclaredObjectsVerified,
+            },
+            objects: original.objects,
+            revisions: vec![PackageRevisionOrigin {
+                local: RevisionId::new(0),
+                origin: RevisionId::new(0),
+            }],
+            candidates: vec![],
+            sources: vec![],
+            actors: vec![PackageActorOrigin {
+                local: "imported-actor".into(),
+                origin: "actor".into(),
+            }],
+        }];
+        manifest.objects.push(PackageObjectDescriptor {
+            sha256: archived.sha256,
+            byte_len: archived.byte_len,
+            roles: vec![PackageObjectRole::ImportedManifest],
+        });
+        manifest.objects.sort_by(|a, b| a.sha256.cmp(&b.sha256));
+        manifest.counts = manifest.record_counts().unwrap();
+        manifest.validate().unwrap();
+        (manifest, raw)
+    }
+
+    fn encoded_with_imported_origin() -> (PortableProjectManifest, Vec<u8>) {
+        let (manifest, raw_origin) = fixture_with_imported_origin();
+        let mut bytes = vec![];
+        write_package(
+            &manifest,
+            &mut bytes,
+            |object| Ok(Cursor::new(if object.sha256 == EMPTY_SHA {
+                EMPTY_BYTES.to_vec()
+            } else {
+                raw_origin.clone()
+            })),
+            PackageCodecLimits::default(),
+        ).unwrap();
+        (manifest, bytes)
+    }
+
+    #[test]
+    fn v2_roundtrip_preserves_exact_archived_manifest_and_v1_default() {
+        assert_eq!(PROJECT_PACKAGE_FORMAT_VERSION, 1);
+        let (manifest, bytes) = encoded_with_imported_origin();
+        assert_eq!(&bytes[..12], b"PULSPKG\0\x02\x00\x00\x00");
+        let archived = SharedSink::default();
+        let motion = SharedSink::default();
+        let decoded = read_package(
+            &mut Cursor::new(&bytes),
+            |object| Ok(if object.sha256 == EMPTY_SHA {
+                motion.clone()
+            } else {
+                archived.clone()
+            }),
+            PackageCodecLimits::default(),
+        ).unwrap();
+        assert_eq!(decoded.manifest.canonical_bytes().unwrap(), manifest.canonical_bytes().unwrap());
+        assert_eq!(decoded.digest.byte_len, bytes.len() as u64);
+        assert_eq!(&*motion.0.lock().unwrap(), EMPTY_BYTES);
+        assert_eq!(*archived.0.lock().unwrap(), fixture().canonical_bytes().unwrap());
+    }
+
+    #[test]
+    fn supported_header_and_manifest_versions_must_match_before_staging() {
+        let (_, v2) = encoded_with_imported_origin();
+        for (mut bytes, wrong_version) in [(encoded(), 2u16), (v2, 1u16)] {
+            bytes[8..10].copy_from_slice(&wrong_version.to_le_bytes());
+            let error = read_package(
+                &mut Cursor::new(bytes),
+                |_| -> Result<io::Sink> { panic!("version mismatch must not stage objects") },
+                PackageCodecLimits::default(),
+            ).unwrap_err();
+            assert_eq!(error.code, ErrorCode::DependencyMismatch);
+        }
+    }
+
+    #[test]
+    fn version_specific_origin_validation_precedes_stream_effects() {
+        let mut empty_v2 = fixture();
+        empty_v2.format_version = PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS;
+        let (mut origins_in_v1, _) = fixture_with_imported_origin();
+        origins_in_v1.format_version = PROJECT_PACKAGE_FORMAT_VERSION;
+        let (mut mismatched_origin, _) = fixture_with_imported_origin();
+        mismatched_origin.imported_origins[0].container.manifest_sha256 = "f".repeat(64);
+        let mut unknown_version = fixture();
+        unknown_version.format_version = 3;
+        for manifest in [empty_v2, origins_in_v1, mismatched_origin, unknown_version] {
+            let mut output = vec![];
+            assert!(write_package(
+                &manifest,
+                &mut output,
+                |_| -> Result<Cursor<&[u8]>> { panic!("invalid origin must not open objects") },
+                PackageCodecLimits::default(),
+            ).is_err());
+            assert!(output.is_empty());
+            let raw = serde_json::to_vec(&manifest).unwrap();
+            let mut bytes = frame_raw_json(&raw, EMPTY_BYTES);
+            bytes[8..10].copy_from_slice(&manifest.format_version.to_le_bytes());
+            assert!(read_package(
+                &mut Cursor::new(bytes),
+                |_| -> Result<io::Sink> { panic!("invalid origin must not stage objects") },
+                PackageCodecLimits::default(),
+            ).is_err());
+        }
+    }
+
+    #[test]
+    fn v2_keeps_canonical_hash_length_and_eof_guards() {
+        let (manifest, bytes) = encoded_with_imported_origin();
+        let mut corrupt_manifest = bytes.clone();
+        corrupt_manifest[PACKAGE_HEADER_BYTES + 20] ^= 1;
+        assert_eq!(decode_discard(&corrupt_manifest).unwrap_err().code, ErrorCode::DependencyMismatch);
+        let mut corrupt_object = bytes.clone();
+        *corrupt_object.last_mut().unwrap() ^= 1;
+        assert_eq!(decode_discard(&corrupt_object).unwrap_err().code, ErrorCode::DependencyMismatch);
+        assert!(decode_discard(&bytes[..bytes.len() - 1]).is_err());
+        let mut trailing = bytes;
+        trailing.push(0);
+        assert_eq!(decode_discard(&trailing).unwrap_err().code, ErrorCode::InvalidRequest);
+        let mut noncanonical = frame_raw_json(&serde_json::to_vec_pretty(&manifest).unwrap(), EMPTY_BYTES);
+        noncanonical[8..10].copy_from_slice(&PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS.to_le_bytes());
+        assert_eq!(decode_discard(&noncanonical).unwrap_err().code, ErrorCode::InvalidRequest);
     }
 
 }

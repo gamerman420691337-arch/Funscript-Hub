@@ -371,7 +371,7 @@ fn capture_inner(
     };
     let mut retained_holds = None;
     let root = &engine.config.state_dir;
-    let (mut manifest, mut objects, legacy, authored, attempts) = {
+    let (mut manifest, mut objects, legacy, authored, attempts, imported_archives, imported_aliases) = {
         let mut db = engine.db.lock().map_err(internal)?;
         let tx = db
             .transaction_with_behavior(rusqlite::TransactionBehavior::Deferred)
@@ -466,8 +466,11 @@ fn capture_inner(
                 "failed_or_unknown"=>PackageExportState::FailedOrUnknown,_=>return Err(ProtocolError::unsupported("unknown archival export state"))};
             export_receipts.push(PackageExportReceipt {revision:revision(rev)?,axis:decode(&encode(&axis)?)?,sha256:hash,state,archival_path:Some(path)});
         }
+        let imported_archives = rows(&tx, "SELECT manifest FROM project_import_archives WHERE project=?1", project, &mut budget, |row| row.get::<_,String>(0))?;
+        let imported_aliases = rows(&tx, "SELECT candidate,imported_candidate FROM project_import_candidate_aliases WHERE project=?1 ORDER BY candidate", project, &mut budget, |row| Ok((row.get::<_,String>(0)?,row.get::<_,String>(1)?)))?;
         let manifest = PortableProjectManifest {
             format_version: 1,
+            imported_origins: vec![],
             origin_project_id: project.clone(),
             captured_revision: expected_revision,
             captured_event_cursor: unsigned(event_cursor)?,
@@ -507,9 +510,10 @@ fn capture_inner(
             retained_holds = Some(engine.package_holds.acquire(&identities)?);
         }
         tx.commit().map_err(internal)?;
-        (manifest, objects, legacy, authored, attempts)
+        (manifest, objects, legacy, authored, attempts, imported_archives, imported_aliases)
     };
     drop(gate);
+    let imported_candidates=merge_imported_capture(root,&mut manifest,&mut objects,imported_archives,imported_aliases)?;
     // No external object read or hash occurs while the authority mutex is held.
     // Snapshot/source holds already exist; receipt/input/attempt files have no deletion path.
     for (owner, key, raw) in legacy {
@@ -805,6 +809,7 @@ fn capture_inner(
     // Flat lineage may name executable dependencies without packaging them. Every
     // other declared identity must resolve to an explicitly required payload.
     for candidate in &manifest.candidates {
+        if imported_candidates.contains(candidate.candidate_id.as_str()) { continue; }
         for identity in &candidate.lineage {
             identity.validate()?;
             if !objects
@@ -1227,4 +1232,49 @@ mod capture_review_tests {
             .iter()
             .any(|object| object.sha256 == digest));
     }
+}
+
+fn merge_imported_capture(
+    root:&Path,manifest:&mut PortableProjectManifest,objects:&mut BTreeMap<String,CapturedObject>,
+    archives:Vec<String>,aliases:Vec<(String,String)>,
+)->PResult<BTreeSet<String>> {
+    let mut imported_candidates=BTreeSet::new();
+    for raw in archives {
+        let archived:PortableProjectManifest=decode(&raw)?;
+        archived.validate()?;
+        if archived.origin_project_id!=manifest.origin_project_id {
+            return Err(ProtocolError::invalid("stored imported archive project mismatch"));
+        }
+        manifest.format_version=PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS;
+        manifest.imported_origins=archived.imported_origins;
+        manifest.legacy_cells.extend(archived.legacy_cells);
+        manifest.export_receipts.extend(archived.export_receipts);
+        for origin in &mut manifest.imported_origins {
+            let original:BTreeMap<_,_>=origin.candidates.iter().map(|map|(map.local.to_string(),map.origin.clone())).collect();
+            for (candidate,imported) in &aliases {
+                let Some(target)=original.get(imported) else {continue};
+                imported_candidates.insert(candidate.clone());
+                if !original.contains_key(candidate) {
+                    origin.candidates.push(PackageCandidateOrigin{local:CandidateId::new(candidate).map_err(internal)?,origin:target.clone()});
+                }
+            }
+            origin.candidates.sort_by(|a,b|a.local.cmp(&b.local));
+            for object in &origin.objects {
+                let directory=if object.roles.contains(&PackageObjectRole::MotionProgram) {"motion-objects"}
+                    else if object.roles.contains(&PackageObjectRole::SourceSnapshot) {"snapshots"}
+                    else {"imported-project-evidence"};
+                for role in &object.roles {
+                    add_object(objects,PackageObjectRef{sha256:object.sha256.clone(),byte_len:object.byte_len},*role,
+                        ObjectLocation::File(root.join(directory).join(&object.sha256)))?;
+                }
+            }
+            add_object(objects,origin.manifest.clone(),PackageObjectRole::ImportedManifest,
+                ObjectLocation::File(root.join("imported-project-evidence").join(&origin.manifest.sha256)))?;
+        }
+        for cell in &manifest.legacy_cells {
+            add_object(objects,cell.object.clone(),PackageObjectRole::LegacyMotionBytes,
+                ObjectLocation::File(root.join("imported-project-evidence").join(&cell.object.sha256)))?;
+        }
+    }
+    Ok(imported_candidates)
 }

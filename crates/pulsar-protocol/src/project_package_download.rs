@@ -65,6 +65,7 @@ impl PackageBulkHandshake {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BulkHandshakeEnvelope {
+    PackageUpload(crate::PackageUploadHandshake),
     Package(PackageBulkHandshake),
     Motion(BulkHandshake),
 }

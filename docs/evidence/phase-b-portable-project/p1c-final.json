@@ -1,0 +1,697 @@
+{
+  "status": "CHECKPOINT_COMPONENTS_PASS_COMBINED_GATE_BLOCKED",
+  "baseline_commit": "b4c038a",
+  "commit_identity": "See containing Git history; source and binary identities below bind the exercised input.",
+  "source_sha256": "f036ea10c003118727c04cbc7a58f7cb494f9e390b6532e57a52797344dba0ec",
+  "source_manifest": "p1c-source-manifest.json",
+  "environment": {
+    "CARGO_TARGET_DIR": "/tmp/pulsar-phase-a-target",
+    "CARGO_BUILD_JOBS": 2,
+    "CARGO_INCREMENTAL": 0,
+    "CARGO_NET_OFFLINE": true,
+    "TMPDIR": "/home/brianklam/.p1b-jlqpxr",
+    "TLA2TOOLS_JAR": "/tmp/pulsar-phase-a-tools/tla2tools.jar",
+    "file_descriptor_limit": 1024
+  },
+  "combined_gate": {
+    "command": "PULSAR_RUN_LARGE_PACKAGE_TEST=1 PULSAR_RUN_LARGE_PACKAGE_IMPORT_TEST=1 bash scripts/qualify-project-imports.sh",
+    "status": "FAILED",
+    "gate": "phase-a-structure",
+    "exit_code": 1,
+    "scanner": "scripts/check-architecture.mjs:50",
+    "pattern": "(?:pulsar_engine::|ort::|serialport::|ButtplugDispatcher|HandyDispatcher)",
+    "false_positive_names": [
+      "project_package_import::",
+      "PreparedPackageImport::open"
+    ],
+    "repair_approval": "pending",
+    "full_gate_log": "p1c-final-gate.log",
+    "remaining_components_log": "p1c-final-components.log",
+    "regex_reproduction": [
+      {
+        "input": "project_package_import::PACKAGE_IMPORT_NOTICE",
+        "scanner_flags_native_runtime": true
+      },
+      {
+        "input": "PreparedPackageImport::open(...)",
+        "scanner_flags_native_runtime": true
+      },
+      {
+        "input": "crate::project_package_import::validate_import_handshake(...)",
+        "scanner_flags_native_runtime": true
+      },
+      {
+        "input": "ort::session::Session",
+        "scanner_flags_native_runtime": true
+      },
+      {
+        "input": "pulsar_engine::Engine",
+        "scanner_flags_native_runtime": true
+      },
+      {
+        "input": "serialport::new(...)",
+        "scanner_flags_native_runtime": true
+      }
+    ]
+  },
+  "component_campaign": {
+    "exit_code": 0,
+    "log_bytes": 101477,
+    "log_sha256": "827b6fefa948d2398c213d4fbac1588064d01da02a0560d28b3c170846ce2beb",
+    "binary_sha256": "6c26d87e06d66de842f957eeda3ed9fcee56586c360939466d86878d10443db7",
+    "rust_passed": 494,
+    "rust_failed": 0,
+    "groups": 29,
+    "rows": [
+      {
+        "group": "Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_clients-8e5555a11dd0a65c)",
+        "status": "ok",
+        "passed": 66,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 1.55
+      },
+      {
+        "group": "Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_core-8d7067b1dd4a8d84)",
+        "status": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Running tests/contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/contracts-a8d5af6a151ec5fe)",
+        "status": "ok",
+        "passed": 17,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Running tests/dsp.rs (/tmp/pulsar-phase-a-target/debug/deps/dsp-099e79c06fb31b99)",
+        "status": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Running tests/edit_values.rs (/tmp/pulsar-phase-a-target/debug/deps/edit_values-e48b0742a8a624b3)",
+        "status": "ok",
+        "passed": 15,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0.05
+      },
+      {
+        "group": "Running tests/editing.rs (/tmp/pulsar-phase-a-target/debug/deps/editing-6c53cdc0d1342a5f)",
+        "status": "ok",
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Running tests/perception.rs (/tmp/pulsar-phase-a-target/debug/deps/perception-dd7c628af7191780)",
+        "status": "ok",
+        "passed": 32,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Running tests/synthesis.rs (/tmp/pulsar-phase-a-target/debug/deps/synthesis-495aa9bc579c6750)",
+        "status": "ok",
+        "passed": 16,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_engine-b8c4aa7d4fd8c8dc)",
+        "status": "ok",
+        "passed": 203,
+        "failed": 0,
+        "ignored": 1,
+        "seconds": 5.66
+      },
+      {
+        "group": "Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_protocol-7fd56199dc8adc61)",
+        "status": "ok",
+        "passed": 39,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0.17
+      },
+      {
+        "group": "Running tests/axis_export_contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/axis_export_contracts-63a52a1f908cd5c0)",
+        "status": "ok",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Running tests/bulk_transport.rs (/tmp/pulsar-phase-a-target/debug/deps/bulk_transport-ec4c8c67ecff8bc1)",
+        "status": "ok",
+        "passed": 12,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0.61
+      },
+      {
+        "group": "Running tests/connect_deadline.rs (/tmp/pulsar-phase-a-target/debug/deps/connect_deadline-53c8a0eb1c04928e)",
+        "status": "ok",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0.52
+      },
+      {
+        "group": "Running tests/contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/contracts-d9dae0376db47d75)",
+        "status": "ok",
+        "passed": 9,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0.07
+      },
+      {
+        "group": "Running tests/generation_contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/generation_contracts-3b0afdffcfbd0074)",
+        "status": "ok",
+        "passed": 9,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0.01
+      },
+      {
+        "group": "Running tests/large_motion_contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/large_motion_contracts-3db1a3077eedd1c3)",
+        "status": "ok",
+        "passed": 9,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Running tests/local_client_deadline.rs (/tmp/pulsar-phase-a-target/debug/deps/local_client_deadline-b183582b443f5e2f)",
+        "status": "ok",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 2.57
+      },
+      {
+        "group": "Running tests/package_upload_contention.rs (/tmp/pulsar-phase-a-target/debug/deps/package_upload_contention-2d002a2b055b4d26)",
+        "status": "ok",
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 1.7
+      },
+      {
+        "group": "Running tests/project_package_import.rs (/tmp/pulsar-phase-a-target/debug/deps/project_package_import-d6a9e3d4b106536d)",
+        "status": "ok",
+        "passed": 11,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0.36
+      },
+      {
+        "group": "Running tests/source_kind_contracts.rs (/tmp/pulsar-phase-a-target/debug/deps/source_kind_contracts-84398fb9aa1c9e64)",
+        "status": "ok",
+        "passed": 4,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Doc-tests pulsar_clients",
+        "status": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Doc-tests pulsar_core",
+        "status": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Doc-tests pulsar_engine",
+        "status": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Doc-tests pulsar_protocol",
+        "status": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 0
+      },
+      {
+        "group": "Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_engine-dcd41b9c2065cca9)",
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 1.12
+      },
+      {
+        "group": "Running tests/project_package_export.rs (/tmp/pulsar-phase-a-target/debug/deps/project_package_export-6025f2d19cd99064)",
+        "status": "ok",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 1,
+        "seconds": 7.56
+      },
+      {
+        "group": "Running tests/project_package_export.rs (/tmp/pulsar-phase-a-target/debug/deps/project_package_export-6025f2d19cd99064)",
+        "status": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 12.95
+      },
+      {
+        "group": "Running tests/project_package_import.rs (/tmp/pulsar-phase-a-target/debug/deps/project_package_import-84ac327e6fa9e973)",
+        "status": "ok",
+        "passed": 8,
+        "failed": 0,
+        "ignored": 2,
+        "seconds": 9.34
+      },
+      {
+        "group": "Running tests/project_package_import.rs (/tmp/pulsar-phase-a-target/debug/deps/project_package_import-84ac327e6fa9e973)",
+        "status": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 24.87
+      }
+    ],
+    "models": [
+      {
+        "fault": "none",
+        "expected_invariant": null,
+        "passed": true,
+        "exit_code": 0,
+        "signal": null,
+        "error": null,
+        "violated_invariant": null,
+        "generated_states": "15885",
+        "distinct_states": "4088"
+      },
+      {
+        "fault": "capture",
+        "expected_invariant": "SnapshotExact",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "SnapshotExact",
+        "generated_states": "32",
+        "distinct_states": "23"
+      },
+      {
+        "fault": "source_hold",
+        "expected_invariant": "SourceRetention",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "SourceRetention",
+        "generated_states": "44",
+        "distinct_states": "30"
+      },
+      {
+        "fault": "publication",
+        "expected_invariant": "ReadyIsDurable",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "ReadyIsDurable",
+        "generated_states": "1092",
+        "distinct_states": "407"
+      },
+      {
+        "fault": "durability",
+        "expected_invariant": "ReadyIsDurable",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "ReadyIsDurable",
+        "generated_states": "354",
+        "distinct_states": "176"
+      },
+      {
+        "fault": "reservation",
+        "expected_invariant": "SourceRetention",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "SourceRetention",
+        "generated_states": "38",
+        "distinct_states": "30"
+      },
+      {
+        "fault": "epoch",
+        "expected_invariant": "AuthorizedAdmission",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "AuthorizedAdmission",
+        "generated_states": "2429",
+        "distinct_states": "823"
+      },
+      {
+        "fault": "completion",
+        "expected_invariant": "LeaseIsVerified",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "LeaseIsVerified",
+        "generated_states": "2230",
+        "distinct_states": "759"
+      },
+      {
+        "fault": "chunk",
+        "expected_invariant": "AuthorizedAdmission",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "AuthorizedAdmission",
+        "generated_states": "2272",
+        "distinct_states": "773"
+      },
+      {
+        "fault": "authority_generation",
+        "expected_invariant": "AuthorizedAdmission",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "AuthorizedAdmission",
+        "generated_states": "2809",
+        "distinct_states": "940"
+      },
+      {
+        "fault": "verification_generation",
+        "expected_invariant": "NoStaleVerification",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "NoStaleVerification",
+        "generated_states": "2783",
+        "distinct_states": "932"
+      },
+      {
+        "fault": "bundle_hold",
+        "expected_invariant": "ReadRetainsBundle",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "ReadRetainsBundle",
+        "generated_states": "2247",
+        "distinct_states": "763"
+      },
+      {
+        "fault": "replay",
+        "expected_invariant": "NoReplayResurrection",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "NoReplayResurrection",
+        "generated_states": "50",
+        "distinct_states": "39"
+      },
+      {
+        "fault": "none",
+        "expected_invariant": null,
+        "passed": true,
+        "exit_code": 0,
+        "signal": null,
+        "error": null,
+        "violated_invariant": null,
+        "generated_states": "1325",
+        "distinct_states": "372"
+      },
+      {
+        "fault": "full_bytes",
+        "expected_invariant": "VerifiedPlan",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "VerifiedPlan",
+        "generated_states": "137",
+        "distinct_states": "92"
+      },
+      {
+        "fault": "content",
+        "expected_invariant": "VerifiedPlan",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "VerifiedPlan",
+        "generated_states": "373",
+        "distinct_states": "164"
+      },
+      {
+        "fault": "closure",
+        "expected_invariant": "VerifiedPlan",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "VerifiedPlan",
+        "generated_states": "410",
+        "distinct_states": "175"
+      },
+      {
+        "fault": "cas_hit",
+        "expected_invariant": "VerifiedPlan",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "VerifiedPlan",
+        "generated_states": "8",
+        "distinct_states": "8"
+      },
+      {
+        "fault": "recovery",
+        "expected_invariant": "RecoveryBeforeObjectPublication",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "RecoveryBeforeObjectPublication",
+        "generated_states": "576",
+        "distinct_states": "218"
+      },
+      {
+        "fault": "object_sync",
+        "expected_invariant": "DurableVisibility",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "DurableVisibility",
+        "generated_states": "968",
+        "distinct_states": "304"
+      },
+      {
+        "fault": "authorization",
+        "expected_invariant": "NoCancelledPublication",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "NoCancelledPublication",
+        "generated_states": "1201",
+        "distinct_states": "354"
+      },
+      {
+        "fault": "atomic_rows",
+        "expected_invariant": "AtomicVisibility",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "AtomicVisibility",
+        "generated_states": "1095",
+        "distinct_states": "330"
+      },
+      {
+        "fault": "identity",
+        "expected_invariant": "FreshIdentity",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "FreshIdentity",
+        "generated_states": "1095",
+        "distinct_states": "330"
+      },
+      {
+        "fault": "origin_authority",
+        "expected_invariant": "NoImportedAuthority",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "NoImportedAuthority",
+        "generated_states": "1095",
+        "distinct_states": "330"
+      },
+      {
+        "fault": "reservation",
+        "expected_invariant": "RetainedReservation",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "RetainedReservation",
+        "generated_states": "142",
+        "distinct_states": "77"
+      },
+      {
+        "fault": "shared_object",
+        "expected_invariant": "PreservePreexisting",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "PreservePreexisting",
+        "generated_states": "40",
+        "distinct_states": "29"
+      },
+      {
+        "fault": "replay",
+        "expected_invariant": "AtMostOneProject",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "AtMostOneProject",
+        "generated_states": "1194",
+        "distinct_states": "351"
+      },
+      {
+        "fault": "terminal_replay",
+        "expected_invariant": "NoTerminalResurrection",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "NoTerminalResurrection",
+        "generated_states": "42",
+        "distinct_states": "29"
+      },
+      {
+        "fault": "request_binding",
+        "expected_invariant": "RequestBinding",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "RequestBinding",
+        "generated_states": "2704",
+        "distinct_states": "759"
+      },
+      {
+        "fault": "ack",
+        "expected_invariant": "SafeAcknowledgement",
+        "passed": true,
+        "exit_code": 12,
+        "signal": null,
+        "error": null,
+        "violated_invariant": "SafeAcknowledgement",
+        "generated_states": "12",
+        "distinct_states": "11"
+      }
+    ],
+    "measurements": [
+      "test package_export_capture_stays_coherent_during_edit_catalog_change_and_eviction ... P1b CONTROL: phase=streaming_concurrent_edit get_snapshot_ms=0.166",
+      "test package_export_lost_ack_and_restart_preserve_ready_and_interrupt_active_work ... P1b CONTROL: phase=epoch_verification_pending get_snapshot_ms=0.482",
+      "test package_export_scope_replay_disconnect_and_revocation_remain_distinct ... P1b CONTROL: phase=epoch_verification_pending get_snapshot_ms=0.235",
+      "test package_export_streams_more_than_one_gib_with_bounded_chunks_and_sampled_rss ... P1b CONTROL: phase=large_streaming get_snapshot_ms=0.218",
+      "P1b LARGE: source_bytes=1074003968 package_bytes=1074012347 minimum_256k_chunks=4098 capture_plus_import_seconds=3.919 download_seconds=6.857 sampled_engine_rss_delta=2084864 sampled_client_rss_delta=716800 samples=588 temporary_disk=private_sparse_source+snapshot+uncompressed_engine_package+client_copy",
+      "test connection_contention::project_package_import_shared_client_waits_for_actual_connection_retirement ... P1c REAL CONTENTION: observed_typed_busy=1 admitted_reconnects=1 same_operation=true same_lease=true same_generation=true prefix_preserved=4096 publication_count=1",
+      "test qualification::project_package_import_preserves_actual_worker_origins_without_job_authority ... P1c ACTUAL WORKER: source_kind=generation_input backend=constrained_text qualification=unqualified fresh_import_jobs=0 fresh_import_attempts=0 raw_origin_bytes=preserved candidate=uncommitted_until_explicit_commit undo_redo=fresh_revisions no_gpu_or_device_actuation",
+      "test qualification::project_package_import_streams_more_than_one_gib_with_bounded_rss_and_control ... P1c LARGE: source_bytes=1074003968 package_bytes=1074012357 minimum_256k_chunks=4098 export_seconds=3.144 prepared_hash_seconds=0.585 import_seconds=10.619 reexport_seconds=4.279 sampled_engine_rss_delta=1105920 sampled_client_rss_delta=282624 rss_samples=558 upload_control_probes=880 validation_control_probes=248 other_active_probes=742 max_get_snapshot_ms=1.648 max_observed_control_bytes=1298 disk=private_generated_sparse_source_removed_before_import+upload+source_CAS+original_container+reexport"
+    ],
+    "serialized_sensitive_field_detected": false,
+    "commands": [
+      "cargo test -p pulsar-core -p pulsar-protocol -p pulsar-engine -p pulsar-clients --offline --locked -- --test-threads=1",
+      "node scripts/qualify-package-model.mjs",
+      "node scripts/qualify-package-import-model.mjs",
+      "cargo build --bin pulsar --offline --locked",
+      "PULSAR_PACKAGE_TEST_WORKER=/tmp/pulsar-phase-a-target/debug/pulsar cargo test -p pulsar-engine --lib authority::project_package_closure::project_closure_captures_actual_generated_input_and_inert_job_origin --offline --locked -- --ignored --exact --nocapture",
+      "cargo test --test project_package_export --offline --locked -- --nocapture --test-threads=1",
+      "cargo test --test project_package_export --offline --locked -- --ignored --nocapture --test-threads=1",
+      "cargo test --test project_package_import --offline --locked -- --nocapture --test-threads=1",
+      "PULSAR_PACKAGE_TEST_WORKER=/tmp/pulsar-phase-a-target/debug/pulsar cargo test --test project_package_import --offline --locked -- --ignored --nocapture --test-threads=1"
+    ],
+    "not_full_gate": true
+  },
+  "repaired_defects": [
+    "P1C-001",
+    "P1C-002",
+    "P1C-003",
+    "P1C-004",
+    "P1C-005",
+    "P1C-006",
+    "P1C-007",
+    "P1C-008",
+    "P1C-009"
+  ],
+  "independent_review": {
+    "status": "NO_NEW_CONFIRMED_FINDINGS_IN_SUPPLIED_REPAIR_DELTAS",
+    "review_method": "Cached source and exact supplied deltas; independent reviewer did not rerun tests.",
+    "scope": [
+      "P1C-008",
+      "P1C-009"
+    ],
+    "pending": "No external verdict. Actual-process fixture subsequently passed in root component campaign.",
+    "limitations": [
+      "Original opaque handshake failure remains unattributed",
+      "Generic request journal globally uncapped",
+      "No external commit-review verdict"
+    ]
+  },
+  "external_review": {
+    "P1b": "Transport closed on original and retry calls; no verdict",
+    "P1c": "Must call review_commit after checkpoint commit; no approval claimed in this pre-commit record"
+  },
+  "limits": [
+    "Historical opaque reconnect failure remains unattributed",
+    "Generic request journal lacks a global row/byte cap",
+    "No completed combined architecture gate",
+    "Compiler warnings remain",
+    "No GUI workflow, relocation, cross-platform, neural/reference-performance or physical qualification",
+    "Sampled RSS/control timings are host-local tripwires, not hard resource bounds"
+  ],
+  "excluded_untracked": [
+    "{",
+    ".pulsar-motion-artifacts-harness/",
+    "crates/pulsar-core/src/lib.rs.orig"
+  ]
+}

@@ -57,6 +57,7 @@ pub(crate) fn start(engine: Arc<Engine>) -> Result<()> {
                     };
                     drop(io);
                     match handshake {
+                        BulkHandshakeEnvelope::PackageUpload(handshake) => import_connection(&engine, &mut stream, handshake),
                         BulkHandshakeEnvelope::Motion(handshake) => {
                             motion_connection(&engine, &mut stream, handshake)
                         }
@@ -191,5 +192,27 @@ fn package_connection(
         {
             break;
         }
+    }
+}
+
+fn import_connection(engine:&Arc<Engine>,stream:&mut LocalStream,handshake:PackageUploadHandshake) {
+    let mut io=DeadlineStream::new(stream,Instant::now()+IO_DEADLINE);
+    let (connection,lease)=match engine.import_bulk_open(&handshake) {
+        Ok(value)=>value,Err(error)=>{let _=write_bulk_header(&mut io,&PackageUploadReply::Error(error));return;}
+    };
+    if write_bulk_header(&mut io,&PackageUploadReply::Ready{lease}).is_err(){return;}
+    loop {
+        let mut io=DeadlineStream::new(stream,Instant::now()+IO_DEADLINE);
+        let request:PackageUploadRequest=match read_bulk_header(&mut io){Ok(value)=>value,Err(_)=>break};
+        if let Err(error)=request.end(){let _=write_bulk_header(&mut io,&PackageUploadReply::Error(error));break;}
+        let bytes=match read_artifact_chunk(&mut io){Ok(value)=>value,Err(_)=>break};
+        use sha2::{Digest,Sha256};
+        if bytes.len()!=request.byte_len as usize || format!("{:x}",Sha256::digest(&bytes))!=request.sha256 {
+            let _=write_bulk_header(&mut io,&PackageUploadReply::Error(ProtocolError::invalid("upload header differs from payload bytes")));break;
+        }
+        let next_offset=match engine.import_bulk_append(&connection,&handshake,request.offset,&bytes) {
+            Ok(value)=>value,Err(error)=>{let _=write_bulk_header(&mut io,&PackageUploadReply::Error(error));break;}
+        };
+        if write_bulk_header(&mut io,&PackageUploadReply::Uploaded{offset:request.offset,byte_len:request.byte_len,sha256:request.sha256,next_offset}).is_err(){break;}
     }
 }

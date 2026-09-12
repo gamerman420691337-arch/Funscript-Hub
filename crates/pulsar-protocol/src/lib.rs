@@ -8,7 +8,10 @@ mod generation;
 mod motion;
 mod project_package;
 mod project_package_download;
+mod project_package_import_operations;
 mod project_package_operations;
+mod project_package_origins;
+mod project_package_upload;
 mod transport;
 mod worker;
 
@@ -18,7 +21,10 @@ pub use generation::*;
 pub use motion::*;
 pub use project_package::*;
 pub use project_package_download::*;
+pub use project_package_import_operations::*;
 pub use project_package_operations::*;
+pub use project_package_origins::*;
+pub use project_package_upload::*;
 pub use pulsar_core::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -75,6 +81,7 @@ impl Request {
     /// the session and check grants again at the effect/commit boundary.
     pub fn validate(&self) -> Result<(), ProtocolError> {
         project_package_operations::validate_request(self)?;
+        project_package_import_operations::validate_import_request(self)?;
         if let Some(token) = &self.auth_token {
             bounded_text(token, 4096, "authentication token")?;
         }
@@ -309,6 +316,28 @@ pub enum Command {
     AllowProjectPackaging {
         owner_proof: String,
     },
+    StartProjectImport {
+        package: PackageUploadDeclaration,
+    },
+    ProjectImportStatus {
+        operation_id: PackageImportOperationId,
+    },
+    BeginProjectPackageUpload {
+        operation_id: PackageImportOperationId,
+    },
+    ProjectPackageUploadStatus {
+        lease_id: PackageUploadId,
+    },
+    AbandonProjectPackageUpload {
+        lease_id: PackageUploadId,
+    },
+    SealProjectImport {
+        operation_id: PackageImportOperationId,
+        upload_generation: u64,
+    },
+    CancelProjectImport {
+        operation_id: PackageImportOperationId,
+    },
     StartProjectExport,
     ProjectPackageStatus {
         operation_id: PackageOperationId,
@@ -407,6 +436,13 @@ impl std::fmt::Debug for Command {
             Self::RebaseCandidate { .. } => "RebaseCandidate",
             Self::GetSnapshot => "GetSnapshot",
             Self::AllowProjectPackaging { .. } => "AllowProjectPackaging",
+            Self::StartProjectImport { .. } => "StartProjectImport",
+            Self::ProjectImportStatus { .. } => "ProjectImportStatus",
+            Self::BeginProjectPackageUpload { .. } => "BeginProjectPackageUpload",
+            Self::ProjectPackageUploadStatus { .. } => "ProjectPackageUploadStatus",
+            Self::AbandonProjectPackageUpload { .. } => "AbandonProjectPackageUpload",
+            Self::SealProjectImport { .. } => "SealProjectImport",
+            Self::CancelProjectImport { .. } => "CancelProjectImport",
             Self::StartProjectExport => "StartProjectExport",
             Self::ProjectPackageStatus { .. } => "ProjectPackageStatus",
             Self::CancelProjectExport { .. } => "CancelProjectExport",
@@ -433,6 +469,18 @@ impl Command {
     pub fn requires_project(&self) -> bool {
         if matches!(
             self,
+            Self::StartProjectImport { .. }
+                | Self::ProjectImportStatus { .. }
+                | Self::BeginProjectPackageUpload { .. }
+                | Self::ProjectPackageUploadStatus { .. }
+                | Self::AbandonProjectPackageUpload { .. }
+                | Self::SealProjectImport { .. }
+                | Self::CancelProjectImport { .. }
+        ) {
+            return false;
+        }
+        if matches!(
+            self,
             Self::AllowProjectPackaging { .. }
                 | Self::StartProjectExport
                 | Self::ProjectPackageStatus { .. }
@@ -456,6 +504,18 @@ impl Command {
     }
 
     pub fn requires_revision(&self) -> bool {
+        if matches!(
+            self,
+            Self::StartProjectImport { .. }
+                | Self::ProjectImportStatus { .. }
+                | Self::BeginProjectPackageUpload { .. }
+                | Self::ProjectPackageUploadStatus { .. }
+                | Self::AbandonProjectPackageUpload { .. }
+                | Self::SealProjectImport { .. }
+                | Self::CancelProjectImport { .. }
+        ) {
+            return false;
+        }
         matches!(
             self,
             Self::BeginEditUpload { .. }
@@ -473,6 +533,17 @@ impl Command {
     }
 
     pub fn is_mutating(&self) -> bool {
+        match self {
+            Self::ProjectImportStatus { .. } | Self::ProjectPackageUploadStatus { .. } => {
+                return false
+            }
+            Self::StartProjectImport { .. }
+            | Self::BeginProjectPackageUpload { .. }
+            | Self::AbandonProjectPackageUpload { .. }
+            | Self::SealProjectImport { .. }
+            | Self::CancelProjectImport { .. } => return true,
+            _ => {}
+        }
         match self {
             Self::ProjectPackageStatus { .. } | Self::ProjectPackageDownloadStatus { .. } => {
                 return false
@@ -573,6 +644,11 @@ pub enum ResponseBody {
         session: SessionId,
         auth_token: String,
     },
+    PackageImport(PackageImportStatus),
+    PackageUpload(PackageUploadLease),
+    PackageUploadAbandoned {
+        lease_id: PackageUploadId,
+    },
     PackageExport(PackageExportStatus),
     PackageDownload(PackageDownloadLease),
     PackageDownloadPending(PackageDownloadPending),
@@ -631,6 +707,9 @@ impl std::fmt::Debug for ResponseBody {
                 .debug_struct("PackageDownloadAbandoned")
                 .field("lease_id", lease_id)
                 .finish(),
+            Self::PackageImport(_) => f.write_str("PackageImport"),
+            Self::PackageUpload(_) => f.write_str("PackageUpload"),
+            Self::PackageUploadAbandoned { .. } => f.write_str("PackageUploadAbandoned"),
             Self::Ack => f.write_str("Ack"),
         }
     }
@@ -815,6 +894,12 @@ pub enum EventBody {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
+    /// An authenticated, exactly bound package-upload lease already has an
+    /// active connection. Only the upload-handshake guard emits this code.
+    /// Retry requires retryable=true and the same validated lease binding,
+    /// bounded attempts, and the existing absolute deadline. This is not
+    /// generic resource exhaustion or proof that the old connection is retiring.
+    PackageUploadConnectionBusy,
     InvalidRequest,
     Unauthorized,
     Forbidden,

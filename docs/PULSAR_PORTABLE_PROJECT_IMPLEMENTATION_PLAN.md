@@ -1,9 +1,10 @@
 # Portable-project implementation plan
 
-Status: **IN PROGRESS. P1a foundation and P1b retained export/scoped download are implemented and locally exercised on Linux. P1c clone import and P1d complete user-facing/platform qualification remain unfinished.**
+Status: **IN PROGRESS. P1a foundation and P1b retained export/scoped download are implemented and locally exercised on Linux. P1b is committed as b4c038a. P1c clone import has nine repaired defects and a passing 494-test component campaign, including worker and large-file cases; the combined architecture gate is blocked by a confirmed scanner false positive, and external review remains unavailable. P1d complete user-facing/platform qualification remains unfinished.**
 
-See [P1b status and evidence](PULSAR_PORTABLE_PROJECT_P1B_STATUS.md),
-[ADR 0010](adr/0010-portable-project-export-lifecycle.md), and the historical
+See [P1c checkpoint and blockers](PULSAR_PORTABLE_PROJECT_P1C_STATUS.md),
+[ADR 0011](adr/0011-portable-project-clone-import.md),
+[P1b status and evidence](PULSAR_PORTABLE_PROJECT_P1B_STATUS.md), and the historical
 [P1a foundation](PULSAR_PORTABLE_PROJECT_P1A_STATUS.md).
 This does not claim a complete portable export/import workflow or completion
 of the Good phase.

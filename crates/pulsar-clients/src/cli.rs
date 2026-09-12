@@ -19,77 +19,136 @@ pub struct Cli {
 pub enum Commands {
     /// Open Pulsar Desktop. GUI and CLI use the same engine interface.
     Gui,
+    /// Validate a portable package and clone it into a NEW project; never overwrite.
+    PackageImport {
+        source: PathBuf,
+        #[arg(long)]
+        request_id: Option<String>,
+        #[arg(long)]
+        begin_request_id: Option<String>,
+        #[arg(long)]
+        seal_request_id: Option<String>,
+    },
+    /// Inspect clone-import status; a project is usable only after Completed.
+    PackageImportStatus {
+        operation: String,
+    },
+    /// Explicit engine cancellation; completed publication is never undone.
+    PackageImportCancel {
+        operation: String,
+    },
+    /// Continue a same-epoch import from the exact same package bytes.
+    /// Interrupted imports require a deliberate new Start instead.
+    PackageImportResume {
+        operation: String,
+        source: PathBuf,
+        #[arg(long)]
+        begin_request_id: Option<String>,
+        #[arg(long)]
+        seal_request_id: Option<String>,
+    },
+
     /// Explicitly permit this local owner session to package private project data.
     AllowPackaging {
         project: String,
-        #[arg(long, required = true)] acknowledge_unencrypted_private_data: bool,
+        #[arg(long, required = true)]
+        acknowledge_unencrypted_private_data: bool,
     },
     /// Export an UNENCRYPTED portable package containing media, prompts and lineage.
     PackageExport {
         project: String,
         destination: PathBuf,
-        #[arg(long, required = true)] acknowledge_unencrypted_private_data: bool,
+        #[arg(long, required = true)]
+        acknowledge_unencrypted_private_data: bool,
         /// Explicit current revision for callers with PackageProject but no Read scope.
-        #[arg(long)] revision: Option<u64>,
+        #[arg(long)]
+        revision: Option<u64>,
         /// Stable Start identity for recovery after a lost acknowledgement.
-        #[arg(long)] request_id: Option<String>,
+        #[arg(long)]
+        request_id: Option<String>,
     },
     /// Inspect a retained package operation without cancelling or downloading it.
-    PackageStatus { project: String, operation: String },
+    PackageStatus {
+        project: String,
+        operation: String,
+    },
     /// Explicitly cancel active packaging; disconnect alone never cancels it.
-    PackageCancel { project: String, operation: String },
+    PackageCancel {
+        project: String,
+        operation: String,
+    },
     /// Retry download of an existing Ready operation into a NEW destination.
     PackageDownload {
-        project: String, operation: String, destination: PathBuf,
+        project: String,
+        operation: String,
+        destination: PathBuf,
         /// Reuse a Begin identity only after a lost lease acknowledgement, before chunks.
-        #[arg(long)] request_id: Option<String>,
-        #[arg(long, required = true)] acknowledge_unencrypted_private_data: bool,
+        #[arg(long)]
+        request_id: Option<String>,
+        #[arg(long, required = true)]
+        acknowledge_unencrypted_private_data: bool,
     },
     /// Delete the retained engine package copy, not any client destination file.
     PackageRelease {
-        project: String, operation: String,
-        #[arg(long, required = true)] acknowledge_discarding_engine_copy: bool,
+        project: String,
+        operation: String,
+        #[arg(long, required = true)]
+        acknowledge_discarding_engine_copy: bool,
     },
 
     /// Export exactly one selected neutral axis from a committed project.
     ExportAxis {
         project: String,
         path: PathBuf,
-        #[arg(long, default_value = "stroke")] axis: String,
+        #[arg(long, default_value = "stroke")]
+        axis: String,
     },
     /// Synthesize strict key=value pattern syntax; not free-form AI.
     Synthesize {
         prompt: String,
-        #[arg(long)] image: Option<PathBuf>,
-        #[arg(short, long)] output: Option<PathBuf>,
+        #[arg(long)]
+        image: Option<PathBuf>,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
     /// Map full-band energy or amplitude-onset pulses, not musical beat tracking.
     AudioMap {
         video: PathBuf,
-        #[arg(short, long)] output: Option<PathBuf>,
-        #[arg(long, default_value = "envelope")] mode: String,
-        #[arg(long, default_value = "stroke")] axis: String,
-        #[arg(long, default_value_t = 0.5)] amplitude: f64,
-        #[arg(long, default_value_t = 0.25)] offset: f64,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        #[arg(long, default_value = "envelope")]
+        mode: String,
+        #[arg(long, default_value = "stroke")]
+        axis: String,
+        #[arg(long, default_value_t = 0.5)]
+        amplitude: f64,
+        #[arg(long, default_value_t = 0.25)]
+        offset: f64,
     },
     /// Import a funscript as an uncommitted candidate.
     ImportScript {
         script: PathBuf,
-        #[arg(long)] project: Option<String>,
+        #[arg(long)]
+        project: Option<String>,
     },
     /// Read localized evidence/protection diagnostics.
     Review {
         project: String,
-        #[arg(long)] candidate: Option<String>,
+        #[arg(long)]
+        candidate: Option<String>,
     },
     /// Explicitly merge selected candidate axes and project-time range.
     MergeCandidate {
         project: String,
         candidate: String,
-        #[arg(long, default_value = "stroke")] axes: String,
-        #[arg(long)] start: Option<f64>,
-        #[arg(long)] end: Option<f64>,
-        #[arg(short, long)] output: Option<PathBuf>,
+        #[arg(long, default_value = "stroke")]
+        axes: String,
+        #[arg(long)]
+        start: Option<f64>,
+        #[arg(long)]
+        end: Option<f64>,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
     /// Repair a script using the engine's qualified repair capability.
     Fix {

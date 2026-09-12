@@ -1,0 +1,17 @@
+{"fault":"none","expected_invariant":null,"passed":true,"exit_code":0,"signal":null,"error":null,"violated_invariant":null,"generated_states":"1325","distinct_states":"372"}
+{"fault":"full_bytes","expected_invariant":"VerifiedPlan","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"VerifiedPlan","generated_states":"137","distinct_states":"92"}
+{"fault":"content","expected_invariant":"VerifiedPlan","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"VerifiedPlan","generated_states":"373","distinct_states":"164"}
+{"fault":"closure","expected_invariant":"VerifiedPlan","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"VerifiedPlan","generated_states":"410","distinct_states":"175"}
+{"fault":"cas_hit","expected_invariant":"VerifiedPlan","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"VerifiedPlan","generated_states":"8","distinct_states":"8"}
+{"fault":"recovery","expected_invariant":"RecoveryBeforeObjectPublication","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"RecoveryBeforeObjectPublication","generated_states":"576","distinct_states":"218"}
+{"fault":"object_sync","expected_invariant":"DurableVisibility","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"DurableVisibility","generated_states":"968","distinct_states":"304"}
+{"fault":"authorization","expected_invariant":"NoCancelledPublication","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"NoCancelledPublication","generated_states":"1201","distinct_states":"354"}
+{"fault":"atomic_rows","expected_invariant":"AtomicVisibility","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"AtomicVisibility","generated_states":"1095","distinct_states":"330"}
+{"fault":"identity","expected_invariant":"FreshIdentity","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"FreshIdentity","generated_states":"1095","distinct_states":"330"}
+{"fault":"origin_authority","expected_invariant":"NoImportedAuthority","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"NoImportedAuthority","generated_states":"1095","distinct_states":"330"}
+{"fault":"reservation","expected_invariant":"RetainedReservation","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"RetainedReservation","generated_states":"142","distinct_states":"77"}
+{"fault":"shared_object","expected_invariant":"PreservePreexisting","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"PreservePreexisting","generated_states":"40","distinct_states":"29"}
+{"fault":"replay","expected_invariant":"AtMostOneProject","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"AtMostOneProject","generated_states":"1194","distinct_states":"351"}
+{"fault":"terminal_replay","expected_invariant":"NoTerminalResurrection","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"NoTerminalResurrection","generated_states":"42","distinct_states":"29"}
+{"fault":"request_binding","expected_invariant":"RequestBinding","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"RequestBinding","generated_states":"2704","distinct_states":"759"}
+{"fault":"ack","expected_invariant":"SafeAcknowledgement","passed":true,"exit_code":12,"signal":null,"error":null,"violated_invariant":"SafeAcknowledgement","generated_states":"12","distinct_states":"11"}

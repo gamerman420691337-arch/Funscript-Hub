@@ -38,6 +38,8 @@ mod motion_state;
 mod project_package_closure;
 #[path = "project_package_exports.rs"]
 mod project_package_exports;
+#[path = "project_package_imports.rs"]
+pub(crate) mod project_package_imports;
 #[path = "project_packages.rs"]
 mod project_packages;
 #[path = "source_kinds.rs"]
@@ -77,6 +79,8 @@ pub struct Engine {
     motion_store: crate::motion_artifacts::ProgramStore,
     transfers: Mutex<transfers::TransferState>,
     engine_epoch: String,
+    import_store: crate::project_package_import_storage::ImportStore,
+    package_imports: Mutex<project_package_imports::ImportRuntime>,
     package_owner_token: String,
     package_store: crate::project_package_storage::PackageStore,
     package_holds: crate::project_package_storage::HoldRegistry,
@@ -155,6 +159,9 @@ impl Engine {
             &config.state_dir.join("project-packages"),
         )?;
         package_store.cleanup_pending()?;
+        let package_holds = crate::project_package_storage::HoldRegistry::default();
+        let import_store = crate::project_package_import_storage::ImportStore::new(&config.state_dir, package_holds.clone())?;
+        import_store.cleanup_staging()?;
         let mut db = Connection::open(config.state_dir.join("projects.sqlite3"))?;
         db.busy_timeout(std::time::Duration::from_secs(2))?;
         db.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA wal_autocheckpoint=100; PRAGMA journal_size_limit=8388608;")?;
@@ -211,6 +218,7 @@ impl Engine {
             let _migration = pool.reserve_memory(transfers::VALIDATION_MEMORY)?;
             motion_state::initialize(&mut db)?;
         }
+        project_package_imports::initialize(&db)?;
         lineage::initialize(&mut db)?;
         transfers::initialize(&db)?;
         source_kinds::initialize(&mut db)?;
@@ -252,11 +260,14 @@ impl Engine {
             engine_epoch: Uuid::new_v4().to_string(),
             package_owner_token,
             package_store,
-            package_holds: crate::project_package_storage::HoldRegistry::default(),
+            package_holds,
+            import_store,
+            package_imports: Mutex::new(project_package_imports::ImportRuntime::default()),
             package_exports: Mutex::new(project_package_exports::PackageRuntime::default()),
         });
         transfers::start_sweeper(&engine);
         project_package_exports::start_sweeper(&engine);
+        project_package_imports::start_sweeper(&engine)?;
         engine.recover_interrupted();
         Ok(engine)
     }
@@ -292,12 +303,15 @@ impl Engine {
             self.authorize(&db, request, session)?;
             check_request_identity(&db, session.as_str(), request, &fingerprint)?;
             if request.command.is_mutating()
-                && !project_package_exports::is_command(&request.command)
+                && !project_package_exports::is_command(&request.command) && !project_package_imports::is_command(&request.command)
             {
                 if let Some(body) = replay(&db, session.as_str(), request, &fingerprint)? {
                     return Ok(body);
                 }
             }
+        }
+        if project_package_imports::is_command(&request.command) {
+            return self.import_control(request, &fingerprint);
         }
         if project_package_exports::is_command(&request.command) {
             return self.package_control(request, &fingerprint);
@@ -788,6 +802,7 @@ impl Engine {
                     .map_err(internal)?;
                 tx.execute("INSERT INTO candidates(id,project,base_revision,program,job,lineage,review) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![new_id.as_str(),project.project_id.as_str(),rev_sql(project.revision)?,motion_state::register(&tx,&old.motion.program)?,old.job_id.as_ref().map(|j|j.as_str()),lineage,encode(&old.review)?]).map_err(internal)?;
                 tx.execute("INSERT INTO edit_candidate_lineage SELECT ?1,receipt,review_state,authored_count,inherited_count FROM edit_candidate_lineage WHERE candidate=?2",params![new_id.as_str(),candidate_id.as_str()]).map_err(internal)?;
+                project_package_imports::rebase_alias(&tx, candidate_id, &new_id)?;
                 ResponseBody::Candidate(candidate_snapshot(&tx, &new_id, &project.project_id)?)
             }
             Command::CommitCandidate { candidate_id } => {
@@ -1032,6 +1047,7 @@ impl Engine {
 
     fn authorize(&self, db: &Connection, request: &Request, session: &SessionId) -> PResult<()> {
         self.authenticate(db, session, request.auth_token.as_deref())?;
+        if project_package_imports::is_command(&request.command) { return Ok(()); }
         let (project, scope) = match &request.command {
             Command::AllowProjectPackaging { .. } => (project(request)?, Scope::ManageGrants),
             Command::StartProjectExport
@@ -1098,6 +1114,13 @@ impl Engine {
             protocol_version: PROTOCOL_VERSION,
             operations: [
                 "create_project",
+                "start_project_import",
+                "project_import_status",
+                "begin_project_package_upload",
+                "project_package_upload_status",
+                "abandon_project_package_upload",
+                "seal_project_import",
+                "cancel_project_import",
                 "allow_project_packaging",
                 "start_project_export",
                 "project_package_status",

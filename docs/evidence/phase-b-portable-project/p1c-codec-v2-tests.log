@@ -1,0 +1,206 @@
+    Blocking waiting for file lock on build directory
+warning: variable does not need to be mutable
+   --> crates/pulsar-engine/src/project_package_imports.rs:664:17
+    |
+664 |             let mut file=store.open_staged_object(verified,descriptor)?;
+    |                 ----^^^^
+    |                 |
+    |                 help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `candidate_id` and `project_id` are never read
+    --> crates/pulsar-engine/src/authority.rs:2074:5
+     |
+2073 | struct CandidateState {
+     |        -------------- fields in this struct
+2074 |     candidate_id: CandidateId,
+     |     ^^^^^^^^^^^^
+2075 |     project_id: ProjectId,
+     |     ^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `phase` is never read
+  --> crates/pulsar-engine/src/project_package_import_storage.rs:60:9
+   |
+59 | pub struct ImportStorageProgress{
+   |            --------------------- field in this struct
+60 |     pub phase:ImportStoragePhase,pub completed_bytes:u64,pub completed_objects:u64,
+   |         ^^^^^
+   |
+   = note: `ImportStorageProgress` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: field `operation_id` is never read
+  --> crates/pulsar-engine/src/project_package_import_storage.rs:80:5
+   |
+73 | pub struct ProvisionalImportUpload{
+   |            ----------------------- field in this struct
+...
+80 |     operation_id:PackageImportOperationId,
+   |     ^^^^^^^^^^^^
+
+warning: methods `received_bytes`, `operation_id`, and `declaration` are never used
+   --> crates/pulsar-engine/src/project_package_import_storage.rs:111:12
+    |
+110 | impl ProvisionalImportUpload{
+    | ---------------------------- methods in this implementation
+111 |     pub fn received_bytes(&self)->u64{self.received}
+    |            ^^^^^^^^^^^^^^
+112 |     pub fn operation_id(&self)->&PackageImportOperationId{&self.operation_id}
+    |            ^^^^^^^^^^^^
+113 |     pub fn declaration(&self)->&PackageUploadDeclaration{&self.declaration}
+    |            ^^^^^^^^^^^
+
+warning: methods `operation_id` and `motion` are never used
+   --> crates/pulsar-engine/src/project_package_import_storage.rs:119:12
+    |
+115 | impl VerifiedImportBytes{
+    | ------------------------ methods in this implementation
+...
+119 |     pub fn operation_id(&self)->&PackageImportOperationId{&self.sealed.upload.operation_id}
+    |            ^^^^^^^^^^^^
+120 |     pub fn motion(&self,sha:&str)->Option<&ProgramDescriptor>{self.motions.get(sha)}
+    |            ^^^^^^
+
+warning: methods `manifest`, `origins`, and `operation_id` are never used
+   --> crates/pulsar-engine/src/project_package_import_storage.rs:135:12
+    |
+134 | impl PublishedImportObjects{
+    | --------------------------- methods in this implementation
+135 |     pub fn manifest(&self)->&PortableProjectManifest{&self.verified.manifest}
+    |            ^^^^^^^^
+136 |     pub fn origins(&self)->&BTreeMap<String,PortableProjectManifest>{&self.verified.origins}
+    |            ^^^^^^^
+137 |     pub fn motion(&self,sha:&str)->Option<&ProgramDescriptor>{self.verified.motions.get(sha)}
+138 |     pub fn operation_id(&self)->&PackageImportOperationId{self.verified.operation_id()}
+    |            ^^^^^^^^^^^^
+
+warning: `pulsar-engine` (lib test) generated 7 warnings (run `cargo fix --lib -p pulsar-engine --tests` to apply 1 suggestion)
+    Finished `test` profile [optimized + debuginfo] target(s) in 2.77s
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_engine-dcd41b9c2065cca9)
+
+running 17 tests
+test project_package_format::tests::complete_package_budget_is_checked_before_object_effects ... ok
+test project_package_format::tests::duplicate_and_unreferenced_objects_are_rejected_before_object_open ... ok
+test project_package_format::tests::output_or_staging_write_and_flush_failures_never_succeed ... ok
+test project_package_format::tests::encoder_rejects_short_long_and_changed_source_objects ... ok
+test project_package_format::tests::late_failure_leaves_only_provisional_bytes_and_no_decoded_package ... ok
+test project_package_format::tests::oversized_declared_metadata_is_rejected_before_payload_read_or_staging ... ok
+test project_package_format::tests::noncanonical_json_and_unknown_authority_or_path_fields_fail_before_staging ... ok
+test project_package_format::tests::trailing_bytes_unknown_version_flags_and_magic_are_rejected ... ok
+test project_package_format::tests::manifest_and_object_corruption_cannot_return_success ... ok
+test project_package_format::tests::minimal_project_roundtrip_preserves_exact_object_once ... ok
+test project_package_format::tests::supported_header_and_manifest_versions_must_match_before_staging ... ok
+test project_package_format::tests::short_and_interrupted_io_preserves_the_known_package ... ok
+test project_package_format::tests::v2_keeps_canonical_hash_length_and_eof_guards ... ok
+test project_package_format::tests::version_specific_origin_validation_precedes_stream_effects ... ok
+test project_package_format::tests::v2_roundtrip_preserves_exact_archived_manifest_and_v1_default ... ok
+test project_package_format::tests::every_prefix_truncation_is_rejected ... ok
+test project_package_format::tests::large_exact_legacy_bytes_stream_with_fixed_object_buffer ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 178 filtered out; finished in 0.00s
+
+warning: variable does not need to be mutable
+   --> crates/pulsar-engine/src/project_package_imports.rs:664:17
+    |
+664 |             let mut file=store.open_staged_object(verified,descriptor)?;
+    |                 ----^^^^
+    |                 |
+    |                 help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `candidate_id` and `project_id` are never read
+    --> crates/pulsar-engine/src/authority.rs:2074:5
+     |
+2073 | struct CandidateState {
+     |        -------------- fields in this struct
+2074 |     candidate_id: CandidateId,
+     |     ^^^^^^^^^^^^
+2075 |     project_id: ProjectId,
+     |     ^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `phase` is never read
+  --> crates/pulsar-engine/src/project_package_import_storage.rs:60:9
+   |
+59 | pub struct ImportStorageProgress{
+   |            --------------------- field in this struct
+60 |     pub phase:ImportStoragePhase,pub completed_bytes:u64,pub completed_objects:u64,
+   |         ^^^^^
+   |
+   = note: `ImportStorageProgress` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: field `operation_id` is never read
+  --> crates/pulsar-engine/src/project_package_import_storage.rs:80:5
+   |
+73 | pub struct ProvisionalImportUpload{
+   |            ----------------------- field in this struct
+...
+80 |     operation_id:PackageImportOperationId,
+   |     ^^^^^^^^^^^^
+
+warning: methods `received_bytes`, `operation_id`, and `declaration` are never used
+   --> crates/pulsar-engine/src/project_package_import_storage.rs:111:12
+    |
+110 | impl ProvisionalImportUpload{
+    | ---------------------------- methods in this implementation
+111 |     pub fn received_bytes(&self)->u64{self.received}
+    |            ^^^^^^^^^^^^^^
+112 |     pub fn operation_id(&self)->&PackageImportOperationId{&self.operation_id}
+    |            ^^^^^^^^^^^^
+113 |     pub fn declaration(&self)->&PackageUploadDeclaration{&self.declaration}
+    |            ^^^^^^^^^^^
+
+warning: methods `operation_id` and `motion` are never used
+   --> crates/pulsar-engine/src/project_package_import_storage.rs:119:12
+    |
+115 | impl VerifiedImportBytes{
+    | ------------------------ methods in this implementation
+...
+119 |     pub fn operation_id(&self)->&PackageImportOperationId{&self.sealed.upload.operation_id}
+    |            ^^^^^^^^^^^^
+120 |     pub fn motion(&self,sha:&str)->Option<&ProgramDescriptor>{self.motions.get(sha)}
+    |            ^^^^^^
+
+warning: methods `manifest`, `origins`, and `operation_id` are never used
+   --> crates/pulsar-engine/src/project_package_import_storage.rs:135:12
+    |
+134 | impl PublishedImportObjects{
+    | --------------------------- methods in this implementation
+135 |     pub fn manifest(&self)->&PortableProjectManifest{&self.verified.manifest}
+    |            ^^^^^^^^
+136 |     pub fn origins(&self)->&BTreeMap<String,PortableProjectManifest>{&self.verified.origins}
+    |            ^^^^^^^
+137 |     pub fn motion(&self,sha:&str)->Option<&ProgramDescriptor>{self.verified.motions.get(sha)}
+138 |     pub fn operation_id(&self)->&PackageImportOperationId{self.verified.operation_id()}
+    |            ^^^^^^^^^^^^
+
+warning: `pulsar-engine` (lib test) generated 7 warnings (run `cargo fix --lib -p pulsar-engine --tests` to apply 1 suggestion)
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.07s
+     Running unittests src/lib.rs (/tmp/pulsar-phase-a-target/debug/deps/pulsar_engine-dcd41b9c2065cca9)
+
+running 18 tests
+test project_package_storage::tests::content_holds_survive_alias_guard_release ... ok
+test project_package_storage::tests::independent_registry_guards_are_send_and_sync ... ok
+test project_package_storage::tests::retention_extend_is_atomic_on_conflict_and_capacity ... ok
+test project_package_storage::tests::admission_fails_before_source_open_or_staging ... ok
+test project_package_storage::tests::failed_staging_unlink_remains_charged_after_reservation_release ... ok
+test project_package_storage::tests::callback_cancellation_preserves_error_and_removes_provisional_bytes ... ok
+test project_package_storage::tests::exact_object_corruption_and_length_fail_without_publication ... ok
+test project_package_storage::tests::partial_pending_cleanup_failure_reports_uncertain_effect ... ok
+test project_package_storage::tests::progress_counts_header_metadata_and_verified_object_completion ... ok
+test project_package_storage::tests::anchored_directory_survives_path_replacement ... ok
+test project_package_storage::tests::path_symlinks_nonregular_files_and_descriptor_aliases_fail_closed ... ok
+test project_package_storage::tests::readonly_reopen_accepts_verified_v2_and_rejects_unknown_header_versions ... ok
+test project_package_storage::tests::published_package_matches_independent_golden_identity ... ok
+test project_package_storage::tests::explicit_disposal_is_idempotent_and_uncertain_sync_is_recoverable ... ok
+test project_package_storage::tests::corrupt_existing_object_is_not_overwritten_or_trusted ... ok
+test project_package_storage::tests::startup_cleanup_only_removes_private_pending_and_keeps_orphans ... ok
+test project_package_storage::tests::duplicate_publication_and_repeated_accounting_are_stable ... ok
+test project_package_storage::tests::publication_faults_distinguish_no_effect_from_unknown_outcome ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 177 filtered out; finished in 0.13s
+

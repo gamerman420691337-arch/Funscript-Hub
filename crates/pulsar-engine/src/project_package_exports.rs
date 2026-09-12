@@ -916,7 +916,7 @@ impl Engine {
                 ));
             }
             let artifact = PackageArtifactDescriptor {
-                format_version: 1,
+                format_version: plan.manifest.format_version,
                 sha256: published.identity.sha256,
                 byte_len: published.identity.byte_len,
                 manifest_sha256: published.manifest_sha256,

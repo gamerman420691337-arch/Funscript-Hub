@@ -35,7 +35,7 @@ pub(super) fn initialize(db: &mut Connection) -> Result<()> {
             FOREIGN KEY(project,revision) REFERENCES revisions(project,revision));"
     )?;
     let projects = {
-        let mut statement = tx.prepare("SELECT id,revision,history_cursor FROM projects WHERE NOT EXISTS(
+        let mut statement = tx.prepare("SELECT id,revision,history_cursor FROM projects WHERE NOT EXISTS(SELECT 1 FROM project_import_archives WHERE project_import_archives.project=projects.id) AND NOT EXISTS(
             SELECT 1 FROM revision_lineage WHERE revision_lineage.project=projects.id AND revision_lineage.revision=projects.revision)")?;
         let rows = statement.query_map([], |row| {
             Ok((
@@ -94,7 +94,7 @@ pub(super) fn state(
         )
         .optional()
         .map_err(internal)?;
-    let state: ReviewState = match raw {
+    let mut state: ReviewState = match raw {
         Some(raw) => decode(&raw)?,
         None => ReviewState {
             flags: vec![],
@@ -102,6 +102,7 @@ pub(super) fn state(
             conservative: true,
         },
     };
+    if project_package_imports::imported_revision(db, project, revision)? { state.unknown=true; state.conservative=true; }
     validate_reviews(&state.flags)?;
     Ok(state)
 }
@@ -348,5 +349,6 @@ pub(super) fn candidate_review_state(
     if let Some(state) = &state {
         validate_reviews(&state.flags)?;
     }
+    if state.is_none() { return project_package_imports::candidate_review(db, candidate); }
     Ok(state)
 }

@@ -1,0 +1,6 @@
+{
+  "status": "SUPERSEDED_BY_FINAL_CHECKPOINT",
+  "current_record": "p1c-final.json",
+  "baseline_commit": "b4c038a",
+  "note": "Earlier scoped development evidence is summarized in the independent review record. The full combined gate remains blocked; final components passed."
+}

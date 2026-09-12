@@ -2660,6 +2660,7 @@ dependencies = [
  "pulsar-core",
  "pulsar-engine",
  "pulsar-protocol",
+ "rusqlite",
  "serde_json",
  "sha2",
  "socket2",
@@ -2719,6 +2720,7 @@ dependencies = [
  "pulsar-core",
  "serde",
  "serde_json",
+ "sha2",
  "socket2",
 ]
 

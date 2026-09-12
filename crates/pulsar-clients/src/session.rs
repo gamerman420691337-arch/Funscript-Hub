@@ -18,8 +18,13 @@ pub trait EngineApi {
 
     /// Proposes checked values through the shared upload broker; never commits.
     /// Read is separately required to hydrate the resulting candidate.
-    fn upload_edit(&mut self, _project: ProjectId, _revision: RevisionId,
-        _program: &MotionProgram, _label: &str) -> Result<crate::motion::CandidateSnapshot> {
+    fn upload_edit(
+        &mut self,
+        _project: ProjectId,
+        _revision: RevisionId,
+        _program: &MotionProgram,
+        _label: &str,
+    ) -> Result<crate::motion::CandidateSnapshot> {
         Err(ProtocolError::unsupported("edit upload on this client transport").into())
     }
 }
@@ -92,10 +97,21 @@ fn read_session(path: &Path) -> Result<Option<ClientCredentials>> {
 }
 
 impl SessionClient {
-    pub fn from_credentials(endpoint: &Path, session: SessionId, auth_token: String) -> Result<Self> {
-        let credentials = ClientCredentials { session, auth_token };
+    pub fn from_credentials(
+        endpoint: &Path,
+        session: SessionId,
+        auth_token: String,
+    ) -> Result<Self> {
+        let credentials = ClientCredentials {
+            session,
+            auth_token,
+        };
         credentials.validate()?;
-        Ok(Self { endpoint: endpoint.to_owned(), credentials, motion: crate::motion::MotionCache::default() })
+        Ok(Self {
+            endpoint: endpoint.to_owned(),
+            credentials,
+            motion: crate::motion::MotionCache::default(),
+        })
     }
 
     pub fn connect(endpoint: &Path, bootstrap: &Path) -> Result<Self> {
@@ -123,7 +139,7 @@ impl SessionClient {
                         return Ok(Self {
                             endpoint: endpoint.to_owned(),
                             credentials,
-                motion: crate::motion::MotionCache::default(),
+                            motion: crate::motion::MotionCache::default(),
                         });
                     }
                     std::thread::sleep(Duration::from_millis(50));
@@ -223,8 +239,12 @@ fn call(endpoint: &Path, request: &Request) -> Result<ResponseBody> {
 }
 
 impl EngineApi for SessionClient {
-    fn execute(&mut self, command: Command, project: Option<ProjectId>,
-        revision: Option<RevisionId>) -> Result<crate::motion::ResponseBody> {
+    fn execute(
+        &mut self,
+        command: Command,
+        project: Option<ProjectId>,
+        revision: Option<RevisionId>,
+    ) -> Result<crate::motion::ResponseBody> {
         let expected_project = match &command {
             Command::OpenProject { project_id } => Some(project_id.clone()),
             _ => project.clone(),
@@ -233,17 +253,34 @@ impl EngineApi for SessionClient {
             Command::GetCandidate { candidate_id } => Some(candidate_id.clone()),
             _ => None,
         };
-        let request = build_request(self.credentials.session.clone(), self.credentials.auth_token.clone(),
-            new_request_id(), command, project, revision);
+        let request = build_request(
+            self.credentials.session.clone(),
+            self.credentials.auth_token.clone(),
+            new_request_id(),
+            command,
+            project,
+            revision,
+        );
         let response = call(&self.endpoint, &request)?;
         let mut io = AuthenticatedMotionIo::new(&self.endpoint, &self.credentials)?;
-        self.motion.hydrate(response, expected_project.as_ref(), expected_candidate.as_ref(), &mut io)
+        self.motion.hydrate(
+            response,
+            expected_project.as_ref(),
+            expected_candidate.as_ref(),
+            &mut io,
+        )
     }
 
-    fn upload_edit(&mut self, project: ProjectId, revision: RevisionId,
-        program: &MotionProgram, label: &str) -> Result<crate::motion::CandidateSnapshot> {
+    fn upload_edit(
+        &mut self,
+        project: ProjectId,
+        revision: RevisionId,
+        program: &MotionProgram,
+        label: &str,
+    ) -> Result<crate::motion::CandidateSnapshot> {
         let mut io = AuthenticatedMotionIo::new(&self.endpoint, &self.credentials)?;
-        self.motion.upload_edit(project, revision, program, label, &mut io)
+        self.motion
+            .upload_edit(project, revision, program, label, &mut io)
     }
 }
 
@@ -254,28 +291,62 @@ struct AuthenticatedMotionIo<'a> {
 }
 impl<'a> AuthenticatedMotionIo<'a> {
     fn new(endpoint: &'a Path, credentials: &'a ClientCredentials) -> Result<Self> {
-        let bulk_endpoint = endpoint.parent().context("Engine endpoint has no private parent")?.join("bulk.sock");
-        Ok(Self { endpoint, credentials, bulk_endpoint })
+        let bulk_endpoint = endpoint
+            .parent()
+            .context("Engine endpoint has no private parent")?
+            .join("bulk.sock");
+        Ok(Self {
+            endpoint,
+            credentials,
+            bulk_endpoint,
+        })
     }
 }
 impl crate::motion::MotionIo for AuthenticatedMotionIo<'_> {
-    fn control(&mut self, command: Command, project: ProjectId, revision: Option<RevisionId>) -> Result<ResponseBody> {
-        call(self.endpoint, &build_request(self.credentials.session.clone(), self.credentials.auth_token.clone(),
-            new_request_id(), command, Some(project), revision))
+    fn control(
+        &mut self,
+        command: Command,
+        project: ProjectId,
+        revision: Option<RevisionId>,
+    ) -> Result<ResponseBody> {
+        call(
+            self.endpoint,
+            &build_request(
+                self.credentials.session.clone(),
+                self.credentials.auth_token.clone(),
+                new_request_id(),
+                command,
+                Some(project),
+                revision,
+            ),
+        )
     }
 
-    fn bulk_endpoint(&self) -> &Path { &self.bulk_endpoint }
+    fn bulk_endpoint(&self) -> &Path {
+        &self.bulk_endpoint
+    }
 
-    fn open_bulk(&mut self, lease: &TransferLease, deadline: std::time::Instant) -> Result<Box<dyn crate::motion::BulkIo>> {
-        if lease.bulk_endpoint != self.bulk_endpoint { bail!("Bulk endpoint redirect rejected before authentication"); }
-        let remaining = deadline.checked_duration_since(std::time::Instant::now())
+    fn open_bulk(
+        &mut self,
+        lease: &TransferLease,
+        deadline: std::time::Instant,
+    ) -> Result<Box<dyn crate::motion::BulkIo>> {
+        if lease.bulk_endpoint != self.bulk_endpoint {
+            bail!("Bulk endpoint redirect rejected before authentication");
+        }
+        let remaining = deadline
+            .checked_duration_since(std::time::Instant::now())
             .context("Transfer lease deadline elapsed before bulk connection")?;
         let timeout = remaining.min(Duration::from_secs(10));
         let mut bulk = BulkClient::connect(&self.bulk_endpoint, timeout)?;
         bulk.set_deadline(deadline)?;
-        let actual = bulk.handshake(&BulkHandshake { version: PROTOCOL_VERSION,
-            session: self.credentials.session.clone(), auth_token: self.credentials.auth_token.clone(),
-            lease_id: lease.lease_id.clone(), engine_epoch: lease.engine_epoch.clone() })?;
+        let actual = bulk.handshake(&BulkHandshake {
+            version: PROTOCOL_VERSION,
+            session: self.credentials.session.clone(),
+            auth_token: self.credentials.auth_token.clone(),
+            lease_id: lease.lease_id.clone(),
+            engine_epoch: lease.engine_epoch.clone(),
+        })?;
         crate::motion::validate_handshake(lease, &actual)?;
         Ok(Box::new(bulk))
     }
@@ -340,21 +411,43 @@ mod tests {
     }
 }
 
-
 impl SessionClient {
-    pub(crate) fn package_request(&self, request_id: RequestId, command: Command,
-        project: ProjectId, revision: Option<RevisionId>) -> Result<pulsar_protocol::ResponseBody> {
-        self.package_request_until(request_id, command, project, revision,
-            std::time::Instant::now() + Duration::from_secs(10))
+    pub(crate) fn package_request(
+        &self,
+        request_id: RequestId,
+        command: Command,
+        project: ProjectId,
+        revision: Option<RevisionId>,
+    ) -> Result<pulsar_protocol::ResponseBody> {
+        self.package_request_until(
+            request_id,
+            command,
+            project,
+            revision,
+            std::time::Instant::now() + Duration::from_secs(10),
+        )
     }
 
-    pub(crate) fn package_request_until(&self, request_id: RequestId, command: Command,
-        project: ProjectId, revision: Option<RevisionId>, deadline: std::time::Instant) -> Result<pulsar_protocol::ResponseBody> {
+    pub(crate) fn package_request_until(
+        &self,
+        request_id: RequestId,
+        command: Command,
+        project: ProjectId,
+        revision: Option<RevisionId>,
+        deadline: std::time::Instant,
+    ) -> Result<pulsar_protocol::ResponseBody> {
         let deadline = deadline.min(std::time::Instant::now() + Duration::from_secs(10));
-        let remaining = deadline.checked_duration_since(std::time::Instant::now())
+        let remaining = deadline
+            .checked_duration_since(std::time::Instant::now())
             .context("Package control absolute deadline expired before connection")?;
-        let request = build_request(self.credentials.session.clone(), self.credentials.auth_token.clone(),
-            request_id, command, Some(project), revision);
+        let request = build_request(
+            self.credentials.session.clone(),
+            self.credentials.auth_token.clone(),
+            request_id,
+            command,
+            Some(project),
+            revision,
+        );
         let mut transport = LocalClient::connect(&self.endpoint, remaining)?;
         transport.set_deadline(deadline)?;
         let response = transport.call(&request)?;
@@ -365,26 +458,126 @@ impl SessionClient {
     }
 
     pub(crate) fn package_bulk_endpoint(&self) -> Result<PathBuf> {
-        Ok(self.endpoint.parent().context("Engine endpoint has no private parent")?.join("bulk.sock"))
+        Ok(self
+            .endpoint
+            .parent()
+            .context("Engine endpoint has no private parent")?
+            .join("bulk.sock"))
     }
 
-    pub(crate) fn open_package_bulk(&self, lease: &PackageDownloadLease,
-        deadline: std::time::Instant, range: PackageChunkRange) -> Result<PackageBulkClient> {
+    pub(crate) fn open_package_bulk(
+        &self,
+        lease: &PackageDownloadLease,
+        deadline: std::time::Instant,
+        range: PackageChunkRange,
+    ) -> Result<PackageBulkClient> {
         let endpoint = self.package_bulk_endpoint()?;
         if lease.bulk_endpoint != endpoint {
             bail!("Package bulk endpoint redirect rejected before authentication");
         }
-        let remaining = deadline.checked_duration_since(std::time::Instant::now())
+        let remaining = deadline
+            .checked_duration_since(std::time::Instant::now())
             .context("Package lease expired before connection")?;
-        let mut bulk = PackageBulkClient::connect(&endpoint, remaining.min(Duration::from_secs(10)))?;
+        let mut bulk =
+            PackageBulkClient::connect(&endpoint, remaining.min(Duration::from_secs(10)))?;
         bulk.set_deadline(deadline)?;
         let actual = bulk.handshake(&PackageBulkHandshake {
-            version: PROTOCOL_VERSION, channel: PackageBulkChannel::ProjectPackageDownload,
-            session: self.credentials.session.clone(), auth_token: self.credentials.auth_token.clone(),
-            lease_id: lease.lease_id.clone(), engine_epoch: lease.engine_epoch.clone(),
-            operation_id: lease.operation_id.clone(), artifact_sha256: lease.artifact.sha256.clone(),
+            version: PROTOCOL_VERSION,
+            channel: PackageBulkChannel::ProjectPackageDownload,
+            session: self.credentials.session.clone(),
+            auth_token: self.credentials.auth_token.clone(),
+            lease_id: lease.lease_id.clone(),
+            engine_epoch: lease.engine_epoch.clone(),
+            operation_id: lease.operation_id.clone(),
+            artifact_sha256: lease.artifact.sha256.clone(),
         })?;
         crate::project_package::validate_package_handshake(lease, &actual, range)?;
         Ok(bulk)
+    }
+}
+
+use pulsar_protocol::{
+    PackageUploadChannel, PackageUploadChunkReceipt, PackageUploadClient, PackageUploadHandshake,
+    PackageUploadLease,
+};
+
+impl SessionClient {
+    /// Import operations create a new authority context; an existing project or
+    /// revision must never be invented to satisfy an export/motion wrapper.
+    pub(crate) fn import_request_until(
+        &self,
+        request_id: RequestId,
+        command: Command,
+        deadline: std::time::Instant,
+    ) -> Result<pulsar_protocol::ResponseBody> {
+        if !matches!(
+            &command,
+            Command::StartProjectImport { .. }
+                | Command::ProjectImportStatus { .. }
+                | Command::BeginProjectPackageUpload { .. }
+                | Command::ProjectPackageUploadStatus { .. }
+                | Command::AbandonProjectPackageUpload { .. }
+                | Command::SealProjectImport { .. }
+                | Command::CancelProjectImport { .. }
+        ) {
+            bail!("Import authority wrapper refuses unrelated commands");
+        }
+        let deadline = deadline.min(std::time::Instant::now() + Duration::from_secs(10));
+        let remaining = deadline
+            .checked_duration_since(std::time::Instant::now())
+            .context("Import control absolute deadline expired before connection")?;
+        let request = build_request(
+            self.credentials.session.clone(),
+            self.credentials.auth_token.clone(),
+            request_id,
+            command,
+            None,
+            None,
+        );
+        let mut transport = LocalClient::connect(&self.endpoint, remaining)?;
+        transport.set_deadline(deadline)?;
+        let response = transport.call(&request)?;
+        if response.version != request.version || response.request_id != request.request_id {
+            bail!("Import response identity mismatch; outcome is unknown and was not replayed with a new ID");
+        }
+        response.result.map_err(anyhow::Error::from)
+    }
+
+    pub(crate) fn open_package_upload(
+        &self,
+        lease: &PackageUploadLease,
+        deadline: std::time::Instant,
+        handshake_deadline: std::time::Instant,
+        chunk: &PackageUploadChunkReceipt,
+    ) -> Result<PackageUploadClient> {
+        let endpoint = self.package_bulk_endpoint()?;
+        if lease.bulk_endpoint != endpoint {
+            bail!("Import bulk endpoint redirect rejected before authentication");
+        }
+        let handshake_deadline = handshake_deadline.min(deadline);
+        let mut transport = PackageUploadClient::connect_until(
+            &endpoint,
+            Duration::from_secs(10),
+            handshake_deadline,
+        )?;
+        // This remains the ORIGINAL transfer lifetime, never the shorter
+        // connection-contention retry budget.
+        transport.set_deadline(deadline)?;
+        let actual = transport.handshake_until(
+            &PackageUploadHandshake {
+                version: PROTOCOL_VERSION,
+                channel: PackageUploadChannel::ProjectPackageUpload,
+                session: self.credentials.session.clone(),
+                auth_token: self.credentials.auth_token.clone(),
+                lease_id: lease.lease_id.clone(),
+                engine_epoch: lease.engine_epoch.clone(),
+                operation_id: lease.operation_id.clone(),
+                generation: lease.generation,
+                package_sha256: lease.package.sha256.clone(),
+            },
+            handshake_deadline,
+        )?;
+        crate::project_package_import::validate_import_handshake(lease, &actual, chunk)?;
+        Ok(transport)
     }
 }

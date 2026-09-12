@@ -1,0 +1,15 @@
+{
+  "binary": "/tmp/pulsar-preview-CPNgnE/pulsar",
+  "binary_sha256": "4d933691aac682e1df193823c98aafc07f3afb8b183c955cc27c738d8f98bebb",
+  "state_directory": "/tmp/pulsar-preview-CPNgnE/state",
+  "service": "pulsar-preview-cpngne.service",
+  "launch_result": "ACTIVE_RUNNING",
+  "display": ":0 / wayland-0",
+  "render_confirmation": "User confirmed: Visible and rendering normally",
+  "build": "cargo build --bin pulsar --offline --locked; exit0",
+  "scope": "Frozen pre-repair development preview. Isolated temporary engine state; no real project/device session changed. User visibility confirmation is not tracking, inference, or import qualification.",
+  "warnings": [
+    "Mesa/EGL driver and dri2 initialization warnings; no rendering failure reported by user"
+  ],
+  "lifetime": "Left for user interaction; do not restart or terminate without coordinating with the user."
+}

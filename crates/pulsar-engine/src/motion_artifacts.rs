@@ -122,6 +122,36 @@ fn validate_descriptor(value: &StoredProgram) -> Result<()> {
     Ok(())
 }
 
+
+impl ProgramStore {
+    /// Pure pre-publication validation. Rejects changed canonical bytes rather
+    /// than normalizing an imported digest into a different published object.
+    pub(crate) fn validate_canonical(bytes: &[u8]) -> Result<StoredProgram> {
+        let program = decode_bounded(bytes)?;
+        let axes = summaries(&program)?;
+        struct MatchCanonical<'a> { bytes: &'a [u8], offset: usize }
+        impl Write for MatchCanonical<'_> {
+            fn write(&mut self, part: &[u8]) -> io::Result<usize> {
+                let end = self.offset.checked_add(part.len())
+                    .ok_or_else(|| io::Error::other("canonical motion length overflow"))?;
+                if self.bytes.get(self.offset..end) != Some(part) {
+                    return Err(io::Error::other("motion bytes are not canonical"));
+                }
+                self.offset = end;
+                Ok(part.len())
+            }
+            fn flush(&mut self) -> io::Result<()> { Ok(()) }
+        }
+        let mut matcher = MatchCanonical { bytes, offset: 0 };
+        serde_json::to_writer(&mut matcher, &program)
+            .map_err(|_| invalid("imported motion bytes are not canonical"))?;
+        if matcher.offset != bytes.len() {
+            return Err(invalid("imported motion bytes have noncanonical trailing data"));
+        }
+        descriptor(format!("{:x}", Sha256::digest(bytes)), bytes.len() as u64, axes)
+    }
+}
+
 #[cfg(unix)]
 mod unix {
     use super::*;

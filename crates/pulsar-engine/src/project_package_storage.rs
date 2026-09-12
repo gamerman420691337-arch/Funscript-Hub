@@ -26,6 +26,7 @@ use pulsar_protocol::{
     ArtifactIdentity, ErrorCode, PackageObjectDescriptor, PortableProjectManifest,
     ProtocolError, DEFAULT_MAX_PROJECT_PACKAGE_BYTES, MAX_PROJECT_PACKAGE_ENTRIES,
     MAX_PROJECT_PACKAGE_MANIFEST_BYTES, PROJECT_PACKAGE_FORMAT_VERSION,
+    PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS,
 };
 use sha2::{Digest, Sha256};
 use std::cell::{Cell, RefCell};
@@ -261,7 +262,7 @@ impl<R:Read,C:FnMut()->Result<()>,P:FnMut(u64,u64)->Result<()>> Read for Checked
 }
 
 #[cfg(unix)]
-mod unix {
+pub(crate) mod unix {
     use super::*;
     use std::ffi::{CStr,CString};
     use std::os::fd::{AsRawFd,FromRawFd};
@@ -269,7 +270,7 @@ mod unix {
     use std::os::unix::fs::{MetadataExt,PermissionsExt};
     use std::path::Component;
 
-    fn directory(root:&Path)->Result<File> {
+    pub(crate) fn directory(root:&Path)->Result<File> {
         if !root.is_absolute() { return Err(invalid("package store root must be absolute")); }
         let components=root.components().collect::<Vec<_>>();
         if components.len()<2 || components.iter().any(|c| !matches!(c,Component::RootDir|Component::Normal(_))) {
@@ -299,13 +300,13 @@ mod unix {
         current.sync_all().map_err(io_error)?;
         Ok(current)
     }
-    fn open(directory:&File,name:&CStr)->io::Result<File> {
+    pub(crate) fn open(directory:&File,name:&CStr)->io::Result<File> {
         // SAFETY: valid directory handle and an engine-generated basename.
         let fd=unsafe{libc::openat(directory.as_raw_fd(),name.as_ptr(),libc::O_RDONLY|libc::O_NOFOLLOW|libc::O_NONBLOCK|libc::O_CLOEXEC)};
         if fd<0 { return Err(io::Error::last_os_error()); }
         Ok(unsafe{File::from_raw_fd(fd)})
     }
-    fn metadata(file:&File,readonly:bool)->Result<std::fs::Metadata> {
+    pub(crate) fn metadata(file:&File,readonly:bool)->Result<std::fs::Metadata> {
         let meta=file.metadata().map_err(io_error)?;
         if !meta.is_file() || meta.uid()!=unsafe{libc::geteuid()}
             || meta.mode()&0o077!=0 || (readonly && meta.mode()&0o222!=0) {
@@ -313,11 +314,11 @@ mod unix {
         }
         Ok(meta)
     }
-    fn basename(sha:&str)->Result<CString> {
+    pub(crate) fn basename(sha:&str)->Result<CString> {
         if !valid_sha(sha) { return Err(invalid("invalid package digest basename")); }
         CString::new(sha).map_err(|_|invalid("invalid package digest"))
     }
-    fn unlink(directory:&File,name:&CStr)->io::Result<()> {
+    pub(crate) fn unlink(directory:&File,name:&CStr)->io::Result<()> {
         // SAFETY: only engine-owned basenames relative to the anchored directory.
         if unsafe{libc::unlinkat(directory.as_raw_fd(),name.as_ptr(),0)}<0 { Err(io::Error::last_os_error()) } else { Ok(()) }
     }
@@ -356,7 +357,7 @@ mod unix {
     // A fresh open-file description is essential: dup(directory) would share the
     // readdir cursor and could make subsequent disk-admission counts underflow.
     #[cfg(any(target_os="linux",target_os="macos"))]
-    fn visit(directory:&File,mut visitor:impl FnMut(&CStr)->Result<()>)->Result<()> {
+    pub(crate) fn visit(directory:&File,mut visitor:impl FnMut(&CStr)->Result<()>)->Result<()> {
         let dot=c".";
         let fd=unsafe{libc::openat(directory.as_raw_fd(),dot.as_ptr(),libc::O_RDONLY|libc::O_DIRECTORY|libc::O_NOFOLLOW|libc::O_CLOEXEC)};
         if fd<0 { return Err(io_error(io::Error::last_os_error())); }
@@ -387,7 +388,7 @@ mod unix {
         }
     }
     #[cfg(not(any(target_os="linux",target_os="macos")))]
-    fn visit(_directory:&File,_visitor:impl FnMut(&CStr)->Result<()>)->Result<()> {
+    pub(crate) fn visit(_directory:&File,_visitor:impl FnMut(&CStr)->Result<()>)->Result<()> {
         Err(ProtocolError::new(ErrorCode::Unsupported,"anchored package enumeration unavailable on this platform"))
     }
     fn pending_name(name:&str)->bool {
@@ -458,7 +459,8 @@ mod unix {
             let mut header=[0u8;PACKAGE_HEADER_BYTES];
             file.read_exact(&mut header).map_err(io_error)?;
             let manifest_len=u64::from_le_bytes(header[12..20].try_into().expect("header slice"));
-            if header[..8]!=PACKAGE_MAGIC || header[8..10]!=PROJECT_PACKAGE_FORMAT_VERSION.to_le_bytes()
+            let version=u16::from_le_bytes([header[8],header[9]]);
+            if header[..8]!=PACKAGE_MAGIC || !matches!(version,PROJECT_PACKAGE_FORMAT_VERSION|PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS)
                 || header[10..12]!=[0,0] || manifest_len>MAX_PROJECT_PACKAGE_MANIFEST_BYTES as u64
                 || (PACKAGE_HEADER_BYTES as u64).checked_add(manifest_len).is_none_or(|n|n>value.identity.byte_len)
                 || hex_digest(&header[20..52])!=value.manifest_sha256 {
@@ -604,6 +606,7 @@ mod tests {
             edit_states: vec![PackageEditState { position: 0, motion, protected: vec![], source_revision: None }],
             revision_lineage: vec![], candidates: vec![], authored_lineage: vec![],
             sources: vec![], legacy_cells: vec![], generated_origins: vec![], export_receipts: vec![],
+            imported_origins: vec![],
             objects: vec![PackageObjectDescriptor { sha256: EMPTY_SHA.into(), byte_len: 13,
                 roles: vec![PackageObjectRole::MotionProgram] }],
         };
@@ -863,6 +866,87 @@ mod tests {
   *store.fault.lock().unwrap()=None;
   assert_eq!(store.cleanup_pending().unwrap(),0,"retry syncs even after earlier unlink");
  }
+
+
+    fn fixture_with_imported_origin() -> (PortableProjectManifest, Vec<u8>) {
+        let original = fixture();
+        let raw = original.canonical_bytes().unwrap();
+        let archived = PackageObjectRef {
+            sha256: format!("{:x}", Sha256::digest(&raw)),
+            byte_len: raw.len() as u64,
+        };
+        let mut manifest = original.clone();
+        manifest.format_version = PROJECT_PACKAGE_FORMAT_VERSION_WITH_ORIGINS;
+        manifest.origin_project_id = ProjectId::new("imported").unwrap();
+        manifest.revisions[0].actor = "imported-actor".into();
+        manifest.imported_origins = vec![PackageArchiveOrigin {
+            manifest: archived.clone(),
+            container: PackageArtifactDescriptor {
+                format_version: PROJECT_PACKAGE_FORMAT_VERSION,
+                sha256: "1e9f93581dd9e32be46d2dc982f776b803eb2f83d560036ec2e82b083a6508a8".into(),
+                byte_len: 1652,
+                manifest_sha256: archived.sha256.clone(),
+                project_id: original.origin_project_id,
+                captured_revision: original.captured_revision,
+                captured_event_cursor: original.captured_event_cursor,
+                object_count: original.objects.len() as u32,
+                verification: PackageReadyVerification::AllDeclaredObjectsVerified,
+            },
+            objects: original.objects,
+            revisions: vec![PackageRevisionOrigin {
+                local: RevisionId::new(0),
+                origin: RevisionId::new(0),
+            }],
+            candidates: vec![],
+            sources: vec![],
+            actors: vec![PackageActorOrigin {
+                local: "imported-actor".into(),
+                origin: "actor".into(),
+            }],
+        }];
+        manifest.objects.push(PackageObjectDescriptor {
+            sha256: archived.sha256,
+            byte_len: archived.byte_len,
+            roles: vec![PackageObjectRole::ImportedManifest],
+        });
+        manifest.objects.sort_by(|a, b| a.sha256.cmp(&b.sha256));
+        manifest.counts = manifest.record_counts().unwrap();
+        manifest.validate().unwrap();
+        (manifest, raw)
+    }
+
+    #[test]
+    fn readonly_reopen_accepts_verified_v2_and_rejects_unknown_header_versions() {
+        use std::os::unix::fs::PermissionsExt;
+        let (root, store) = store();
+        let (manifest, raw_origin) = fixture_with_imported_origin();
+        let value = store.materialize(
+            &manifest,
+            |object| Ok(Cursor::new(if object.sha256 == EMPTY_SHA {
+                EMPTY_BYTES.to_vec()
+            } else {
+                raw_origin.clone()
+            })),
+            PackageCodecLimits::default(),
+            || Ok(()),
+            |_, _| Ok(()),
+        ).unwrap();
+        let mut header = [0u8; PACKAGE_HEADER_BYTES];
+        store.open_readonly(&value).unwrap().read_exact(&mut header).unwrap();
+        assert_eq!(&header[..12], b"PULSPKG\0\x02\x00\x00\x00");
+        store.open_verified(&value, || Ok(()), |_| Ok(())).unwrap();
+
+        let path = root.path().join("project-packages").join(&value.identity.sha256);
+        let original = std::fs::read(&path).unwrap();
+        for version in [0u16, 3, u16::MAX] {
+            let mut bytes = original.clone();
+            bytes[8..10].copy_from_slice(&version.to_le_bytes());
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+            std::fs::write(&path, bytes).unwrap();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400)).unwrap();
+            assert_eq!(store.open_readonly(&value).unwrap_err().code, ErrorCode::DependencyMismatch);
+        }
+    }
 
 }
 

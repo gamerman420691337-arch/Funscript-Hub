@@ -121,7 +121,7 @@ pub struct PackageArtifactDescriptor {
 }
 impl PackageArtifactDescriptor {
     pub fn validate(&self) -> Result<(), ProtocolError> {
-        if self.format_version != PROJECT_PACKAGE_FORMAT_VERSION {
+        if !matches!(self.format_version, 1 | 2) {
             return Err(ProtocolError::unsupported("unsupported package format"));
         }
         validate_sha256(&self.sha256)?;
