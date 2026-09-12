@@ -1,86 +1,84 @@
-# Portable project P1c: clone import checkpoint
+# Portable project P1c: clone import status
 
-Status: **IMPLEMENTED CHECKPOINT; FULL QUALIFICATION BLOCKED.**
+Status: **IMPLEMENTED; FULL LOCAL GATE PASSED. EXTERNAL REVIEW AND BROADER QUALIFICATION REMAIN OPEN.**
 
-Nine confirmed import defects have been repaired. A separate final-source
-component campaign passed 494 Rust tests and both portable-package lifecycle
-models. The combined qualification command still fails its architecture
-scanner. This is a checkpoint for commit/push, not phase completion or a
-release-qualified import guarantee.
+The scanner blocker recorded in checkpoint `c9f4951` is resolved with the
+user-approved identifier-boundary correction and regression coverage. The
+complete import qualification entry point now exits 0. This does not complete
+P1d, the Good phase, or release qualification.
 
-P1b baseline is `b4c038a`; see the containing Git history for this checkpoint's
-commit identity. The software specification and major roadmap remain
-authoritative. See [ADR 0011](adr/0011-portable-project-clone-import.md) and
-the [implementation plan](PULSAR_PORTABLE_PROJECT_IMPLEMENTATION_PLAN.md).
+The software specification and major roadmap remain authoritative. See
+[ADR 0011](adr/0011-portable-project-clone-import.md), the
+[implementation plan](PULSAR_PORTABLE_PROJECT_IMPLEMENTATION_PLAN.md), and
+[current gate evidence](evidence/phase-b-portable-project/p1c-scanner-closure.json).
+Previous component evidence and failed full-gate logs remain unchanged as
+historical records, not current failures.
 
 ## Implemented scope
 
-- Fresh-project clone import through shared engine APIs and CLI, with no overwrite or merge.
-- Authenticated bounded upload, exact replay identities, same-epoch recovery, and strict caller-full-byte validation even on CAS hits.
-- Checked provisional/sealed/verified/published storage stages and durable original-container recovery before other objects and active SQL publication.
-- Pure fresh-identity planning with exact inert origin archives, transitive map composition, preserved immutable history, and conservative local imported-trust overlay.
-- Mixed local editing, re-export, and second-clone preservation without creating operational jobs, original actors, or imported device/human authority.
-- Cancellation, expiry, restart, generation/nonce ACK fences, and retained in-flight snapshot-cap accounting.
-- Typed occupied-connection retry that preserves lease, generation, buffered bytes, and the original transfer deadline.
+- Fresh-project clone import through shared engine APIs and CLI; no overwrite or merge.
+- Bounded authenticated uploads, exact request/lease/generation/prefix replay, and same-epoch recovery.
+- Full caller-byte validation even on CAS hits; checked staging and durable original recovery before other objects and active SQL publication.
+- Fresh local identities, exact inert origin archives, map composition, preserved history, and conservative imported trust.
+- Local editing, undo/redo, re-export, and second cloning without importing operational jobs, actors, grants, or device/human acceptance.
+- Cancellation, expiry, restart, post-write ACK fencing, retained in-flight accounting, and bounded typed connection-contention recovery.
 
-GUI portable import/export, cross-platform parity, relocation, reference-media
-performance, neural accuracy, and hardware qualification remain outside this
-checkpoint. The overall Good phase is unfinished.
+## Scanner correction
 
-## Full gate remains failed
+The old unanchored `ort::` alternative matched benign identifiers such as
+`project_package_import::` and `PreparedPackageImport::open`.
+The scanner now calls one shared matcher with Unicode XID_Continue boundaries,
+optional Rust raw-identifier prefixes, exact dispatcher identifiers, and
+whitespace before path separators. Actual engine/native-runtime references
+remain rejected.
 
-`bash scripts/qualify-project-imports.sh`, with both large-fixture flags set,
-exited 1 immediately at `phase-a-structure`. The source scanner at
-`scripts/check-architecture.mjs:50` uses an unanchored `ort::` alternative.
-It therefore treats `project_package_import::` and
-`PreparedPackageImport::open` as native-runtime access.
+The full gate first runs 36 matcher regressions. Independent mutation QA also
+executed the unchanged test bodies with data-URL helper substitutions:
+the legacy matcher failed 18 assertions, allow-all failed 18, and reject-all
+failed 19. Each run discovered 36 tests; failures were assertions, not setup,
+import, timeout, or signal failures. The repaired baseline passed all 36.
 
-The three flags are in client `lib.rs`, `project_package_import.rs`, and
-`session.rs`. Cached source review and an exact regular-expression
-reproduction confirm these lexical false positives. No native inference
-dependency or call was added on these paths. The scanner was not weakened,
-bypassed, or changed. Its identifier-boundary correction and regression need
-the requested approval.
+This remains a conservative lexical tripwire. It does not parse comments,
+strings, use trees, macros, interleaved comments, or aliases. Cargo direct
+dependency checks remain separate; neither mechanism proves transitive runtime
+isolation. See [mutation evidence](evidence/phase-b-portable-project/p1c-scanner-mutations.json).
 
-The separate component command below is **not** a successful rerun of the
-combined gate. It does not replace the remaining architecture/motion/lifecycle
-checks behind the failed scanner. See [failed full-gate log](evidence/phase-b-portable-project/p1c-final-gate.log)
-and [blocker reproduction](evidence/phase-b-portable-project/p1c-final.json).
+## Full local qualification
 
-## Final-source component evidence
+```sh
+PULSAR_RUN_LARGE_PACKAGE_TEST=1 PULSAR_RUN_LARGE_PACKAGE_IMPORT_TEST=1 \
+  bash scripts/qualify-project-imports.sh
+```
 
-One explicit offline/locked component campaign completed with exit 0 and
-**494 passing Rust test executions, zero failed**, across 29 reported groups
-including zero-test groups. Earlier development runs are not added to this
-count. Four tests ignored in ordinary runs were explicitly exercised later.
+The recorded environment uses offline locked dependencies, two Cargo build
+jobs, disabled incremental builds, descriptor limit 1,024, a private disk-backed
+TMPDIR, and the locally installed TLC tool. Exact environment and identities
+are in the JSON evidence.
 
-| Surface | Passing executions | Scope |
-| --- | --- | --- |
-| Core | 93 | Checked contracts, editing, DSP, perception, synthesis. |
-| Clients | 66 | Shared CLI/GUI contracts, upload/download helpers, typed contention and fatal-error behavior. |
-| Engine | 203 + 1 explicitly selected worker-origin case | Includes 14 planner, 17 import-storage, and 13 import-lifecycle tests. |
-| Protocol | 115 | Includes six new contention/deadline tests; three of these are Unix-specific. |
-| Ordinary export process | 5 | Real secured engine/client export and replay. |
-| Large export process | 1 | Generated source greater than 1 GiB. |
-| Ordinary import process | 8 | Includes actual engine contention observed through an unchanged-byte proxy. |
-| Explicit import qualifications | 2 | Actual constrained Text worker and greater-than-1-GiB import/re-export. |
+| Check | Result |
+| --- | --- |
+| Architecture/dependency/source checks | 104 passed, zero failed. |
+| Scanner regressions | 36 passed, zero failed. |
+| Rust test executions | 517 passed, zero failed, 35 reported groups including zero-test groups. |
+| Basic lifecycle model | 273 distinct / 888 generated states; authorization-negative mutant killed. |
+| Motion-transfer lifecycle model | 852 distinct / 2,268 generated states; four negative invariants exercised. |
+| Portable export model | 4,088 distinct / 15,885 generated states; 12 expected negative invariant violations. |
+| Portable import model | 372 distinct / 1,325 generated states; 16 expected negative invariant violations. |
+| Actual worker and large-file fixtures | Passed with explicit selection; included in the Rust execution count. |
 
-The rebuilt worker-capable binary was used for explicit worker cases.
-Existing compiler warnings remain; no clean-lint or physical/neural
-qualification is claimed.
+The Rust count includes ordinary export and import suites run twice by the
+gate chain. It is an execution count, not 517 unique tests. Node tests and
+model states/mutants are separate counts. Earlier 494-test component evidence
+is not added to this campaign.
 
-Export lifecycle model: 4,088 distinct / 15,885 generated states, safe exit 0,
-and 12 expected negative invariant violations with normal TLC exit 12.
-Import model: 372 distinct / 1,325 generated states, safe exit 0, and 16
-expected negative invariant violations with normal TLC exit 12. The models
-are separate from the 494 Rust test count.
+The complete run covers shared contracts, large-motion transport, launcher
+deadlines, process integration, actual constrained Text worker evidence,
+typed contention, exact recovery, and greater-than-1-GiB export/import.
+Compiler warnings and historical whitespace nits remain; no clean-lint claim.
 
-See [component log](evidence/phase-b-portable-project/p1c-final-components.log)
-and [machine-readable results](evidence/phase-b-portable-project/p1c-final.json).
+## Regression-backed repairs
 
-## Repaired defects
-
-| ID | Defect and repair | Regression evidence |
+| ID | Defect and repair | Evidence |
 | --- | --- | --- |
 | P1C-001 | Contradictory ancestry maps despite equal payloads. Require exact partial-map equality: direct mapping equals the composition through each intermediate origin, for all four namespaces. | Original regression plus missing-middle and direct-only counterexamples failed before their repairs; final planner suite 14/14. |
 | P1C-002 | Forged immutable history position zero when source revision is absent. Preserve exact original undo baseline. | Reproduced before repair; included in final planner suite. |
@@ -88,123 +86,86 @@ and [machine-readable results](evidence/phase-b-portable-project/p1c-final.json)
 | P1C-004 | JSON-quoted source kinds did not match native enum encoding. Store checked native encoding. | Engine and secured-engine/client process reproduced the failure; latest suites pass. |
 | P1C-005 | Old generation/connection could acknowledge after abandonment and replacement. Fence generation, nonce, and deadline in the same critical section as progress update. | Deterministic stale-acknowledgement regression failed before repair and passes afterward. |
 | P1C-006 | Cancellation retired snapshot-cap accounting while old I/O could still write. Retain accounting until connection and I/O drain. | Reproducer exceeded configured cap by 40,066 bytes before repair; final lifecycle suite passes. |
-| P1C-007 | Expiry-worker thread startup failure was ignored. Fail engine initialization if the required sweeper cannot start. | Injected startup-failure test failed before repair; final lifecycle suite 11/11 includes successful retry. Direct initialization, not daemon startup, is covered. |
+| P1C-007 | Expiry-worker thread startup failure was ignored. Fail engine initialization if the required sweeper cannot start. | Injected startup-failure test failed before repair; current import-lifecycle suite 13/13 includes successful retry. Direct initialization, not daemon startup, is covered. |
 | P1C-008 | An unrelated busy runtime entry blocked lookup of an idle target lease. Search remaining same-session entries before returning a contention error. | Deterministic target-status/abandon case failed before repair; final import-lifecycle suite passes 13/13. |
 | P1C-009 | Lost-ACK reconnect could reach an occupied old connection guard and abandon instead of recovering. Emit a distinct exactly-bound retryable error and retry only that pair within bounded admission limits. | Engine typed-rejection case failed before repair. Client lost-ACK/two-busy/exact-replay, fatal-error tests, timeout tests, and actual-process contention all pass. |
 
-For P1C-009, `PackageUploadConnectionBusy` plus `retryable=true` is emitted
-only after exact authenticated lease/session/epoch/operation/generation/content
-binding. Generic ResourceExhausted, authorization failures, malformed replies,
-and nonretryable contention remain terminal. The client retains the same
-operation, lease, generation, and buffered chunk.
+Typed retry accepts only `PackageUploadConnectionBusy` with
+`retryable=true`, after exact authenticated binding. Other quota,
+authorization, malformed-response, and nonretryable failures remain terminal.
+The same operation, lease, generation, accepted prefix, and buffered bytes
+survive recovery.
 
-Engineering defaults are at most 20 retries, 50 ms backoff, and a two-second
-contention budget intersected with the original transfer deadline. These are
-bounded recovery defaults, not measured OS or physical stopping guarantees.
-Temporary connect/handshake deadlines do not shorten the successful transfer's
-original lifetime or later per-chunk timeout. Wire version and framing remain
-unchanged; older strict clients reject the new code safely rather than gaining
-automatic contention recovery.
+Engineering defaults remain 20 retries, 50 ms backoff, and a two-second
+contention budget intersected with the original transfer deadline. Temporary
+connection/handshake budgets do not shorten successful transfer lifetime.
+Wire version/framing are unchanged; older strict clients reject the additive
+code safely instead of gaining automatic recovery.
 
-The real-process regression observed one actual typed busy reply before
-releasing the held original connection, then one admitted reconnect with the
-same operation/lease/generation, the existing 4,096-byte prefix preserved, and
-exactly one publication. Its private proxy forwards exact captured header and
-payload bytes, rather than reserializing or manufacturing an engine response.
+## Current local streaming evidence
 
-## Historical uncertainty and separate debt
+The generated import source is 1,074,003,968 bytes and package
+1,074,012,357 bytes, requiring at least 4,098 chunks of 256 KiB.
+Import took 11.522 seconds, original export 3.346 seconds, re-export
+4.564 seconds, and prepared-handle hashing 0.624 seconds.
 
-The earlier opaque process handshake failure did not capture its error reply.
-Subsequent diagnostic runs and 20 exact repetitions passed. That historical
-failure remains **unattributed**; the new deterministic contention test does
-not retroactively prove its cause.
+Across 606 samples, additional engine RSS was 1,126,400 bytes and client RSS
+266,240 bytes. Maximum observed GetSnapshot latency was 4.361 ms; maximum
+observed control message was 1,300 bytes. These are host-local sampled
+streaming results, not hard heap/page-cache bounds, reference-hardware
+acceptance, or neural-performance evidence.
 
-The generic request/response journal has no global row/byte cap. Import
-operation limits and filesystem-headroom reservations do not establish such
-a cap. This is preexisting architectural debt, not a new finding from the
-connection repairs.
+The real-process contention fixture observed an actual busy reply before
+releasing the held old connection, preserved the 4,096-byte prefix, and
+published exactly once. The actual constrained Text worker retained exact
+original evidence with zero destination operational jobs or attempts;
+its backend remains unqualified. No GPU or physical device was exercised.
 
-## Large-data and worker measurements
+## Identities and evidence
 
-The final import fixture used a 1,074,003,968-byte generated source and a
-1,074,012,357-byte package, requiring at least 4,098 chunks of 256 KiB.
-Measured import time was 10.619 seconds; original export 3.144 seconds;
-re-export 4.279 seconds; retained-file hash preparation 0.585 seconds.
+Source/tooling identity: `2aad12dbceeaa8c854da354b6c000c165635e610d367d2307018069f02b2569a`.
 
-Across 558 RSS samples, additional engine RSS was 1,105,920 bytes and
-additional client RSS 282,624 bytes. Control probes included 880 during
-Uploading, 248 during Validating, and 742 in other active states. Maximum
-observed GetSnapshot latency was 1.648 ms; maximum observed control message
-was 1,298 bytes. These are local sampled streaming results, not hard heap
-bounds, page-cache bounds, reference-hardware acceptance, or neural speed.
+Rebuilt binary SHA256: `6c26d87e06d66de842f957eeda3ed9fcee56586c360939466d86878d10443db7`.
 
-The actual constrained Text worker's exact manifest, receipt, program, and
-input bytes survived import. Destination operational jobs and attempts stayed
-zero. Candidate commit was explicit; undo/redo created fresh revisions.
-Its backend remains unqualified. No GPU or physical device was exercised.
+[Source manifest](evidence/phase-b-portable-project/p1c-scanner-closure-source.json)
+covers 206 tracked-plus-explicit non-doc inputs. The original
+production-only scanner hash is unchanged because no Rust production source
+changed in this repair. This is not a hermetic toolchain/build qualification.
 
-## Reproducibility and provenance
+[Complete gate log](evidence/phase-b-portable-project/p1c-scanner-closure-gate.log)
+and [structured results](evidence/phase-b-portable-project/p1c-scanner-closure.json)
+are new artifacts. The prior failed gate and component logs were not rewritten.
 
-Source identity: `f036ea10c003118727c04cbc7a58f7cb494f9e390b6532e57a52797344dba0ec`.
+## Remaining boundaries
 
-Binary SHA256: `6c26d87e06d66de842f957eeda3ed9fcee56586c360939466d86878d10443db7`.
+The historical opaque handshake failure remains unattributed: the original
+reply was not recorded, and later repetitions passing do not prove its cause.
+The deterministic repaired-contention case does not retroactively attribute
+that separate event.
 
-[Source identity manifest](evidence/phase-b-portable-project/p1c-source-manifest.json)
-contains 204 tracked-plus-explicit input entries, excluding docs and
-unrelated untracked artifacts. The identity hashes sorted relative-path,
-NUL, per-entry SHA256, NUL records; symlinks hash link-target bytes. It is a
-source identity, not a hermetic-build or toolchain qualification claim.
+The generic request/response journal still lacks a global row/byte cap.
+Import-operation limits and filesystem headroom are not such a cap.
+This remains separate architectural debt.
 
-The component run used the offline locked dependency graph, two Cargo build
-jobs, disabled incremental builds, file-descriptor limit 1,024, the private
-disk-backed TMPDIR, and the locally installed TLC development tool.
-The exact command sequence is recorded in the JSON evidence.
+Finite models do not prove exact parsing, lineage composition, Rust/foreign
+runtime behavior, OS durability, neural quality, or physical safety.
+Implementation regressions and source correspondence remain separate evidence.
 
-## Assurance and privacy limits
+Required external review of `c9f4951` was retried and again returned
+`Transport closed`, not approval. Prior `b4c038a` also has no verdict.
+A post-commit review call remains required for this repair. Local gates do not
+substitute for those external verdicts.
 
-The import model orders validation, durable original-container publication,
-other object publication, then active SQL commit. Provisional-file fsync is
-not directory durability. The model does not cover exact parser bytes, graph
-composition, upload-generation/nonce races, unsealed in-flight quota accounting,
-actual OS fsync semantics, foreign runtimes, or physical behavior.
-
-Original actors, requests, jobs, receipts, and acceptance claims remain inert
-data. Standard exports/device payloads do not gain authority from archives.
-The staged evidence opener hashes role-bounded objects outside control/database
-locks, retaining admission/capabilities and checking cancellation before and
-after; no hard filesystem I/O deadline is promised.
-
-## CLI and preview
-
-```sh
-pulsar package-import SOURCE --request-id START --begin-request-id BEGIN --seal-request-id SEAL
-pulsar package-import-status OP
-pulsar package-import-cancel OP
-pulsar package-import-resume OP SOURCE --begin-request-id BEGIN --seal-request-id SEAL
-```
-
-Resume is same-epoch only; interrupted imports require a deliberate new Start.
-Important project imports remain unqualified pending the full gate and review.
-
-The user confirmed a separately launched GUI visible and rendering normally.
-That running preview is a frozen pre-repair binary with isolated state and
-was left untouched. See [preview evidence](evidence/phase-b-portable-project/p1c-gui-preview.json).
-Visibility does not establish tracking, detector, media, or import correctness.
-
-## Review and remaining work
-
-Independent cached-delta review found no new confirmed defects in the
-P1C-008/009 repairs. Owner-run tests and root's separate component campaign
-are distinct from that source review.
-
-Required external review of P1b `b4c038a` again returned `Transport closed`;
-no external verdict exists. External review must be attempted after the
-checkpoint commit too. Commit/push must not be described as external approval.
-
-1. Obtain approval for the scanner identifier-boundary repair and regression.
-2. Rerun the complete unmodified qualification entry point after that repair; do not relabel the separate component run as a full pass.
-3. Obtain the required external review verdict and resolve confirmed findings.
-4. Continue P1d GUI/platform/relocation qualification and the remaining Good phase.
+P1d GUI portable workflows, relocation and platform qualification remain
+unfinished, as do broader neural/reference-performance/hardware gates.
+The previously visible GUI preview is still a frozen pre-repair binary with
+isolated state; it was not restarted by this repair.
 
 Unrelated `{`, `.pulsar-motion-artifacts-harness/`, and
-`crates/pulsar-core/src/lib.rs.orig` are excluded from the checkpoint commit.
+`crates/pulsar-core/src/lib.rs.orig` remain untouched and excluded.
+
+## Next work
+
+1. Obtain required external review verdicts and resolve confirmed findings.
+2. Continue P1d shared GUI import/export and platform/relocation qualification.
+3. Keep the remaining Good-phase and release gates explicit; this local pass is not phase completion.

@@ -1,6 +1,6 @@
 # ADR 0011: Fresh-project clone import and inert origin archives
 
-Status: Accepted P1c design; implementation and qualification are not complete.
+Status: Accepted P1c design; the full local import gate passes. External review and broader qualification remain unfinished.
 
 ## Authority and scope
 
@@ -73,7 +73,7 @@ reply before releasing the held original connection. The private test proxy
 forwards exact header/payload bytes and uses a barrier rather than sleep-based
 assumptions. The old opaque handshake failure remains unattributed.
 
-## Current acceptance boundary
+## Historical acceptance boundary at c9f4951
 
 Nine confirmed import defects have regression-backed repairs. A final-source
 component campaign passes 494 Rust tests and export/import lifecycle models.
@@ -82,3 +82,23 @@ unanchored ort:: scanner matches import-module names. Its correction is pending
 approval; the scanner is not weakened or bypassed in this checkpoint.
 External review remains unavailable. Commit/push is not phase or release
 acceptance. See PULSAR_PORTABLE_PROJECT_P1C_STATUS.md and p1c-final.json.
+
+## Scanner closure and current acceptance boundary
+
+The user approved correcting the source scanner rather than weakening the
+native-runtime boundary. Matching now requires whole Unicode Rust identifiers,
+supports raw identifiers and path-separator whitespace, and retains exact
+dispatcher-name checks. One pure helper is shared by the scanner and its
+36 regression cases. Cargo dependency checks are unchanged.
+
+Independent data-URL mutation QA killed the old unanchored expression and
+allow-all/reject-all substitutions through assertions. The guard remains
+lexical, not a Rust parser or transitive isolation proof.
+
+The complete import qualification entry point now passes: 104 architecture
+checks, 517 Rust test executions, 36 scanner tests, lifecycle models, actual
+worker evidence, and large streaming fixtures. Prior failed-gate artifacts
+remain historical. External review is still unavailable, P1d is unfinished,
+and no neural, physical, cross-platform, release, or Good-phase completion
+is implied. See PULSAR_PORTABLE_PROJECT_P1C_STATUS.md and the new
+p1c-scanner-closure.json evidence.

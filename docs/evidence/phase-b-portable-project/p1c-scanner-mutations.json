@@ -1,0 +1,39 @@
+{
+  "status": "PASS",
+  "source": "Independent agent report; root did not rerun this mutation campaign.",
+  "runtime": "Node v24.20.0",
+  "method": "Unchanged regression test bodies with data-URL helper-module substitutions; no filesystem writes.",
+  "child_command": "node --input-type=module --test-reporter=tap -",
+  "results": [
+    {
+      "matcher": "repaired",
+      "passed": 36,
+      "assertion_failures": 0,
+      "exit_code": 0
+    },
+    {
+      "matcher": "legacy_unanchored",
+      "passed": 18,
+      "assertion_failures": 18,
+      "exit_code": 1
+    },
+    {
+      "matcher": "allow_all",
+      "passed": 18,
+      "assertion_failures": 18,
+      "exit_code": 1
+    },
+    {
+      "matcher": "reject_all",
+      "passed": 17,
+      "assertion_failures": 19,
+      "exit_code": 1
+    }
+  ],
+  "all_discovered_test_counts": 36,
+  "failure_code": "ERR_ASSERTION",
+  "setup_import_errors": 0,
+  "signals": 0,
+  "timeouts": 0,
+  "limitations": "Lexical regression coverage only; not a parser, transitive dependency, neural, or physical correctness proof."
+}

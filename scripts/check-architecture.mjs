@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { hasForbiddenClientRuntimeReference } from "./architecture-source-guards.mjs";
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const metadata = JSON.parse(execFileSync("cargo", ["metadata", "--format-version", "1", "--no-deps", "--manifest-path", path.join(root,"Cargo.toml")], { encoding:"utf8" }));
@@ -47,7 +48,7 @@ check("composition-no-legacy-modules",!/^\s*(?:pub\s+)?mod\s+(audio|batch|funscr
 for(const pkg of expected) for(const file of rustFiles(path.join(root,"crates",pkg,"src"))) {
  const text=fs.readFileSync(file,"utf8");
  check("no-legacy-path-import:"+path.relative(root,file),!/#\[path\s*=\s*"[^"]*(?:legacy|\.\.\/\.\.\/\.\.\/src)/.test(text));
- if(pkg==="pulsar-clients") check("no-client-native-runtime:"+path.relative(root,file),!/(?:pulsar_engine::|ort::|serialport::|ButtplugDispatcher|HandyDispatcher)/.test(text));
+ if(pkg==="pulsar-clients") check("no-client-native-runtime:"+path.relative(root,file),!hasForbiddenClientRuntimeReference(text));
 }
 const productionFiles=[path.join(root,"Cargo.toml"),path.join(root,"Cargo.lock"),path.join(root,"src/main.rs"),...expected.flatMap(pkg=>[path.join(root,"crates",pkg,"Cargo.toml"),...rustFiles(path.join(root,"crates",pkg,"src"))])].filter(f=>fs.existsSync(f)).sort();
 const identity=crypto.createHash("sha256");

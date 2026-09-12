@@ -1,6 +1,6 @@
 # P1c independent review record
 
-Status: **Checkpoint: nine repaired defects; combined gate blocked by a scanner false positive.**
+Status: **Current: nine repaired defects; full local gate passed after scanner correction. External verdicts remain unavailable.**
 Not release qualification or external commit approval.
 
 ## Review method and boundaries
@@ -129,7 +129,7 @@ P1b commit b4c038a went through the required review tool, which returned
 Transport closed. No external verdict exists. Independent local review does
 not replace required external review. P1c remains uncommitted and unqualified.
 
-## Final source component campaign and combined-gate failure
+## Historical c9f4951 component campaign and combined-gate failure
 
 Root's final-source component campaign passed 494 Rust test executions,
 zero failed, exit 0. Export/import finite models passed their safe runs and
@@ -148,3 +148,28 @@ The required P1b external review retry again returned Transport closed.
 A post-commit tool call remains required; neither this independent review nor
 commit/push is an external verdict. See p1c-final.json for exact identities,
 commands, test groups, model outputs, and local measurement limits.
+
+## Approved scanner correction and full-gate closure
+
+The shared source guard now uses complete Unicode Rust identifier boundaries
+rather than matching the suffix ort:: inside import-module/type names. Direct
+Cargo dependency checks remain unchanged. Scanner and regression suite use
+the same helper; the import gate runs those regressions first.
+
+Independent mutation QA read only the new helper/test once and executed
+unchanged test bodies with data-URL module substitutions. Baseline passed
+36/36. The legacy matcher failed 18 assertions, allow-all failed 18, and
+reject-all failed 19. Each run discovered 36 tests, with no import/setup
+failure, signal, or timeout. This is lexical regression evidence, not a
+parser, alias-resolution, transitive-dependency, or physical proof.
+
+Root then completed the full qualification entry point with exit 0:
+104 architecture checks, 517 passing Rust test executions, 36 scanner tests,
+the lifecycle/model campaigns, actual worker evidence, and explicit large-file
+export/import cases. Earlier component results are not additive to this run.
+
+The c9f4951 external review retry still returned Transport closed. No external
+verdict exists; the scanner repair also requires its own post-commit call.
+The previous opaque handshake failure remains unattributed and the global
+request-journal cap remains separate debt. P1d and the broader Good phase are
+not complete.

@@ -1,0 +1,1036 @@
+{
+  "method": "SHA256 of sorted relative path NUL per-entry SHA256 NUL records; tracked-plus-explicit inputs excluding docs; symlinks hash link-target bytes; unrelated untracked artifacts excluded",
+  "source_sha256": "2aad12dbceeaa8c854da354b6c000c165635e610d367d2307018069f02b2569a",
+  "entries": [
+    {
+      "path": ".cargo/config.toml",
+      "type": "file",
+      "sha256": "8ea425180afe0e2fc0cd930d9a5dbd4da07aebe14263eeec4d6df9c7ab996a20"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "type": "file",
+      "sha256": "a856fb1729455f7d17053723114fef1ba464c69587e7733fd6e64661815068cc"
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "type": "file",
+      "sha256": "9c99046b104a9d7f38939b2124704905418463e91bd2a3d34a67cd589320184f"
+    },
+    {
+      "path": ".gitignore",
+      "type": "file",
+      "sha256": "44c92e3a70ad3307b7056871c2bdb096d8bfa9373f5bf06a79bb6324a20ff2fb"
+    },
+    {
+      "path": "Cargo.lock",
+      "type": "file",
+      "sha256": "538e9fd24cb44f346e919abc01ebf88b2af60067baadbcbba6693cfebeccecd4"
+    },
+    {
+      "path": "Cargo.toml",
+      "type": "file",
+      "sha256": "c6111ca1b5a6569bc9763c36226646b1bc6ae0e82a1715d987f71bdcd1dfe2b5"
+    },
+    {
+      "path": "LICENSE",
+      "type": "file",
+      "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+    },
+    {
+      "path": "README.md",
+      "type": "file",
+      "sha256": "ddcc0112f2c2265991b635a39eb92f42e2c2552154e06e7b2f2c894608bbf4eb"
+    },
+    {
+      "path": "assets/icons/hicolor/128x128/apps/pulsar.png",
+      "type": "file",
+      "sha256": "7509f07a71baf5efa2fdce380c0769976119b32a55854225fadfce073d90a136"
+    },
+    {
+      "path": "assets/icons/hicolor/16x16/apps/pulsar.png",
+      "type": "file",
+      "sha256": "512a467d9065f649926497efe9299bab3be6c473998bf34da83ea77793304812"
+    },
+    {
+      "path": "assets/icons/hicolor/256x256/apps/pulsar.png",
+      "type": "file",
+      "sha256": "7c17f97f3a1d9946cf3a885c8f5b421866215146ca2280bb631a4884db060e17"
+    },
+    {
+      "path": "assets/icons/hicolor/32x32/apps/pulsar.png",
+      "type": "file",
+      "sha256": "24067f3f828a708a84c2fab3cae62f09e174a397a1e092fd4561cfd82320509c"
+    },
+    {
+      "path": "assets/icons/hicolor/48x48/apps/pulsar.png",
+      "type": "file",
+      "sha256": "c251a6a10cac18134e7f6a1f848336aac75ccb4162d029f40b2226df0cd21ec5"
+    },
+    {
+      "path": "assets/icons/hicolor/512x512/apps/pulsar.png",
+      "type": "file",
+      "sha256": "8efb6d1968f89dc49e2d40d62ef82f95543dcc74f530e7aa7612fa0286b24531"
+    },
+    {
+      "path": "assets/icons/hicolor/64x64/apps/pulsar.png",
+      "type": "file",
+      "sha256": "2b28594f4fc4117c1299b8f1a1036469463b37e966c91f2315b32cf205ba4167"
+    },
+    {
+      "path": "assets/icons/pulsar.png",
+      "type": "file",
+      "sha256": "8efb6d1968f89dc49e2d40d62ef82f95543dcc74f530e7aa7612fa0286b24531"
+    },
+    {
+      "path": "assets/icons/scalable/apps/pulsar.svg",
+      "type": "file",
+      "sha256": "9ca71f3d958a03006ca1e386a041c620b5e215b8aef973ba6c1bffd8b6333089"
+    },
+    {
+      "path": "assets/mime/pulsar-mime.xml",
+      "type": "file",
+      "sha256": "60417020aab29d346c7264606c65293dc0163c7806f607858c996a2853c1a526"
+    },
+    {
+      "path": "assets/pulsar.desktop",
+      "type": "file",
+      "sha256": "6b2b46dd966a7df3ff2ca9623de9feabdcbf7de157cc0afd9ce3a6318e62f2bc"
+    },
+    {
+      "path": "assurance/MOTION_TRANSFERS.md",
+      "type": "file",
+      "sha256": "8e2ea6478c4ce62cbb0c9e312f9fc24763a58bf27efa74d6649373dda07d4f17"
+    },
+    {
+      "path": "assurance/PulsarLifecycle.cfg",
+      "type": "file",
+      "sha256": "5b3848c7f1cfb408325934ba6b47358458984f4f76159df217eb5b203fc62576"
+    },
+    {
+      "path": "assurance/PulsarLifecycle.tla",
+      "type": "file",
+      "sha256": "d52e3eea3df35afcc9a0240fafab93d36328ffb024e38932d6716d9ee12c0005"
+    },
+    {
+      "path": "assurance/PulsarPackageExport.cfg",
+      "type": "file",
+      "sha256": "9963a77884ece34875ecb7193d39e761c9d4c37afd2919ffef51a3a31a2b9196"
+    },
+    {
+      "path": "assurance/PulsarPackageExport.md",
+      "type": "file",
+      "sha256": "f9b0ae4432ac3cc81c326a24ad5b90dcad5e1ef203f313134335db347e80226c"
+    },
+    {
+      "path": "assurance/PulsarPackageExport.tla",
+      "type": "file",
+      "sha256": "b7fbaf9f7a5ac29c5d28c9d4486b29b7fde82b2886466d5867087ac523c3bfc8"
+    },
+    {
+      "path": "assurance/PulsarPackageImport.cfg",
+      "type": "file",
+      "sha256": "5b9a681a26130c4afe74612158f7e007700cafb2e025be039f6fc33f5cb7dfd7"
+    },
+    {
+      "path": "assurance/PulsarPackageImport.md",
+      "type": "file",
+      "sha256": "9a0afaa105bc69f63e825feb2018f3d3cb079f871f6a342ec80f70f494cccdfe"
+    },
+    {
+      "path": "assurance/PulsarPackageImport.tla",
+      "type": "file",
+      "sha256": "b3089ad3b0dffa4f8e53f5154bcd9ad4815bc72b8b562149e953a104dd60c91e"
+    },
+    {
+      "path": "assurance/PulsarTransfers.cfg",
+      "type": "file",
+      "sha256": "6ee539ee7dbf1356949041575843c912c764edae5d7f6e78378e717d10fb840b"
+    },
+    {
+      "path": "assurance/PulsarTransfers.tla",
+      "type": "file",
+      "sha256": "00caebfd6c1c0e13d9cb5329b3a23ccc4068d5b8db571b4f5b44652de3018c7f"
+    },
+    {
+      "path": "assurance/README.md",
+      "type": "file",
+      "sha256": "2716921c0439193f23e88e6f43c8ea86da8f83ff49b2c908b27cbfbd1ca7b0f8"
+    },
+    {
+      "path": "assurance/check-lifecycle.sh",
+      "type": "file",
+      "sha256": "68f17e58a1026814ca8c7b6319bec4b3eb23dcd616cf06364f718f2f492da720"
+    },
+    {
+      "path": "crates/pulsar-clients/Cargo.toml",
+      "type": "file",
+      "sha256": "06a2c851743279c03700b1a8f02e72e76a016f9168ba9ea2d707127204ef050e"
+    },
+    {
+      "path": "crates/pulsar-clients/README.md",
+      "type": "file",
+      "sha256": "7619259a38360e70969769a4fd282ed42c2ae947b7a1a728aaf10aa902e3336a"
+    },
+    {
+      "path": "crates/pulsar-clients/src/cli.rs",
+      "type": "file",
+      "sha256": "fe234a578765fa073cd280500fba5be2f50cb773e219ce836abc06f9a9409eac"
+    },
+    {
+      "path": "crates/pulsar-clients/src/desktop.rs",
+      "type": "file",
+      "sha256": "14d7179169a46346dc4e982c633d8ada2f1e1d99d9a5529d17f7142d35a82362"
+    },
+    {
+      "path": "crates/pulsar-clients/src/editor.rs",
+      "type": "file",
+      "sha256": "565faee14d67b5abba26d379cdf62a09c45b6f18cc0160c8e3241e38fdd6ce16"
+    },
+    {
+      "path": "crates/pulsar-clients/src/lib.rs",
+      "type": "file",
+      "sha256": "c4c5c5706aba5bf4514b498b11800cddcfbaee0a9f950fd43ca06b3bb143937f"
+    },
+    {
+      "path": "crates/pulsar-clients/src/modality.rs",
+      "type": "file",
+      "sha256": "414042335dd548fd0a249e32a899f69e0b884e825256da18cf578afe3e083a88"
+    },
+    {
+      "path": "crates/pulsar-clients/src/motion.rs",
+      "type": "file",
+      "sha256": "004b686776351cb20a161c2fb1d899cc8137841bf2f9574666a377a612bd1ee3"
+    },
+    {
+      "path": "crates/pulsar-clients/src/preview.rs",
+      "type": "file",
+      "sha256": "05b575e6527c2c51a40ecbe0635323efaa7f36bcdf86a250cc21806323eb6f59"
+    },
+    {
+      "path": "crates/pulsar-clients/src/project_package.rs",
+      "type": "file",
+      "sha256": "7a0908cc68407c2bf6221705ebee88762ffe1cc027a982f52f763fa467822ba2"
+    },
+    {
+      "path": "crates/pulsar-clients/src/project_package_import.rs",
+      "type": "file",
+      "sha256": "868d551fe7cf5a5a7cdb1098880680c401ee6a98a57dc4b7b641b1a164d31ee4"
+    },
+    {
+      "path": "crates/pulsar-clients/src/session.rs",
+      "type": "file",
+      "sha256": "2ac3d4fb9d5a9cde1708ecdc549bbbf12f418145391dce0511c3868ad147707d"
+    },
+    {
+      "path": "crates/pulsar-core/Cargo.toml",
+      "type": "file",
+      "sha256": "22ce6bc900a35af5934f346d49d8ea4d9dd4cc2847b967777d94bdae008e5bef"
+    },
+    {
+      "path": "crates/pulsar-core/src/authority.rs",
+      "type": "file",
+      "sha256": "1da9fbfc399df8a70953598d6b9287ef05b479d1dd9d1026628738dc8edd41ba"
+    },
+    {
+      "path": "crates/pulsar-core/src/device.rs",
+      "type": "file",
+      "sha256": "21eced09ec85ada7e4158b0f0bfc558c6821b9e2b544f190decd17bd68bbd72e"
+    },
+    {
+      "path": "crates/pulsar-core/src/dsp.rs",
+      "type": "file",
+      "sha256": "bb5a1a2bc67d8299212f32d1c69f5056e19040ee25ee1c16203686fa744dd0be"
+    },
+    {
+      "path": "crates/pulsar-core/src/edit_values.rs",
+      "type": "file",
+      "sha256": "6edc0c93b19104562406188f596790677d78c55169b02c8e5f5120fa8c90b363"
+    },
+    {
+      "path": "crates/pulsar-core/src/editing.rs",
+      "type": "file",
+      "sha256": "6b8ab0bdf1d87f5990596588f53503607570fb5d97104aefbd818098a653b619"
+    },
+    {
+      "path": "crates/pulsar-core/src/geometry.rs",
+      "type": "file",
+      "sha256": "aa7f39406bf9c0e51ee9a4533ed7cc78b965b3d3815cecf445a7814363b91756"
+    },
+    {
+      "path": "crates/pulsar-core/src/ids.rs",
+      "type": "file",
+      "sha256": "2cb5cdafdb55b27deeaf42df1dd3e41d19b58135db1740b295b40661e85d922a"
+    },
+    {
+      "path": "crates/pulsar-core/src/jobs.rs",
+      "type": "file",
+      "sha256": "1a34b1dc21919f783ed39f214154a0358c5b2b470bff0ae030c3a21524b86107"
+    },
+    {
+      "path": "crates/pulsar-core/src/lib.rs",
+      "type": "file",
+      "sha256": "5d64262ff3129ea8b7470edb78d41fe1a4cc4384c6b6902cf4f5b9a2366de6f3"
+    },
+    {
+      "path": "crates/pulsar-core/src/motion.rs",
+      "type": "file",
+      "sha256": "b5ea5066a1ee38e1223a5773d809dbeb7606182c812e467e01171be8f27d9c84"
+    },
+    {
+      "path": "crates/pulsar-core/src/perception.rs",
+      "type": "file",
+      "sha256": "c8df01bfb866ad97c50754e967c61bb7b05541f360fab13d9b38e32bd198c296"
+    },
+    {
+      "path": "crates/pulsar-core/src/project.rs",
+      "type": "file",
+      "sha256": "f434db4cea165ddaeac1b906f626b7ec094688a9a0bb1607da1fec0ecb1b8c4c"
+    },
+    {
+      "path": "crates/pulsar-core/src/proofs.rs",
+      "type": "file",
+      "sha256": "faef7e7e2cd738be979653b031fb4f3e8680c7ed284b29dee360826ffad51cd1"
+    },
+    {
+      "path": "crates/pulsar-core/src/synthesis.rs",
+      "type": "file",
+      "sha256": "d9513f5a32829c042af3bbc02fd05fea41beb82b8f96b7ff4d38a7bc32c7232a"
+    },
+    {
+      "path": "crates/pulsar-core/src/time.rs",
+      "type": "file",
+      "sha256": "6e055d5cabc3ae3b786ed8bfb9372f2efa6f2b2fe63894f931e78c94741629dc"
+    },
+    {
+      "path": "crates/pulsar-core/tests/contracts.rs",
+      "type": "file",
+      "sha256": "0e520eb0e6bc341c9ce76c24ffb50914b81e6c82cedd0ab84bf073084130a178"
+    },
+    {
+      "path": "crates/pulsar-core/tests/dsp.rs",
+      "type": "file",
+      "sha256": "389469931e13d813bad4c68800f5de778b122e68012cc252d2251a6e0745ddb6"
+    },
+    {
+      "path": "crates/pulsar-core/tests/edit_values.rs",
+      "type": "file",
+      "sha256": "ea610c1a7927f7c7a7f6b57bc0934e60770a432e67b52a03b01cba1200e67034"
+    },
+    {
+      "path": "crates/pulsar-core/tests/editing.rs",
+      "type": "file",
+      "sha256": "0827620799fb0b98f12275190d4e9ea288b974f2810d69e45fd01c338d0be7ab"
+    },
+    {
+      "path": "crates/pulsar-core/tests/perception.rs",
+      "type": "file",
+      "sha256": "0deebcdaafc86fb031ec785076811f3495cdbcb8791b4f2673c757821740eaf5"
+    },
+    {
+      "path": "crates/pulsar-core/tests/synthesis.rs",
+      "type": "file",
+      "sha256": "9fcac8a66235b6e345c20b9e7ca79d3e60b2ed96ce61f8360b9f401e10a561c1"
+    },
+    {
+      "path": "crates/pulsar-engine/Cargo.toml",
+      "type": "file",
+      "sha256": "5ba183bf0fec090fc029fea9b992704d41981a735eaa20349194ebdcee79c199"
+    },
+    {
+      "path": "crates/pulsar-engine/src/artifacts.rs",
+      "type": "file",
+      "sha256": "9414863ac04357778dbd15e08cf80cd293a55e074177e7a43316d9ab0147c61a"
+    },
+    {
+      "path": "crates/pulsar-engine/src/authority.rs",
+      "type": "file",
+      "sha256": "627510fd45ec26564bd6540ac40f626cbbb13cc0b617dcf0ee29d777d8d55e4f"
+    },
+    {
+      "path": "crates/pulsar-engine/src/bulk.rs",
+      "type": "file",
+      "sha256": "d907fe17e0e6b146c011b20dffaafeee5779317693a64bce8bd7a33b413ca5f8"
+    },
+    {
+      "path": "crates/pulsar-engine/src/cgroup.rs",
+      "type": "file",
+      "sha256": "8850ceff3dc99616d01ca7ce015b7c90151d0711de82b7e9de38cf100217d6a3"
+    },
+    {
+      "path": "crates/pulsar-engine/src/editing.rs",
+      "type": "file",
+      "sha256": "b64bc8ea55ef47cc213e7535cd461647b09459d79944a41d3e49f1a5534e7f4f"
+    },
+    {
+      "path": "crates/pulsar-engine/src/instance.rs",
+      "type": "file",
+      "sha256": "ceddba05b8053f0a65d7c3f611c635b05f3b5971c904403726e288a3b9e40727"
+    },
+    {
+      "path": "crates/pulsar-engine/src/launch.rs",
+      "type": "file",
+      "sha256": "54d78a9fe8f2b97165f0fe8474895fc92391b0d247fdd68d3a461f89ebd4cadb"
+    },
+    {
+      "path": "crates/pulsar-engine/src/lib.rs",
+      "type": "file",
+      "sha256": "f6431793673bb3946fdd614d272e8d96a70393ae72e0307c19a6955b99caf79b"
+    },
+    {
+      "path": "crates/pulsar-engine/src/lineage.rs",
+      "type": "file",
+      "sha256": "11f1d00c1b81e8f17e242fda50d6a44d92ff7c6aa9468e9e5162633b7feb3671"
+    },
+    {
+      "path": "crates/pulsar-engine/src/motion_artifacts.rs",
+      "type": "file",
+      "sha256": "cc0c4dc3cb5bf9181234ef86d951f6e56846a5e0700651359253d5d42901b1dd"
+    },
+    {
+      "path": "crates/pulsar-engine/src/motion_state.rs",
+      "type": "file",
+      "sha256": "11caf29dad686066194821de1a4532e6216d4f7ff1e8fc2c95fd984be61839d0"
+    },
+    {
+      "path": "crates/pulsar-engine/src/project_package_exports.rs",
+      "type": "file",
+      "sha256": "c4c1a02a6c270fb0736b5871aed0dad454736a6fc22d315fa62af8df125d34ad"
+    },
+    {
+      "path": "crates/pulsar-engine/src/project_package_format.rs",
+      "type": "file",
+      "sha256": "ced3902318996529f8b5111c32680171995cf2bc35f462e11d22e070110144f7"
+    },
+    {
+      "path": "crates/pulsar-engine/src/project_package_import_plan.rs",
+      "type": "file",
+      "sha256": "fc61035e5d6d2b7dab81f52beff143437b3bba897ebba6f050ceafe936957cce"
+    },
+    {
+      "path": "crates/pulsar-engine/src/project_package_import_storage.rs",
+      "type": "file",
+      "sha256": "1c1f7a6bab7ebd2af8ad124048579c3936826d4b9457c286645c9cf23915da96"
+    },
+    {
+      "path": "crates/pulsar-engine/src/project_package_imports.rs",
+      "type": "file",
+      "sha256": "ccd0ff2c014dc6d0016321735e0ade69871d7b389cf5c1057fb26cbc7ab166e6"
+    },
+    {
+      "path": "crates/pulsar-engine/src/project_package_storage.rs",
+      "type": "file",
+      "sha256": "55f2035dca9c620bfb24181bcb4635e4db985bb5e88b953f4b11ebbaa23f9705"
+    },
+    {
+      "path": "crates/pulsar-engine/src/project_packages.rs",
+      "type": "file",
+      "sha256": "caae7442b4e1173cdcddb219175a3aecdef2cad44d06e9f463f942e93eae32ee"
+    },
+    {
+      "path": "crates/pulsar-engine/src/resources.rs",
+      "type": "file",
+      "sha256": "78f2344f9905f295e9992be18734744a49c1e47a6ed5c0edbd58e087992255ac"
+    },
+    {
+      "path": "crates/pulsar-engine/src/source_kinds.rs",
+      "type": "file",
+      "sha256": "4d2c467bb32dd44e9a4217b0c7c884eb2b1cf8c2538a19da2582a262f181589b"
+    },
+    {
+      "path": "crates/pulsar-engine/src/transfers.rs",
+      "type": "file",
+      "sha256": "920d42081f167f48ca08d72754d4d371833227580560034c30b19da607499710"
+    },
+    {
+      "path": "crates/pulsar-engine/src/worker/artifacts.rs",
+      "type": "file",
+      "sha256": "cf9e13f91b9c7bd5b7327f3a92f7c0fb8dc6b874ca6d109869648fee91cfdec3"
+    },
+    {
+      "path": "crates/pulsar-engine/src/worker/audio.rs",
+      "type": "file",
+      "sha256": "f4c6a40253c37dc218e2d9360a446ebd42f63920259466c2e5854fc85ab5a9e1"
+    },
+    {
+      "path": "crates/pulsar-engine/src/worker/detector.rs",
+      "type": "file",
+      "sha256": "7465fe3c4a826e88f525457fc899b57aba03cb8e1d857d58a0d7fe47b74abe17"
+    },
+    {
+      "path": "crates/pulsar-engine/src/worker/good_tests.rs",
+      "type": "file",
+      "sha256": "6c0d853ac655d5897e3fffc3940b1bd6d2e4e7e37e529662f518d82dcde8bcb0"
+    },
+    {
+      "path": "crates/pulsar-engine/src/worker/inputs.rs",
+      "type": "file",
+      "sha256": "3474f0627c720d0abeacedc0418b8cd45c5406dce7fc66274915e4bebbf6864a"
+    },
+    {
+      "path": "crates/pulsar-engine/src/worker/integration_tests.rs",
+      "type": "file",
+      "sha256": "51ba3c0cfd19f64cb5220c73005f7ac0bcf6f8ad6f456012a9696bbdabd7c46a"
+    },
+    {
+      "path": "crates/pulsar-engine/src/worker/media.rs",
+      "type": "file",
+      "sha256": "2df9101aa5e70cd459911803ef05967b5c2fb040c96cc229d1ef5032c8ed09dc"
+    },
+    {
+      "path": "crates/pulsar-engine/src/worker/mod.rs",
+      "type": "file",
+      "sha256": "e520bfb7a35e9d2c4eb318e095001ecb58c8d3348cd96dcd29b80dcbd9d737f3"
+    },
+    {
+      "path": "crates/pulsar-engine/src/worker/tracking.rs",
+      "type": "file",
+      "sha256": "62511ff56a6acf18a01e56335b90e386de6f451bb9671aeb229500ddda725c8f"
+    },
+    {
+      "path": "crates/pulsar-engine/tests/project_package_closure/mod.rs",
+      "type": "file",
+      "sha256": "5ab7a19eec18c410a6b7a74e904ff13a1f87428df7d46f0548fb6470ff0ca3c1"
+    },
+    {
+      "path": "crates/pulsar-protocol/Cargo.toml",
+      "type": "file",
+      "sha256": "0f9d391ff045637713772d165c3a85fd266cc0c9c78ddd705b29ea7609f4bb9f"
+    },
+    {
+      "path": "crates/pulsar-protocol/PROTOCOL.md",
+      "type": "file",
+      "sha256": "c1d93641ab029d1e744c10907ecef94431740d431311542d2da4077f47104ca5"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/bulk.rs",
+      "type": "file",
+      "sha256": "437307377b7e89a7c819b232b9b9417dc9f86eee4c96dbc118c392d73a26e96a"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/framing.rs",
+      "type": "file",
+      "sha256": "ae4c728e3f2ebd842c000392e0b3aa362e8bf7b4faa496c69aecf6e3f61245b5"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/generation.rs",
+      "type": "file",
+      "sha256": "a34a62436604d22ed5ac4c335ee1adea88c54075008190d83887720aec59df9c"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/lib.rs",
+      "type": "file",
+      "sha256": "170cf1381bdda74de278a6da3ad4cebbe637164580a5cd2aaf8e9cdb55ed95e7"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/motion.rs",
+      "type": "file",
+      "sha256": "33585c4e4d2b724e10e80f931f4a52d364a0c794b251d98c04d62044fc06f219"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/project_package.rs",
+      "type": "file",
+      "sha256": "390a1611542d8fea23bac8786fe7d798ecc683ee59eaf28201f165dbbbc420fa"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/project_package_download.rs",
+      "type": "file",
+      "sha256": "8593570d4e289e270e28f97763309a20d3112e01e1c5087573f4999979c84cc9"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/project_package_import_operations.rs",
+      "type": "file",
+      "sha256": "0f44c20c257b92328f3b64f72bd008c1f090bde8e855f3d421e6ba02044d9da0"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/project_package_operations.rs",
+      "type": "file",
+      "sha256": "e2580a77dbf6da7152a29715806e3753852b7ddbaa72e577e4c259d63b3f3a70"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/project_package_origins.rs",
+      "type": "file",
+      "sha256": "ade9146e92e89a742d57404a1d416b69cd793af4898753dd40869b27ca24482e"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/project_package_upload.rs",
+      "type": "file",
+      "sha256": "77565f21f886b5efd258c8d07ff4721977d2429bc9a7afb656819c1757c2a858"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/transport.rs",
+      "type": "file",
+      "sha256": "6bca5d713d9155a789b5406fe11d16df181e0a6f28a491da31be8495a6ce498d"
+    },
+    {
+      "path": "crates/pulsar-protocol/src/worker.rs",
+      "type": "file",
+      "sha256": "dcc1d9e06dac4bd6f58e9248a642bf3ba13414033f2b256d8472fdfeadca2c10"
+    },
+    {
+      "path": "crates/pulsar-protocol/tests/axis_export_contracts.rs",
+      "type": "file",
+      "sha256": "808a030d1914dd302124e93032c1a8a62a14cf8ae8090f468513830662e3ab3f"
+    },
+    {
+      "path": "crates/pulsar-protocol/tests/bulk_transport.rs",
+      "type": "file",
+      "sha256": "85e8f41e29f7fc8beef7339c33fe249d8a33a9b1973170c78191b3a33edd0241"
+    },
+    {
+      "path": "crates/pulsar-protocol/tests/connect_deadline.rs",
+      "type": "file",
+      "sha256": "b3f7df84eb1ee9fa2772162523c01957009d8203c28145201dda5ad5bc7b078c"
+    },
+    {
+      "path": "crates/pulsar-protocol/tests/contracts.rs",
+      "type": "file",
+      "sha256": "7f328a32ce13da241c1ecf18aef4eb58fd328eace4bc2a5647b09dd028922a4b"
+    },
+    {
+      "path": "crates/pulsar-protocol/tests/generation_contracts.rs",
+      "type": "file",
+      "sha256": "5f95c322428a1ee36b31fb71e06b43d6542c16e0049a4b80e06377fd88c47963"
+    },
+    {
+      "path": "crates/pulsar-protocol/tests/large_motion_contracts.rs",
+      "type": "file",
+      "sha256": "e3c6c2609f1e9bd3f8ae603845ac805ba2d92826898df7cb52907009cb6b1ac8"
+    },
+    {
+      "path": "crates/pulsar-protocol/tests/local_client_deadline.rs",
+      "type": "file",
+      "sha256": "7763965e6d397cf08ef64a57333c5e9c23c168ef36e6bb49313ee79b656e2916"
+    },
+    {
+      "path": "crates/pulsar-protocol/tests/package_upload_contention.rs",
+      "type": "file",
+      "sha256": "c5297794de489ed48e7f74ca63eaeb4fa78bb188d57b5d9254f8672d4a806dfb"
+    },
+    {
+      "path": "crates/pulsar-protocol/tests/project_package_import.rs",
+      "type": "file",
+      "sha256": "3e494faeb715e78cd67f1bf3c3fbfead65f00f270f32abc5a79a2b45a3155490"
+    },
+    {
+      "path": "crates/pulsar-protocol/tests/source_kind_contracts.rs",
+      "type": "file",
+      "sha256": "590467b7872b73ca246f753d401415f3d106b797dce0b75884c34f177cdc4e55"
+    },
+    {
+      "path": "install.sh",
+      "type": "file",
+      "sha256": "85229325770646c4644b1ef7b171e7f319b78bffed70b038af502fb245afa6f7"
+    },
+    {
+      "path": "legacy/pre-engine/Cargo.toml",
+      "type": "file",
+      "sha256": "256b9361d7af60415613e2230fdc2b7da2a807bd64a9fbf0e69578964b01a446"
+    },
+    {
+      "path": "legacy/pre-engine/README.md",
+      "type": "file",
+      "sha256": "4f499170f4519acdcd6242c0f1083eead466229ea66e7ea835fe36fc977c28c4"
+    },
+    {
+      "path": "legacy/pre-engine/main.rs",
+      "type": "file",
+      "sha256": "7fe35877ccae9040206f39f58cc1876b67b26596c64331fb3055384c0217853b"
+    },
+    {
+      "path": "legacy/pre-engine/src/audio.rs",
+      "type": "file",
+      "sha256": "4479fb0e0750665fdd627eff6e4c33d15e48d9b5a7e8dfa3c67a3b1483db54e0"
+    },
+    {
+      "path": "legacy/pre-engine/src/audio/spectral.rs",
+      "type": "file",
+      "sha256": "ca32d7cddd56c97169f57c0089b4ad15598c22d9667256bfbe5b48335550b2e8"
+    },
+    {
+      "path": "legacy/pre-engine/src/batch/detector.rs",
+      "type": "file",
+      "sha256": "ab3b2eb46b2bf014eb3a58f60dfecabeb1c4d8e4dd9e2ee0be31243f33736f26"
+    },
+    {
+      "path": "legacy/pre-engine/src/batch/mod.rs",
+      "type": "file",
+      "sha256": "45fb380460fba9f04a6a85ab3e13ffb3747ffba1cc04327604c59ef2042ffb42"
+    },
+    {
+      "path": "legacy/pre-engine/src/batch/queue.rs",
+      "type": "file",
+      "sha256": "c066310914db20167ca046876169e3518f67b1b3d2790a6642f9833a0ed262da"
+    },
+    {
+      "path": "legacy/pre-engine/src/funscript.rs",
+      "type": "file",
+      "sha256": "9e1a9abc34115255c70b94d2cbdfd80eaa08f9bd804e54cf8f4f4908caa061c5"
+    },
+    {
+      "path": "legacy/pre-engine/src/gui/app.rs",
+      "type": "file",
+      "sha256": "a8c7174de1401e90dec2dd371220fdc7a8ce20826a111f3a4783c91293983bf2"
+    },
+    {
+      "path": "legacy/pre-engine/src/gui/live_recorder.rs",
+      "type": "file",
+      "sha256": "31851a747b0457031453802601a18d85a793553fb165fd4f6560483e32575f3a"
+    },
+    {
+      "path": "legacy/pre-engine/src/gui/mod.rs",
+      "type": "file",
+      "sha256": "602f485a25d6a010258ac0be11e2f840fc920e8d6ba13a6284d4f577e7867e39"
+    },
+    {
+      "path": "legacy/pre-engine/src/gui/rig_simulator.rs",
+      "type": "file",
+      "sha256": "6b6f17a12a992b9cb518ddf5687f1817397affc83c5513c4d1b5a5557b081f00"
+    },
+    {
+      "path": "legacy/pre-engine/src/gui/timeline.rs",
+      "type": "file",
+      "sha256": "bdc495f349d093f2543e3b431c850edc8ff653ce134f8bf890ad5c18367611e0"
+    },
+    {
+      "path": "legacy/pre-engine/src/kinematics/device.rs",
+      "type": "file",
+      "sha256": "f08c15971eb62fc851e2db1c83ffe6a6507773bce8792d005226a43abd642798"
+    },
+    {
+      "path": "legacy/pre-engine/src/kinematics/mod.rs",
+      "type": "file",
+      "sha256": "1c5d863947f627316c761bf05fc1e6329c1803fd0d6cf20efeb229adb27af832"
+    },
+    {
+      "path": "legacy/pre-engine/src/kinematics/rig.rs",
+      "type": "file",
+      "sha256": "cdffc8f50b9e01d4918dac6fa5c4f0a302b4047e032879bb3fa3f7dacd323557"
+    },
+    {
+      "path": "legacy/pre-engine/src/kinematics/scurve.rs",
+      "type": "file",
+      "sha256": "e2e04d3d009655a6d55726af32d7e8490f2c41e85beebfd35eab36bcff5dbc2b"
+    },
+    {
+      "path": "legacy/pre-engine/src/kinematics/thermal.rs",
+      "type": "file",
+      "sha256": "644bd2017e6d39bbfed2a517b7d21ceaab5964288a317eb53c0f2d31bd10f81a"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/hypothesis.rs",
+      "type": "file",
+      "sha256": "e622fb8c5dda0dc35bd82f1382b9653bc21b45a03341fbcfb8d3b3bec66adc8a"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/mod.rs",
+      "type": "file",
+      "sha256": "941440cdf8b9acfebf0dd3daec1df4d84b271dbcabbb0584fa753361ca24b0f7"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/model_manager.rs",
+      "type": "file",
+      "sha256": "e825e7d38be2ee7a07bdfa3756eec7d9c5c2d37b74994989d13df6367a0ee7ee"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/pipeline.rs",
+      "type": "file",
+      "sha256": "9d8d3e977c132c8947d1e912c58c6132d9c09efb8acb261c01e2994f9aa547a9"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/point_tracker.rs",
+      "type": "file",
+      "sha256": "f44197e8b214460d50f17f2d04297b53474ed9f39d17d601b4ecb6be5c570c67"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/pose.rs",
+      "type": "file",
+      "sha256": "b889d1a83e7a28cabd4839124d5f2184f006e793880f534a43b797e6286cc4c8"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/router.rs",
+      "type": "file",
+      "sha256": "b60236164cc8a6f99168c7a8c5b84ca4fe439469bf2dc2b55127021480f228e0"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/sam.rs",
+      "type": "file",
+      "sha256": "d10145186c434052720d811d63702faea0bb49405f48a084a98cd44eb31e27ab"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/tracker.rs",
+      "type": "file",
+      "sha256": "29a12510f846dda98859d806983e5e8489bf54062abdde8dc15c85a7a0897086"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/yolo.rs",
+      "type": "file",
+      "sha256": "b80f19c6b6e5528843ead390649afc4e4f9819487ef2578280dfc051c35f457b"
+    },
+    {
+      "path": "legacy/pre-engine/src/neural/yolo26.rs",
+      "type": "file",
+      "sha256": "fad06dd98c2918dbed601ee3a65fd99262d96b462559be71d1fdb0602df5512e"
+    },
+    {
+      "path": "legacy/pre-engine/src/plugin/engine.rs",
+      "type": "file",
+      "sha256": "1346064af93bf610e2bf58d369e09f49fa662f7aae6da88f541ef111236b3741"
+    },
+    {
+      "path": "legacy/pre-engine/src/plugin/mod.rs",
+      "type": "file",
+      "sha256": "3dae8ca2041eccd794de24304342bb7a622107d547e0160afceadb0556568e29"
+    },
+    {
+      "path": "legacy/pre-engine/src/signal.rs",
+      "type": "file",
+      "sha256": "e5b5dd62788c4d5a1d22da47513ab8c4735221f5e3f6131d9f65e300e326e8ab"
+    },
+    {
+      "path": "legacy/pre-engine/src/stash/client.rs",
+      "type": "file",
+      "sha256": "0ccbb44e03ad5036eeca19616ea48a0c0cfe2e7a02182a5db4e914b2587e4d4e"
+    },
+    {
+      "path": "legacy/pre-engine/src/stash/mod.rs",
+      "type": "file",
+      "sha256": "0bb084bf0216cc64169a9f002bf7c06e564e86cf420f574a63f12318609d9892"
+    },
+    {
+      "path": "legacy/pre-engine/src/sync/buttplug.rs",
+      "type": "file",
+      "sha256": "8ad7714566aac8b6b4d3948e2dce7fdd158e05872cd9e00cfd36f44e9eb255d7"
+    },
+    {
+      "path": "legacy/pre-engine/src/sync/handy.rs",
+      "type": "file",
+      "sha256": "7bc85a1c8ac9e947a2d311e4d62aed378d740230550d070fbd617192f5ca7d75"
+    },
+    {
+      "path": "legacy/pre-engine/src/sync/mod.rs",
+      "type": "file",
+      "sha256": "1e0fb4b495f1e23ae818cb4fa87f224fd9ad61fc5a0eac747f07eb02547a075e"
+    },
+    {
+      "path": "legacy/pre-engine/src/sync/serial.rs",
+      "type": "file",
+      "sha256": "a14d0c13b433732eae0566c27e5e90a9eae9c889711eaf7adb8ca671ee506ac2"
+    },
+    {
+      "path": "legacy/pre-engine/src/sync/tcode.rs",
+      "type": "file",
+      "sha256": "f62dc4efde26499f5ceba5d2e8c2a56265881080d89506459ea19051389662e7"
+    },
+    {
+      "path": "legacy/pre-engine/src/sync/vr.rs",
+      "type": "file",
+      "sha256": "0f626d6e8b413a5d39a10ab709bde15c20891634f99c461e1c39be203cad14e0"
+    },
+    {
+      "path": "legacy/pre-engine/src/tracking.rs",
+      "type": "file",
+      "sha256": "4c5c4baf0531f40f18163c3e04c005e7ac5a3533315f5e728606ec298d4cc6f3"
+    },
+    {
+      "path": "legacy/pre-engine/src/video.rs",
+      "type": "file",
+      "sha256": "82b798df65e41a51f5460ebb73543213e6bd90b332a232fc9bd8e46f5510d239"
+    },
+    {
+      "path": "research/phase-b/ADR-B1-001-evaluation-protocol.md",
+      "type": "file",
+      "sha256": "1fc3c6be4e19a880bb939db216fbf7e89f348113a8dede7a6bed3892395971bd"
+    },
+    {
+      "path": "research/phase-b/B1-RESULTS.md",
+      "type": "file",
+      "sha256": "886479f657e9e1c46dd964d171e03dfca81e97fe24ad79536a1bf63654baa43f"
+    },
+    {
+      "path": "research/phase-b/B1-SUCCESSOR-2026-09-11.md",
+      "type": "file",
+      "sha256": "eed6278dd9ca0acbb88188be04c4a5fa9cf2a5e9ab83a4678a1a6ff58df36dc6"
+    },
+    {
+      "path": "research/phase-b/README.md",
+      "type": "file",
+      "sha256": "3891269b3aefd13b1c1d5b9a10cc566c790ddcd26628b0da65f241eb53ecfa55"
+    },
+    {
+      "path": "research/phase-b/artifact-tests.mjs",
+      "type": "file",
+      "sha256": "c9aee22251578297269f938f093273752160f420cd168714e965bddc403f5be1"
+    },
+    {
+      "path": "research/phase-b/corpus.pending.json",
+      "type": "file",
+      "sha256": "feeb4f379cac97fb84cbfdc1baf197a556e9d5ea6f83980a156c957047e86119"
+    },
+    {
+      "path": "research/phase-b/fixtures/metric-kat.json",
+      "type": "file",
+      "sha256": "31753803dc76478fd4c9aeec04bd8976df4e6104425ea60c896d460e49278a65"
+    },
+    {
+      "path": "research/phase-b/fixtures/synthetic-candidate.json",
+      "type": "file",
+      "sha256": "027c710ee958b283f479ede87d89eb7c8542ae955c27042074bea0cf3f3e477e"
+    },
+    {
+      "path": "research/phase-b/fixtures/synthetic-corpus.json",
+      "type": "file",
+      "sha256": "21f07be06f42c6cfc406f1b2c44e587ae5793138db4d6b772134e0637a7a1830"
+    },
+    {
+      "path": "research/phase-b/fixtures/synthetic-reference.json",
+      "type": "file",
+      "sha256": "b48bbd5a5d8401100f5ef1504195dce82e22188bc75d373107b719f4fa9723b9"
+    },
+    {
+      "path": "research/phase-b/fixtures/synthetic-source.json",
+      "type": "file",
+      "sha256": "8e80de50138586e4eb2c7b08f8c8192cbaad6dcfff722c84ffa2f9be7a289b6a"
+    },
+    {
+      "path": "research/phase-b/historical-regressions.json",
+      "type": "file",
+      "sha256": "1ed992a14efd8479a770703a6da848d1cc2562b86142cbb9c169af59751fa68b"
+    },
+    {
+      "path": "research/phase-b/regressions/current-contract-correspondence-2026-09-11-successor.json",
+      "type": "file",
+      "sha256": "f31c525d22a55da3ebb247309f6265fb6193215a8dac42e8278d0f0663458805"
+    },
+    {
+      "path": "research/phase-b/regressions/current-contract-correspondence.json",
+      "type": "file",
+      "sha256": "14b03135d05f3d24b6a9ac073b93988d858e5bd4172398dac4a925236f5f5e5f"
+    },
+    {
+      "path": "research/phase-b/regressions/legacy-20.json",
+      "type": "file",
+      "sha256": "0514bbc2f8a160007080a8e8a5e92e2160b8408471a1f9e4401e0b665c9e8315"
+    },
+    {
+      "path": "research/phase-b/results/b1-artifact-binding.json",
+      "type": "file",
+      "sha256": "f3be2d96ab27e64d9813a0722840af3a0af5ff3373ed0df064a72ce8257551ed"
+    },
+    {
+      "path": "research/phase-b/results/b1-empty-heldout.json",
+      "type": "file",
+      "sha256": "340725756ef5ccaf03fc2a0bd85eed0c607c8cc3f453a797353c593245e69826"
+    },
+    {
+      "path": "research/phase-b/results/b1-independent-oracle.json",
+      "type": "file",
+      "sha256": "bcf158718872e96bdc1ce516d629363701df01c25e0d3b1a1c099f3069a291ec"
+    },
+    {
+      "path": "research/phase-b/results/b1-metric-kat.json",
+      "type": "file",
+      "sha256": "0d013d14bb9e3fc2328ed7d67a17c3361d17c12096328f462e0a571b83ef8069"
+    },
+    {
+      "path": "research/phase-b/results/b1-synthetic-example.json",
+      "type": "file",
+      "sha256": "8efb6ee43d2e14815962ac5f8cf14f2e08ccd61337f20822b78b35a3831c0713"
+    },
+    {
+      "path": "research/phase-b/schemas/annotation.schema.json",
+      "type": "file",
+      "sha256": "6a7a83d814a9d4eed96207a12c1d88a1423557c4337ed494afcfa3bf01574f15"
+    },
+    {
+      "path": "research/phase-b/schemas/corpus.schema.json",
+      "type": "file",
+      "sha256": "e644c9c1b5100b6b2eafa0ac022b69bedce653d75578845db29410061d840df5"
+    },
+    {
+      "path": "scripts/architecture-source-guards.mjs",
+      "type": "file",
+      "sha256": "3b12305d0ed84380c24e5404bdfca0da9f745873f1aa6f0bc1731aa9b0d2b134"
+    },
+    {
+      "path": "scripts/architecture-source-guards.test.mjs",
+      "type": "file",
+      "sha256": "08d7bd7f421b5b6b634fd772150c6d11ab015af19b19552f068900d9413669cc"
+    },
+    {
+      "path": "scripts/benchmark-good.mjs",
+      "type": "file",
+      "sha256": "9a019767a8eab410be91eef89996df90dc691cfea52eca2a6b5fc0b333bf149e"
+    },
+    {
+      "path": "scripts/check-architecture.mjs",
+      "type": "file",
+      "sha256": "7db5eadea952c5b3ebcfcf7a3c229f66736a4f7ce37bd538b54a27ae8fb4b1ba"
+    },
+    {
+      "path": "scripts/check-motion-transfers-model.mjs",
+      "type": "file",
+      "sha256": "052b803ab2f14c97b09fb886e40ff36fd36557309414a21aaf01a7f3a962ff4b"
+    },
+    {
+      "path": "scripts/qualify-architecture.sh",
+      "type": "file",
+      "sha256": "fcc205e621d70c9a2d3ad6ba36d182a8ff3ca73ea9cf1b3c523033fd0053472d"
+    },
+    {
+      "path": "scripts/qualify-motion-transfers.sh",
+      "type": "file",
+      "sha256": "5db078266c614c3eb5de6c9eb8cdf47f71ce4818a5b5710643997ffcd23bd8d8"
+    },
+    {
+      "path": "scripts/qualify-package-import-model.mjs",
+      "type": "file",
+      "sha256": "dcd9106204cf5ff7f5ecc9e95943983acc894679979f7716e979e2220dd0ba27"
+    },
+    {
+      "path": "scripts/qualify-package-model.mjs",
+      "type": "file",
+      "sha256": "1ae2e38142329eeb348d1feeffa8b744b1b5ab517e27ba14b5e4fe65b26f92a4"
+    },
+    {
+      "path": "scripts/qualify-project-imports.sh",
+      "type": "file",
+      "sha256": "56f0c37dba47258cb431882682ce61e78329ec12b9a5974b0978c42e05378878"
+    },
+    {
+      "path": "scripts/qualify-project-packages.sh",
+      "type": "file",
+      "sha256": "ec8b77e3a7eec25d912ba01051b6341c69b853c97cb74ded94a7730bc4636925"
+    },
+    {
+      "path": "src/main.rs",
+      "type": "file",
+      "sha256": "34306635eb683d545025ba3041f80422324e7cab92e82a493c41d19789cb098f"
+    },
+    {
+      "path": "tests/large_motion.rs",
+      "type": "file",
+      "sha256": "18d8c55cecc51af342374d034e3f71c57afc860007e7fa8427079150a4c13de7"
+    },
+    {
+      "path": "tests/launcher_connect_deadline.rs",
+      "type": "file",
+      "sha256": "8ea1b720da6d10e0def2f3ac1bcccd22b9672c95a35d02d59645c92f3499498d"
+    },
+    {
+      "path": "tests/phase_a_integration.rs",
+      "type": "file",
+      "sha256": "9b74ab0b02d6500eaff7805f1426acae09025b63f8a0c12d15546fe7cc1f71a7"
+    },
+    {
+      "path": "tests/project_package_export.rs",
+      "type": "file",
+      "sha256": "c05a72e914bc440c57d3643487c5d42440d95254d52c0d4cd9480daa5042decc"
+    },
+    {
+      "path": "tests/project_package_import.rs",
+      "type": "file",
+      "sha256": "a748417b48af2a728b4f085608a6666809bafad20f4c8873e2c5421710614700"
+    }
+  ]
+}

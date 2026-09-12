@@ -8,6 +8,9 @@ export CARGO_INCREMENTAL=0
 export CARGO_NET_OFFLINE=true
 : "${TLA2TOOLS_JAR:?Set TLA2TOOLS_JAR to the installed development TLC jar}"
 
+# Qualify the identifier guard before using the shared architecture scanner.
+node --test scripts/architecture-source-guards.test.mjs
+
 # Preserve the existing motion/export contract gates before exercising import.
 bash scripts/qualify-project-packages.sh
 node scripts/qualify-package-import-model.mjs
